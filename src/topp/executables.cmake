@@ -5,6 +5,7 @@ set(directory source/APPLICATIONS/TOPP)
 set(TOPP_executables
 AdditiveSeries
 BaselineFilter
+BuildIndex
 CompNovo
 CompNovoCID
 ConsensusID

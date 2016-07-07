@@ -5,6 +5,7 @@ set(directory include/OpenMS/ANALYSIS/ID)
 set(sources_list_h
 AccurateMassSearchEngine.h
 AScore.h
+BuildIndexing.h
 ConsensusIDAlgorithm.h
 ConsensusIDAlgorithmAverage.h
 ConsensusIDAlgorithmBest.h

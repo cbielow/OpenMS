@@ -50,6 +50,7 @@ namespace OpenMS
 
     tools_map["AdditiveSeries"] = Internal::ToolDescription("AdditiveSeries", "Quantitation");
     tools_map["BaselineFilter"] = Internal::ToolDescription("BaselineFilter", "Signal processing and preprocessing");
+    tools_map["BuildIndex"] = Internal::ToolDescription("BuildIndex", "Building Index");
     tools_map["CompNovo"] = Internal::ToolDescription("CompNovo", "Identification");
     tools_map["CompNovoCID"] = Internal::ToolDescription("CompNovoCID", "Identification");
     tools_map["ConsensusID"] = Internal::ToolDescription("ConsensusID", "ID Processing");
