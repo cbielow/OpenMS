@@ -2,6 +2,7 @@
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
+#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 
 
 #include <fstream>
@@ -19,7 +20,8 @@ namespace OpenMS {
             DATABASE_CONTAINS_MULTIPLES,
             ILLEGAL_PARAMETERS,
             UNEXPECTED_RESULT,
-            OUTPUT_ERROR
+            OUTPUT_ERROR,
+            CHECKPOINT_OK
         };
 
         /// Default constructor
@@ -28,7 +30,7 @@ namespace OpenMS {
         /// Default destructor
         virtual ~BuildIndexing();
 
-        /// main method of PeptideIndexing
+                /// main method of PeptideIndexing
         ExitCodes run(std::vector<FASTAFile::FASTAEntry> &proteins, String &out);
 
     protected:
@@ -36,6 +38,8 @@ namespace OpenMS {
         void writeLog_(const String &text) const;
 
         void writeDebug_(const String &text, const Size min_level) const;
+
+        ExitCodes buildProtDB(std::vector<FASTAFile::FASTAEntry>& proteins, Map<String, Size> &acc_to_prot, seqan::StringSet<seqan::Peptide> &prot_DB, std::vector<String> &duplicate_accessions);
 
         /// Output stream for log/debug info
         String log_file_;
@@ -55,6 +59,7 @@ namespace OpenMS {
         bool allow_unmatched_;
         bool full_tolerant_search_;
         bool IL_equivalent_;
+        bool fmIndex_;
 
         Size aaa_max_;
         UInt mismatches_max_;

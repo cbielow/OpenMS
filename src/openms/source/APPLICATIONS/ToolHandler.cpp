@@ -122,6 +122,7 @@ namespace OpenMS
     tools_map["PeakPickerWavelet"] = Internal::ToolDescription("PeakPickerWavelet", "Signal processing and preprocessing");
     tools_map["PepNovoAdapter"] = Internal::ToolDescription("PepNovoAdapter", "Identification");
     tools_map["PeptideIndexer"] = Internal::ToolDescription("PeptideIndexer", "ID Processing");
+    tools_map["PeptideIndexer2"] = Internal::ToolDescription("PeptideIndexer2", "ID Processing");
     tools_map["PhosphoScoring"] = Internal::ToolDescription("PhosphoScoring", "ID Processing");
     tools_map["PrecursorIonSelector"] = Internal::ToolDescription("PrecursorIonSelector", "Targeted Experiments");
     tools_map["PrecursorMassCorrector"] = Internal::ToolDescription("PrecursorMassCorrector", "Signal processing and preprocessing");

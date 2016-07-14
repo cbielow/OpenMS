@@ -15,11 +15,11 @@ using namespace std;
 
 BuildIndexing::BuildIndexing() :
         DefaultParamHandler("BuildIndexing") {
-    defaults_.setValue("SuffixArray", "true", "Specify the Format of the Output File.");
-    defaults_.setValidStrings("SuffixArray", ListUtils::create<String>("true,false"));
+    //defaults_.setValue("SuffixArray", "true", "Specify the Format of the Output File.");
+    //defaults_.setValidStrings("SuffixArray", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("FMIndex", "false", "Specify the Format of the Output File.");
-    defaults_.setValidStrings("SuffixArray", ListUtils::create<String>("true,false"));
+    defaults_.setValue("fmIndex", "false", "Specify the Format of the Output File.");
+    defaults_.setValidStrings("fmIndex", ListUtils::create<String>("true,false"));
 
 //    defaults_.setValue("decoy_string", "_rev", "String that was appended (or prefixed - see 'prefix' flag below) to the accessions in the protein database to indicate decoy proteins.");
 //
@@ -95,7 +95,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
 
     if (proteins.empty()) // we do not allow an empty database
     {
-        LOG_ERROR << "Error: An empty database was provided. Mapping makes no sense. Aborting..." << std::endl;
+        LOG_ERROR << "Error: An empty database was provided. Aborting..." << std::endl;
         return DATABASE_EMPTY;
     }
     writeDebug_("Collecting peptides...", 1);
@@ -106,7 +106,47 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     Map<String, Size> acc_to_prot; // build map: accessions to FASTA protein index
     seqan::StringSet<seqan::Peptide> prot_DB;
     vector<String> duplicate_accessions;
+    writeDebug_("Building protein database...", 1);
+    // check for duplicated accessions & build port DB
+    if (buildProtDB(proteins, acc_to_prot, prot_DB,duplicate_accessions) != CHECKPOINT_OK ) {
+        return DATABASE_CONTAINS_MULTIPLES;
+    }
 
+
+    /**
+    BUILD Protein DB Index
+    */
+
+    writeDebug_("building protein database index...", 1);
+    //seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > index(prot_DB);
+    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index(prot_DB);
+    seqan::indexRequire(index, seqan::FibreSaLfTable());
+    
+
+
+    /**
+    SAVE Protein DB Index
+    */
+
+    writeDebug_("saving protein database index...", 1);
+    if (!seqan::save(index, out.c_str() )) {
+        LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
+        return OUTPUT_ERROR;
+    }
+
+
+    return EXECUTION_OK;
+}
+
+//ExitCodes BuildIndexing::buildProtDB(std::vector<FASTAFile::FASTAEntry> &proteins, Map<String, Size> &acc_to_prot,
+//                                     seqan::StringSet<seqan::Peptide> &prot_DB,
+//                                     std::vector<String> &duplicate_accessions, bool &test) {
+//    return DATABASE_EMPTY;
+//}
+
+
+BuildIndexing::ExitCodes BuildIndexing::buildProtDB(std::vector<FASTAFile::FASTAEntry>& proteins, Map<String, Size> &acc_to_prot, seqan::StringSet<seqan::Peptide> &prot_DB, std::vector<String> &duplicate_accessions){
+    //
     for (Size i = 0; i != proteins.size(); ++i) {
         String seq = proteins[i].sequence.remove('*');
         if (IL_equivalent_) // convert  L to I; warning: do not use 'J', since Seqan does not know about it and will convert 'J' to 'X'
@@ -126,7 +166,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
                 ":\n"
                 << tmp_prot << "\nvs.\n" << seq << "\nPlease fix the database and run PeptideIndexer again." <<
                 std::endl;
-                return DATABASE_CONTAINS_MULTIPLES;
+                return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
             }
             // Remove duplicate entry from 'proteins', since 'prot_DB' and 'proteins' need to correspond 1:1 (later indexing depends on it)
             // The other option would be to allow two identical entries, but later on, only the last one will be reported (making the first protein an orphan; implementation details below)
@@ -140,24 +180,6 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
         }
 
     }
-
-
-    /**
-    BUILD Protein DB Index
-    */
-
-    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index(prot_DB);
-    seqan::indexRequire(index, seqan::FibreSaLfTable());
-
-
-    /**
-    SAVE Protein DB Index
-    */
-
-    if (!seqan::save(index, out.c_str() )) {
-        return OUTPUT_ERROR;
-    }
-
-
-    return EXECUTION_OK;
+    return BuildIndexing::CHECKPOINT_OK;
 }
+

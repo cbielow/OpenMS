@@ -24,6 +24,7 @@ MetaboliteSpectralMatching.cpp
 PeptideProteinResolution.cpp
 ProtonDistributionModel.cpp
 PeptideIndexing.cpp
+		PeptideIndexing2.cpp
 )
 
 ### add path to the filenames

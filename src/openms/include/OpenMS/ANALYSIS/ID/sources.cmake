@@ -24,6 +24,7 @@ MetaboliteSpectralMatching.h
 PeptideProteinResolution.h
 ProtonDistributionModel.h
 PeptideIndexing.h
+		PeptideIndexing2.h
 )
 
 ### add path to the filenames

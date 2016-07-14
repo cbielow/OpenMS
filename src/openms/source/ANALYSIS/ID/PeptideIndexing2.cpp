@@ -32,7 +32,7 @@
 // $Authors: Andreas Bertsch, Chris Bielow, Knut Reinert $
 // --------------------------------------------------------------------------
 
-#include <OpenMS/ANALYSIS/ID/PeptideIndexing.h>
+#include <OpenMS/ANALYSIS/ID/PeptideIndexing2.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
 #include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
@@ -313,7 +313,7 @@ namespace seqan {
             while (enumerateB && goRight(iterB));
         }
         while (enumerateA && goRight(iterA));
-    }
+    } // end _approximateAminoAcidTreeSearch
 
     template<typename TEquivalenceTable>
     inline bool _charComparator(AminoAcid charA, AminoAcid charB,
@@ -324,8 +324,8 @@ namespace seqan {
     }
 } // end namespace seqan
 
-PeptideIndexing::PeptideIndexing() :
-        DefaultParamHandler("PeptideIndexing") {
+PeptideIndexing2::PeptideIndexing2() :
+        DefaultParamHandler("PeptideIndexing2") {
 
     defaults_.setValue("decoy_string", "_rev",
                        "String that was appended (or prefixed - see 'prefix' flag below) to the accessions in the protein database to indicate decoy proteins.");
@@ -401,24 +401,24 @@ PeptideIndexing::PeptideIndexing() :
     defaultsToParam_();
 }
 
-PeptideIndexing::~PeptideIndexing() {
+PeptideIndexing2::~PeptideIndexing2() {
 
 }
 
-void PeptideIndexing::writeLog_(const String &text) const {
+void PeptideIndexing2::writeLog_(const String &text) const {
     LOG_INFO << text << endl;
     if (!log_file_.empty()) {
         log_ << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss").toStdString() << ": " << text << endl;
     }
 }
 
-void PeptideIndexing::writeDebug_(const String &text, const Size min_level) const {
+void PeptideIndexing2::writeDebug_(const String &text, const Size min_level) const {
     if (debug_ >= min_level) {
         writeLog_(text);
     }
 }
 
-void PeptideIndexing::updateMembers_() {
+void PeptideIndexing2::updateMembers_() {
     decoy_string_ = static_cast<String>(param_.getValue("decoy_string"));
     prefix_ = param_.getValue("prefix").toBool();
     missing_decoy_action_ = static_cast<String>(param_.getValue("missing_decoy_action"));
@@ -440,9 +440,133 @@ void PeptideIndexing::updateMembers_() {
     debug_ = static_cast<Size>(param_.getValue("debug")) > 0;
 }
 
-PeptideIndexing::ExitCodes PeptideIndexing::run(vector<FASTAFile::FASTAEntry> &proteins,
-                                                vector<ProteinIdentification> &prot_ids,
-                                                vector<PeptideIdentification> &pep_ids) {
+
+PeptideIndexing2::ExitCodes searchAC(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index, seqan::StringSet<seqan::Peptide> pep_DB){
+    /** first, try Aho Corasick (fast) -- using exact matching only */
+    StopWatch sw;
+    sw.start();
+    // POSSIBLE WITH INDEX??? ELSE CHANGE!!!
+
+    SignedSize protDB_length = (SignedSize) length(index);
+//#ifdef _OPENMP
+//#pragma omp parallel
+//#endif
+    {
+        seqan::Pattern<seqan::StringSet<seqan::Peptide>, seqan::AhoCorasick> pattern(pep_DB);
+        seqan::FoundProteinFunctor func_threads(enzyme);
+        writeDebug_("Finding peptide/protein matches ...", 1);
+
+//#pragma omp for
+        // search all peptides in each protein
+
+        seqan::Finder<seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > > finder(index);
+        while (find(finder, pattern)) {
+            //seqan::appendValue(pat_hits, seqan::Pair<Size, Size>(position(pattern), position(finder)));
+
+            //func_threads.pep_to_prot[position(pattern)].insert(i);
+            // String(seqan::String<char, seqan::CStyle>(index[i])), position(finder))
+            // target.assign(begin(source, Standard()), end(source, Standard()));
+            const seqan::Peptide &tmp_pep = pep_DB[position(pattern)];
+
+
+            // HOW TO GET THE INDEX"POSITION" IN WICH PROTEIN PEPTIDE WAS FOUND?!?!?
+            //func_threads.addHit(position(pattern), i, String(begin(tmp_pep), end(tmp_pep)),
+             //                   String(begin(tmp_prot), end(tmp_prot)), position(finder));
+        }
+
+
+        // join results again
+#ifdef _OPENMP
+#pragma omp critical(PeptideIndexer_joinAC)
+#endif
+        {
+            func.filter_passed += func_threads.filter_passed;
+            func.filter_rejected += func_threads.filter_rejected;
+            for (seqan::FoundProteinFunctor::MapType::const_iterator it = func_threads.pep_to_prot.begin();
+                 it != func_threads.pep_to_prot.end(); ++it) {
+                func.pep_to_prot[it->first].insert(func_threads.pep_to_prot[it->first].begin(),
+                                                   func_threads.pep_to_prot[it->first].end());
+            }
+
+        }
+    } // end parallel
+
+    sw.stop();
+
+    writeLog_(String("\nAho-Corasick done:\n  found ") + func.filter_passed + " hits for " +
+              func.pep_to_prot.size() + " of " + length(pep_DB) + " peptides (time: " + sw.getClockTime() +
+              " s (wall), " + sw.getCPUTime() + " s (CPU)).");
+    return PeptideIndexing2::CHECKPOINT_OK;
+} // end of Aho Corasick
+
+
+PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB(seqan::StringSet<seqan::Peptide> pep_DB,
+                                                         std::vector<PeptideIdentification> &pep_ids) {
+    for (vector<PeptideIdentification>::const_iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1) {
+        //String run_id = it1->getIdentifier();
+        vector<PeptideHit> hits = it1->getHits();
+        for (vector<PeptideHit>::iterator it2 = hits.begin(); it2 != hits.end(); ++it2) {
+            String seq = it2->getSequence().toUnmodifiedString().remove('*');
+            if (IL_equivalent_) // convert  L to I; warning: do not use 'J', since Seqan does not know about it and will convert 'J' to 'X'
+            {
+                seq.substitute('L', 'I');
+            }
+            appendValue(pep_DB, seq.c_str());
+        }
+    }
+    return CHECKPOINT_OK;
+}
+
+PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput(
+        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &proteins,
+        std::vector<ProteinIdentification> &prot_ids,
+        std::vector<PeptideIdentification> &pep_ids) {
+    if (seqan::empty(proteins)) // we do not allow an empty database
+    {
+        LOG_ERROR << "Error: An empty database was provided. Mapping makes no sense. Aborting..." << std::endl;
+        return DATABASE_EMPTY;
+    }
+
+    // check if Peptides to search for are empty
+    if (pep_ids.empty()) // Aho-Corasick requires non-empty input
+    {
+        LOG_WARN << "Warning: An empty set of peptide identifications was provided. Output will be empty as well." <<
+        std::endl;
+        if (!keep_unreferenced_proteins_) {
+            // delete only protein hits, not whole ID runs incl. meta data:
+            for (vector<ProteinIdentification>::iterator it = prot_ids.begin();
+                 it != prot_ids.end(); ++it) {
+                it->getHits().clear();
+            }
+        }
+        return PEPTIDE_IDS_EMPTY;
+    }
+
+
+    // check for Parameter Error
+    if (!full_tolerant_search_ && (mismatches_max_ >
+                                   0)) // this combination is not allowed, and we want the user to make a conscious decision about it
+    {
+        LOG_ERROR <<
+        "Fatal error: Allowing mismatches ('mismatches_max' > 0) requires a full tolerant search ('full_tolerant_search').\n"
+        << "Please adapt your settings." << endl;
+        return ILLEGAL_PARAMETERS;
+    }
+
+    if (full_tolerant_search_ && (mismatches_max_ == 0) && (aaa_max_ ==
+                                                            0)) // this combination is not allowed, and we want the user to make a conscious decision about it
+    {
+        LOG_ERROR <<
+        "Fatal error: Cannot run full tolerant search ('full_tolerant_search') when no ambiguous AA's or mismatched AA's are allowed.\n"
+        << "Please adapt your settings." << endl;
+        return ILLEGAL_PARAMETERS;
+    }
+    return CHECKPOINT_OK;
+}
+
+ExitCodes PeptideIndexing2::run(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &proteins,
+                                std::vector<ProteinIdentification> &prot_ids,
+                                std::vector<PeptideIdentification> &pep_ids) {
     //-------------------------------------------------------------
     // parsing parameters
     //-------------------------------------------------------------
@@ -459,25 +583,13 @@ PeptideIndexing::ExitCodes PeptideIndexing::run(vector<FASTAFile::FASTAEntry> &p
     // calculations
     //-------------------------------------------------------------
 
-    if (proteins.empty()) // we do not allow an empty database
-    {
-        LOG_ERROR << "Error: An empty database was provided. Mapping makes no sense. Aborting..." << std::endl;
-        return DATABASE_EMPTY;
-    }
+    // Error checking
 
-    if (pep_ids.empty()) // Aho-Corasick requires non-empty input
-    {
-        LOG_WARN << "Warning: An empty set of peptide identifications was provided. Output will be empty as well." <<
-        std::endl;
-        if (!keep_unreferenced_proteins_) {
-            // delete only protein hits, not whole ID runs incl. meta data:
-            for (vector<ProteinIdentification>::iterator it = prot_ids.begin();
-                 it != prot_ids.end(); ++it) {
-                it->getHits().clear();
-            }
-        }
-        return PEPTIDE_IDS_EMPTY;
-    }
+    ExitCodes exCheck = checkUserInput(proteins, prot_ids, pep_ids);
+    if (exCheck != CHECKPOINT_OK){
+        return exCheck;
+    };
+
 
     writeDebug_("Collecting peptides...", 1);
 
@@ -485,251 +597,28 @@ PeptideIndexing::ExitCodes PeptideIndexing::run(vector<FASTAFile::FASTAEntry> &p
     Map<String, Size> acc_to_prot; // build map: accessions to FASTA protein index
 
     { // new scope - forget data after search
-
         /**
-         BUILD Protein DB
+        BUILD Peptide DB
         */
-        seqan::StringSet<seqan::Peptide> prot_DB;
-
-        vector<String> duplicate_accessions;
-
-        for (Size i = 0; i != proteins.size(); ++i) {
-            String seq = proteins[i].sequence.remove('*');
-            if (IL_equivalent_) // convert  L to I; warning: do not use 'J', since Seqan does not know about it and will convert 'J' to 'X'
-            {
-                seq.substitute('L', 'I');
-            }
-
-            String acc = proteins[i].identifier;
-            // check for duplicate proteins
-            if (acc_to_prot.has(acc)) {
-                duplicate_accessions.push_back(acc);
-                // check if sequence is identical
-                const seqan::Peptide &tmp_prot = prot_DB[acc_to_prot[acc]];
-                if (String(begin(tmp_prot), end(tmp_prot)) != seq) {
-                    LOG_ERROR << "Fatal error: Protein identifier '" << acc <<
-                    "' found multiple times with different sequences" << (IL_equivalent_ ? " (I/L substituted)" : "") <<
-                    ":\n"
-                    << tmp_prot << "\nvs.\n" << seq << "\nPlease fix the database and run PeptideIndexer again." <<
-                    std::endl;
-                    return DATABASE_CONTAINS_MULTIPLES;
-                }
-                // Remove duplicate entry from 'proteins', since 'prot_DB' and 'proteins' need to correspond 1:1 (later indexing depends on it)
-                // The other option would be to allow two identical entries, but later on, only the last one will be reported (making the first protein an orphan; implementation details below)
-                // Thus, the only safe option is to remove the duplicate from 'proteins' and not to add it to 'prot_DB'
-                proteins.erase(proteins.begin() + i);
-                --i;  // try this index again
-            }
-            else {
-                // extend protein DB
-                seqan::appendValue(prot_DB, seq.c_str());
-                acc_to_prot[acc] = i;
-            }
-
-        }
-        // make sure the warnings above are printed to screen
-        if (!duplicate_accessions.empty()) {
-            LOG_WARN <<
-            "Warning! For the following protein identifiers, duplicate entries were found in the sequence database:\n"
-            << "   - " << ListUtils::concatenate(duplicate_accessions, "\n   - ") << "\n" << endl;
-        }
-
-
+        seqan::StringSet<seqan::Peptide> pep_DB;
+        if (buildPepDB(pep_DB, pep_ids)!= CHECKPOINT_OK){
+            return UNEXPECTED_RESULT;
+        };
 
         writeLog_(String("Mapping ") + length(pep_DB) + " peptides to " + length(prot_DB) + " proteins.");
 
-        bool SA_only = param_.getValue("full_tolerant_search").toBool();
 
-        if (!SA_only && (mismatches_max_ >
-                         0)) // this combination is not allowed, and we want the user to make a conscious decision about it
-        {
-            LOG_ERROR <<
-            "Fatal error: Allowing mismatches ('mismatches_max' > 0) requires a full tolerant search ('full_tolerant_search').\n"
-            << "Please adapt your settings." << endl;
-            return ILLEGAL_PARAMETERS;
+        if (!full_tolerant_search_){
+            // search with AHO CORASICK
+
+
         }
-
-        if (SA_only && (mismatches_max_ == 0) && (aaa_max_ ==
-                                                  0)) // this combination is not allowed, and we want the user to make a conscious decision about it
-        {
-            LOG_ERROR <<
-            "Fatal error: Cannot run full tolerant search ('full_tolerant_search') when no ambiguous AA's or mismatched AA's are allowed.\n"
-            << "Please adapt your settings." << endl;
-            return ILLEGAL_PARAMETERS;
-        }
-
-        /** first, try Aho Corasick (fast) -- using exact matching only */
-        if (!SA_only) {
-            StopWatch sw;
-            sw.start();
-            SignedSize protDB_length = (SignedSize) length(prot_DB);
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-            {
-                seqan::Pattern<seqan::StringSet<seqan::Peptide>, seqan::AhoCorasick> pattern(pep_DB);
-                seqan::FoundProteinFunctor func_threads(enzyme);
-                writeDebug_("Finding peptide/protein matches ...", 1);
-
-#pragma omp for
-                // search all peptides in each protein
-                for (SignedSize i = 0; i < protDB_length; ++i) {
-                    seqan::Finder<seqan::Peptide> finder(prot_DB[i]);
-                    while (find(finder, pattern)) {
-                        //seqan::appendValue(pat_hits, seqan::Pair<Size, Size>(position(pattern), position(finder)));
-
-                        //func_threads.pep_to_prot[position(pattern)].insert(i);
-                        // String(seqan::String<char, seqan::CStyle>(prot_DB[i])), position(finder))
-                        // target.assign(begin(source, Standard()), end(source, Standard()));
-                        const seqan::Peptide &tmp_pep = pep_DB[position(pattern)];
-                        const seqan::Peptide &tmp_prot = prot_DB[i];
-
-                        func_threads.addHit(position(pattern), i, String(begin(tmp_pep), end(tmp_pep)),
-                                            String(begin(tmp_prot), end(tmp_prot)), position(finder));
-                    }
-                }
-
-                // join results again
-#ifdef _OPENMP
-#pragma omp critical(PeptideIndexer_joinAC)
-#endif
-                {
-                    func.filter_passed += func_threads.filter_passed;
-                    func.filter_rejected += func_threads.filter_rejected;
-                    for (seqan::FoundProteinFunctor::MapType::const_iterator it = func_threads.pep_to_prot.begin();
-                         it != func_threads.pep_to_prot.end(); ++it) {
-                        func.pep_to_prot[it->first].insert(func_threads.pep_to_prot[it->first].begin(),
-                                                           func_threads.pep_to_prot[it->first].end());
-                    }
-
-                }
-            } // end parallel
-
-            sw.stop();
-
-            writeLog_(String("\nAho-Corasick done:\n  found ") + func.filter_passed + " hits for " +
-                      func.pep_to_prot.size() + " of " + length(pep_DB) + " peptides (time: " + sw.getClockTime() +
-                      " s (wall), " + sw.getCPUTime() + " s (CPU)).");
-        } // end of Aho Corasick
 
         /// now, search using a suffix array -- allows approximate matching:
         /// check if every peptide was found:
         if ((func.pep_to_prot.size() != length(pep_DB)) &&
             ((aaa_max_ > 0) || (mismatches_max_ > 0))) {
-            // search using SA, which supports mismatches (introduced by resolving ambiguous AA's by e.g. Mascot) -- expensive!
-            writeLog_(String("Using suffix array to find ambiguous matches..."));
-
-            // search peptides which remained unidentified during Aho-Corasick (might be all peptides if Aho-Corasick was not run)
-            bool pepDB_updated = false;  // we might modify (i.e. reduce) pep_DB -- and we need to remember that we did it
-            bool protDB_updated = false; // ... same for prot_DB
-            vector<Size> pep_DB_indexes;  // store peptide indices which still need searching, i.e. [index SA Pep DB] --> [index full Pep DB]
-            vector<Size> prot_DB_indexes; // store protein indices which still need searching, i.e. [index SA Prot DB] --> [index full Prot DB]
-            if (!func.pep_to_prot.empty()) // AC was run
-            {
-                seqan::StringSet<seqan::Peptide> pep_DB_SA;
-                // Note for future developers: Creating a new StringSet is much faster
-                // than either filtering an existing one (via "removeValueById") or
-                // creating a Dependent StringSet (via "assignValueById"), at least
-                // with SeqAn 1.4!
-                //
-                // Only search peptides which remained unidentified during Aho-Corasick:
-                for (Size i = 0; i < length(pep_DB); ++i) {
-                    if (!func.pep_to_prot.has(i)) {
-                        appendValue(pep_DB_SA, pep_DB[i]);
-                        pep_DB_indexes.push_back(i);
-                        //std::cerr << "SA search pep " << i << " " <<  pep_DB[i] << "\n";
-                    } //else std::cerr << "AC found pep " <<  i << " " << pep_DB[i] << "\n";
-                }
-                seqan::move(pep_DB, pep_DB_SA); // overwrite pep_DB (original content is lost)
-                pepDB_updated = true;
-                writeLog_("... for " + String(length(pep_DB)) + " unmatched peptide(s)...");
-
-                if (filter_aaa_proteins_) // only search proteins with AAA's
-                {
-                    seqan::StringSet<seqan::Peptide> prot_DB_SA;
-                    for (Size i = 0; i < length(prot_DB); ++i) {
-                        // check if the protein contains ambiguous amino acids:
-                        Size length_prot = length(prot_DB[i]);
-                        for (Size j = 0; j < length_prot; ++j) {
-                            if ((prot_DB[i][j] == 'B') || (prot_DB[i][j] == 'X') ||
-                                (prot_DB[i][j] == 'Z')) {
-                                appendValue(prot_DB_SA, prot_DB[i]);
-                                prot_DB_indexes.push_back(i);
-                                break;
-                            }
-                        }
-                    }
-                    seqan::move(prot_DB, prot_DB_SA); // overwrite prot_DB (original content is lost)
-                    protDB_updated = true;
-                    writeLog_("... in " + String(length(prot_DB)) + " protein(s) with ambiguous AA's.");
-                }
-                else {
-                    writeLog_("... in all " + String(length(prot_DB)) + " protein(s).");
-                }
-            }
-
-            seqan::FoundProteinFunctor func_SA(enzyme);
-
-            typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexWotd<> > TIndex;
-            TIndex prot_Index(prot_DB);
-            TIndex pep_Index(pep_DB);
-
-            // use only full peptides in Suffix Array
-            const Size length_SA = length(pep_DB);
-            resize(indexSA(pep_Index), length_SA);
-            for (Size i = 0; i < length_SA; ++i) {
-                indexSA(pep_Index)[i].i1 = (unsigned) i;
-                indexSA(pep_Index)[i].i2 = 0;
-            }
-
-            typedef seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TTreeIter;
-
-            //seqan::open(indexSA(prot_Index), "c:\\tmp\\prot_Index.sa");
-            //seqan::open(indexDir(prot_Index), "c:\\tmp\\prot_Index.dir");
-
-            TTreeIter prot_Iter(prot_Index);
-            TTreeIter pep_Iter(pep_Index);
-
-            UInt max_aaa = static_cast<int>(param_.getValue("aaa_max"));
-            seqan::_approximateAminoAcidTreeSearch<true, true>(func_SA, pep_Iter, 0u, prot_Iter, 0u, mismatches_max_,
-                                                               max_aaa);
-
-            // augment results with SA hits
-            if (pepDB_updated || protDB_updated) // AC was run and we modified the pep/protDB for SA search
-            {
-                // correct the indexes that reference the proteins
-                // (because "pep/prot_DB" does not contain all peptides/proteins)
-                for (seqan::FoundProteinFunctor::MapType::iterator it = func_SA.pep_to_prot.begin();
-                     it != func_SA.pep_to_prot.end();
-                     ++it) {
-                    // peptide index
-                    Size new_pep_index = pep_DB_indexes[it->first];
-                    // protein index
-                    const set<PeptideProteinMatchInformation> *prot_ids = &(it->second); // by default, we use the hits as they are
-                    set<PeptideProteinMatchInformation> temp;
-                    //std::cerr << "peptide map: " << it->first << " -> " << new_pep_index << "\n";
-                    if (protDB_updated) { // can't update items in "it->second" directly, because it's a set
-                        for (set<PeptideProteinMatchInformation>::const_iterator ppmi_it = it->second.begin();
-                             ppmi_it != it->second.end();
-                             ++ppmi_it) {
-                            PeptideProteinMatchInformation ppi = *ppmi_it;
-                            ppi.protein_index = prot_DB_indexes[ppi.protein_index];
-                            temp.insert(ppi);
-                            //std::cerr << "peptide map: " << it->first << " -> " << new_pep_index << "    protein map: " << ppmi_it->protein_index << " -> " << ppi.protein_index << "\n";
-                        }
-                        // use updated protein hits
-                        prot_ids = &temp;
-                    }
-                    // write fixed mappings directly to the merged index 'func'
-                    func.pep_to_prot[new_pep_index] = *prot_ids;
-                }
-                func.filter_passed += func_SA.filter_passed;
-                func.filter_rejected += func_SA.filter_rejected;
-            }
-            else { // func is empty anyways, since no AC was run
-                OPENMS_PRECONDITION(func.pep_to_prot.empty(), "Internal error - unexpected AhoCorasick results found");
-                swap(func, func_SA);
-            }
+            // SEARCH APROXIMATIVE!
         } // SA run
     } // end local scope
 
@@ -973,6 +862,133 @@ PeptideIndexing::ExitCodes PeptideIndexing::run(vector<FASTAFile::FASTAEntry> &p
 
     return EXECUTION_OK;
 }
+
+PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA() {
+    // search using SA, which supports mismatches (introduced by resolving ambiguous AA's by e.g. Mascot) -- expensive!
+    writeLog_(String("Using suffix array to find ambiguous matches..."));
+
+    // search peptides which remained unidentified during Aho-Corasick (might be all peptides if Aho-Corasick was not run)
+    bool pepDB_updated = false;  // we might modify (i.e. reduce) pep_DB -- and we need to remember that we did it
+    bool protDB_updated = false; // ... same for prot_DB
+    vector<Size> pep_DB_indexes;  // store peptide indices which still need searching, i.e. [index SA Pep DB] --> [index full Pep DB]
+    vector<Size> prot_DB_indexes; // store protein indices which still need searching, i.e. [index SA Prot DB] --> [index full Prot DB]
+    if (!func.pep_to_prot.empty()) // AC was run
+    {
+        seqan::StringSet<seqan::Peptide> pep_DB_SA;
+        // Note for future developers: Creating a new StringSet is much faster
+        // than either filtering an existing one (via "removeValueById") or
+        // creating a Dependent StringSet (via "assignValueById"), at least
+        // with SeqAn 1.4!
+        //
+        // Only search peptides which remained unidentified during Aho-Corasick:
+        for (Size i = 0; i < length(pep_DB); ++i) {
+            if (!func.pep_to_prot.has(i)) {
+                appendValue(pep_DB_SA, pep_DB[i]);
+                pep_DB_indexes.push_back(i);
+                //std::cerr << "SA search pep " << i << " " <<  pep_DB[i] << "\n";
+            } //else std::cerr << "AC found pep " <<  i << " " << pep_DB[i] << "\n";
+        }
+        seqan::move(pep_DB, pep_DB_SA); // overwrite pep_DB (original content is lost)
+        pepDB_updated = true;
+        writeLog_("... for " + String(length(pep_DB)) + " unmatched peptide(s)...");
+
+        if (filter_aaa_proteins_) // only search proteins with AAA's
+        {
+            seqan::StringSet<seqan::Peptide> prot_DB_SA;
+            for (Size i = 0; i < length(prot_DB); ++i) {
+                // check if the protein contains ambiguous amino acids:
+                Size length_prot = length(prot_DB[i]);
+                for (Size j = 0; j < length_prot; ++j) {
+                    if ((prot_DB[i][j] == 'B') || (prot_DB[i][j] == 'X') ||
+                        (prot_DB[i][j] == 'Z')) {
+                        appendValue(prot_DB_SA, prot_DB[i]);
+                        prot_DB_indexes.push_back(i);
+                        break;
+                    }
+                }
+            }
+            seqan::move(prot_DB, prot_DB_SA); // overwrite prot_DB (original content is lost)
+            protDB_updated = true;
+            writeLog_("... in " + String(length(prot_DB)) + " protein(s) with ambiguous AA's.");
+        }
+        else {
+            writeLog_("... in all " + String(length(prot_DB)) + " protein(s).");
+        }
+    }
+
+    seqan::FoundProteinFunctor func_SA(enzyme);
+
+    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexWotd<> > TIndex;
+    TIndex prot_Index(prot_DB);
+    TIndex pep_Index(pep_DB);
+
+    // use only full peptides in Suffix Array
+    const Size length_SA = length(pep_DB);
+    resize(indexSA(pep_Index), length_SA);
+    for (Size i = 0; i < length_SA; ++i) {
+        indexSA(pep_Index)[i].i1 = (unsigned) i;
+        indexSA(pep_Index)[i].i2 = 0;
+    }
+
+    typedef seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TTreeIter;
+
+    //seqan::open(indexSA(prot_Index), "c:\\tmp\\prot_Index.sa");
+    //seqan::open(indexDir(prot_Index), "c:\\tmp\\prot_Index.dir");
+
+    TTreeIter prot_Iter(prot_Index);
+    TTreeIter pep_Iter(pep_Index);
+
+    UInt max_aaa = static_cast<int>(param_.getValue("aaa_max"));
+    seqan::_approximateAminoAcidTreeSearch<true, true>(func_SA, pep_Iter, 0u, prot_Iter, 0u, mismatches_max_,
+                                                       max_aaa);
+
+    // augment results with SA hits
+    if (pepDB_updated || protDB_updated) // AC was run and we modified the pep/protDB for SA search
+    {
+        // correct the indexes that reference the proteins
+        // (because "pep/prot_DB" does not contain all peptides/proteins)
+        for (seqan::FoundProteinFunctor::MapType::iterator it = func_SA.pep_to_prot.begin();
+             it != func_SA.pep_to_prot.end();
+             ++it) {
+            // peptide index
+            Size new_pep_index = pep_DB_indexes[it->first];
+            // protein index
+            const set<PeptideProteinMatchInformation> *prot_ids = &(it->second); // by default, we use the hits as they are
+            set<PeptideProteinMatchInformation> temp;
+            //std::cerr << "peptide map: " << it->first << " -> " << new_pep_index << "\n";
+            if (protDB_updated) { // can't update items in "it->second" directly, because it's a set
+                for (set<PeptideProteinMatchInformation>::const_iterator ppmi_it = it->second.begin();
+                     ppmi_it != it->second.end();
+                     ++ppmi_it) {
+                    PeptideProteinMatchInformation ppi = *ppmi_it;
+                    ppi.protein_index = prot_DB_indexes[ppi.protein_index];
+                    temp.insert(ppi);
+                    //std::cerr << "peptide map: " << it->first << " -> " << new_pep_index << "    protein map: " << ppmi_it->protein_index << " -> " << ppi.protein_index << "\n";
+                }
+                // use updated protein hits
+                prot_ids = &temp;
+            }
+            // write fixed mappings directly to the merged index 'func'
+            func.pep_to_prot[new_pep_index] = *prot_ids;
+        }
+        func.filter_passed += func_SA.filter_passed;
+        func.filter_rejected += func_SA.filter_rejected;
+    }
+    else { // func is empty anyways, since no AC was run
+        OPENMS_PRECONDITION(func.pep_to_prot.empty(), "Internal error - unexpected AhoCorasick results found");
+        swap(func, func_SA);
+    }
+    return CHECKPOINT_OK;
+}
+
+
+
+
+
+
+
+
+
 
 /// @endcond
 
