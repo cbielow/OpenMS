@@ -118,9 +118,10 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     */
 
     writeDebug_("building protein database index...", 1);
-    //seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > index(prot_DB);
-    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index(prot_DB);
-    seqan::indexRequire(index, seqan::FibreSaLfTable());
+    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > index(prot_DB);
+    //seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index(prot_DB);
+    //seqan::indexRequire(index, seqan::FibreSaLfTable());
+    seqan::indexRequire(index, seqan::FibreSA());
     
 
 

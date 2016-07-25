@@ -36,8 +36,17 @@
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
+#include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
 #include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <fstream>
+
+
+struct PeptideProteinMatchInformation;
+
+// WARUM NAMESPACE SEQAN?
+namespace seqan {
+    struct FoundProteinFunctor;
+}
 
 namespace OpenMS {
 
@@ -97,6 +106,8 @@ namespace OpenMS {
   or <tt>none</tt> (essentially allowing all hits, no matter their context).
 */
 
+
+
     class OPENMS_DLLAPI PeptideIndexing2 :
             public DefaultParamHandler {
     public:
@@ -119,7 +130,7 @@ namespace OpenMS {
         virtual ~PeptideIndexing2();
 
         /// main method of PeptideIndexing
-        ExitCodes run(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &proteins, std::vector<ProteinIdentification> &prot_ids,
+        PeptideIndexing2::ExitCodes run(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids,
                       std::vector<PeptideIdentification> &pep_ids);
 
     protected:
@@ -129,11 +140,25 @@ namespace OpenMS {
 
         void writeDebug_(const String &text, const Size min_level) const;
 
-        PeptideIndexing2::ExitCodes buildPepDB(seqan::StringSet<seqan::Peptide> pep_DB, std::vector<PeptideIdentification> &pep_ids);
+        PeptideIndexing2::ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins, Map<String, Size> acc_to_prot, seqan::StringSet<seqan::Peptide> prot_DB);
 
-        PeptideIndexing2::ExitCodes checkUserInput(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &proteins,std::vector<ProteinIdentification> &prot_ids, std::vector<PeptideIdentification> &pep_ids);
+        PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> pep_DB, std::vector<PeptideIdentification> &pep_ids);
 
-        PeptideIndexing2::ExitCodes searchSA();
+        PeptideIndexing2::ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry>& proteins,std::vector<ProteinIdentification> &prot_ids, std::vector<PeptideIdentification> &pep_ids);
+
+        PeptideIndexing2::ExitCodes searchAC_(seqan::StringSet<seqan::Peptide> prot_DB, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
+
+        PeptideIndexing2::ExitCodes searchSA_(seqan::StringSet<seqan::Peptide> prot_DB, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
+
+        PeptideIndexing2::ExitCodes mappingPepToProt_(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids, std::vector<PeptideIdentification> &pep_ids, Map<String, bool> protein_is_decoy, Map<Size, std::set<Size> > runidx_to_protidx, Size stats_unmatched, seqan::FoundProteinFunctor func);
+
+        ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
+                                 Map <String, Size> acc_to_prot, Map<String, bool> protein_is_decoy,
+                                 Map <Size, std::set<Size> > runidx_to_protidx, Size stats_unmatched);
+        //PeptideIndexing2::ExitCodes searchAC_(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
+
+
+           //PeptideIndexing2::ExitCodes searchSA();
 
         /// Output stream for log/debug info
         String log_file_;
@@ -158,5 +183,9 @@ namespace OpenMS {
         UInt mismatches_max_;
         bool filter_aaa_proteins_;
 
+
+
     };
+
+
 }

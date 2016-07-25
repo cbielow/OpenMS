@@ -41,6 +41,7 @@
 #endif
 
 #include <seqan/index.h>
+#include <seqan/index/index_sa_stree.h>
 #include <seqan/align.h>
 #include <seqan/graph_align.h>
 
