@@ -140,21 +140,40 @@ namespace OpenMS {
 
         void writeDebug_(const String &text, const Size min_level) const;
 
-        PeptideIndexing2::ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins, Map<String, Size> acc_to_prot, seqan::StringSet<seqan::Peptide> prot_DB);
+        PeptideIndexing2::ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                 Map<String, Size> &acc_to_prot,
+                                                 seqan::StringSet<seqan::Peptide> &prot_DB);
 
-        PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> pep_DB, std::vector<PeptideIdentification> &pep_ids);
+        PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
+                                                std::vector<PeptideIdentification> &pep_ids);
 
-        PeptideIndexing2::ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry>& proteins,std::vector<ProteinIdentification> &prot_ids, std::vector<PeptideIdentification> &pep_ids);
+        PeptideIndexing2::ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                    std::vector<ProteinIdentification> &prot_ids,
+                                                    std::vector<PeptideIdentification> &pep_ids);
 
-        PeptideIndexing2::ExitCodes searchAC_(seqan::StringSet<seqan::Peptide> prot_DB, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
+        PeptideIndexing2::ExitCodes searchAC_(seqan::StringSet<seqan::Peptide> &prot_DB,
+                                              seqan::StringSet<seqan::Peptide> &pep_DB,
+                                              seqan::FoundProteinFunctor &func,
+                                              EnzymaticDigestion &enzyme);
 
-        PeptideIndexing2::ExitCodes searchSA_(seqan::StringSet<seqan::Peptide> prot_DB, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
+        PeptideIndexing2::ExitCodes searchSA_(seqan::StringSet<seqan::Peptide> &prot_DB,
+                                              seqan::StringSet<seqan::Peptide> &pep_DB,
+                                              seqan::FoundProteinFunctor &func,
+                                              EnzymaticDigestion &enzyme);
 
-        PeptideIndexing2::ExitCodes mappingPepToProt_(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids, std::vector<PeptideIdentification> &pep_ids, Map<String, bool> protein_is_decoy, Map<Size, std::set<Size> > runidx_to_protidx, Size stats_unmatched, seqan::FoundProteinFunctor func);
+        PeptideIndexing2::ExitCodes mappingPepToProt_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                      std::vector<ProteinIdentification> &prot_ids,
+                                                      std::vector<PeptideIdentification> &pep_ids,
+                                                      Map<String, bool> &protein_is_decoy,
+                                                      Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                      Size &stats_unmatched,
+                                                      seqan::FoundProteinFunctor &func);
 
         ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
-                                 Map <String, Size> acc_to_prot, Map<String, bool> protein_is_decoy,
-                                 Map <Size, std::set<Size> > runidx_to_protidx, Size stats_unmatched);
+                                 Map <String, Size> &acc_to_prot,
+                                 Map<String, bool> &protein_is_decoy,
+                                 Map <Size, std::set<Size> > &runidx_to_protidx,
+                                 Size &stats_unmatched);
         //PeptideIndexing2::ExitCodes searchAC_(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
 
 

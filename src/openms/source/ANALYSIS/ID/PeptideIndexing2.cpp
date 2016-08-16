@@ -328,38 +328,27 @@ namespace seqan
 PeptideIndexing2::PeptideIndexing2() :
         DefaultParamHandler("PeptideIndexing2") {
 
-    defaults_.setValue("decoy_string", "_rev",
-                       "String that was appended (or prefixed - see 'prefix' flag below) to the accessions in the protein database to indicate decoy proteins.");
+    defaults_.setValue("decoy_string", "DECOY_", "String that was appended (or prefixed - see 'decoy_string_position' flag below) to the accessions in the protein database to indicate decoy proteins.");
 
-    defaults_.setValue("prefix", "false",
-                       "If set, protein accessions in the database contain 'decoy_string' as prefix.");
-    defaults_.setValidStrings("prefix", ListUtils::create<String>("true,false"));
+    defaults_.setValue("decoy_string_position", "prefix", "Should the 'decoy_string' be prepended (prefix) or appended (suffix) to the protein accession?");
+    defaults_.setValidStrings("decoy_string_position", ListUtils::create<String>("prefix,suffix"));
 
-    defaults_.setValue("missing_decoy_action", "error",
-                       "Action to take if NO peptide was assigned to a decoy protein (which indicates wrong database or decoy string): 'error' (exit with error, no output), 'warn' (exit with success, warning message)");
+    defaults_.setValue("missing_decoy_action", "error", "Action to take if NO peptide was assigned to a decoy protein (which indicates wrong database or decoy string): 'error' (exit with error, no output), 'warn' (exit with success, warning message)");
     defaults_.setValidStrings("missing_decoy_action", ListUtils::create<String>("error,warn"));
 
-    defaults_.setValue("enzyme:name", "Trypsin",
-                       "Enzyme which determines valid cleavage sites - e.g. trypsin cleaves after lysine (K) or arginine (R), but not before proline (P).");
+    defaults_.setValue("enzyme:name", "Trypsin", "Enzyme which determines valid cleavage sites - e.g. trypsin cleaves after lysine (K) or arginine (R), but not before proline (P).");
 
     StringList enzymes;
     EnzymesDB::getInstance()->getAllNames(enzymes);
     defaults_.setValidStrings("enzyme:name", enzymes);
 
     defaults_.setValue("enzyme:specificity", EnzymaticDigestion::NamesOfSpecificity[0], "Specificity of the enzyme."
-                                                                                                "\n  '" +
-                                                                                        EnzymaticDigestion::NamesOfSpecificity[0] +
-                                                                                        "': both internal cleavage sites must match."
-                                                                                                "\n  '" +
-                                                                                        EnzymaticDigestion::NamesOfSpecificity[1] +
-                                                                                        "': one of two internal cleavage sites must match."
-                                                                                                "\n  '" +
-                                                                                        EnzymaticDigestion::NamesOfSpecificity[2] +
-                                                                                        "': allow all peptide hits no matter their context. Therefore, the enzyme chosen does not play a role here");
+                                                                                                "\n  '" + EnzymaticDigestion::NamesOfSpecificity[0] + "': both internal cleavage sites must match."
+                                                                                                "\n  '" + EnzymaticDigestion::NamesOfSpecificity[1] + "': one of two internal cleavage sites must match."
+                                                                                                "\n  '" + EnzymaticDigestion::NamesOfSpecificity[2] + "': allow all peptide hits no matter their context. Therefore, the enzyme chosen does not play a role here");
 
     StringList spec;
-    spec.assign(EnzymaticDigestion::NamesOfSpecificity,
-                EnzymaticDigestion::NamesOfSpecificity + EnzymaticDigestion::SIZE_OF_SPECIFICITY);
+    spec.assign(EnzymaticDigestion::NamesOfSpecificity, EnzymaticDigestion::NamesOfSpecificity + EnzymaticDigestion::SIZE_OF_SPECIFICITY);
     defaults_.setValidStrings("enzyme:specificity", spec);
 
     defaults_.setValue("write_protein_sequence", "false", "If set, the protein sequences are stored as well.");
@@ -368,32 +357,25 @@ PeptideIndexing2::PeptideIndexing2() :
     defaults_.setValue("write_protein_description", "false", "If set, the protein description is stored as well.");
     defaults_.setValidStrings("write_protein_description", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("keep_unreferenced_proteins", "false",
-                       "If set, protein hits which are not referenced by any peptide are kept.");
+    defaults_.setValue("keep_unreferenced_proteins", "false", "If set, protein hits which are not referenced by any peptide are kept.");
     defaults_.setValidStrings("keep_unreferenced_proteins", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("allow_unmatched", "false",
-                       "If set, unmatched peptide sequences are allowed. By default (i.e. if this flag is not set) the program terminates with an error on unmatched peptides.");
+    defaults_.setValue("allow_unmatched", "false", "If set, unmatched peptide sequences are allowed. By default (i.e. if this flag is not set) the program terminates with an error on unmatched peptides.");
     defaults_.setValidStrings("allow_unmatched", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("full_tolerant_search", "false",
-                       "If set, all peptide sequences are matched using tolerant search. Thus potentially more proteins (containing ambiguous amino acids) are associated. This is much slower!");
+    defaults_.setValue("full_tolerant_search", "false", "If set, all peptide sequences are matched using tolerant search. Thus potentially more proteins (containing ambiguous amino acids) are associated. This is much slower!");
     defaults_.setValidStrings("full_tolerant_search", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("aaa_max", 4,
-                       "[tolerant search only] Maximal number of ambiguous amino acids (AAAs) allowed when matching to a protein database with AAAs. AAAs are 'B', 'Z' and 'X'");
+    defaults_.setValue("aaa_max", 4, "[tolerant search only] Maximal number of ambiguous amino acids (AAAs) allowed when matching to a protein database with AAAs. AAAs are 'B', 'Z' and 'X'");
     defaults_.setMinInt("aaa_max", 0);
 
-    defaults_.setValue("mismatches_max", 0,
-                       "[tolerant search only] Maximal number of real mismatches (will be used after checking for ambiguous AA's (see 'aaa_max' option). In general this param should only be changed if you want to look for other potential origins of a peptide which might have unknown SNPs or the like.");
+    defaults_.setValue("mismatches_max", 0, "[tolerant search only] Maximal number of real mismatches (will be used after checking for ambiguous AA's (see 'aaa_max' option). In general this param should only be changed if you want to look for other potential origins of a peptide which might have unknown SNPs or the like.");
     defaults_.setMinInt("mismatches_max", 0);
 
-    defaults_.setValue("IL_equivalent", "false",
-                       "Treat the isobaric amino acids isoleucine ('I') and leucine ('L') as equivalent (indistinguishable)");
+    defaults_.setValue("IL_equivalent", "false", "Treat the isobaric amino acids isoleucine ('I') and leucine ('L') as equivalent (indistinguishable)");
     defaults_.setValidStrings("IL_equivalent", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("filter_aaa_proteins", "false",
-                       "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
+    defaults_.setValue("filter_aaa_proteins", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
     defaults_.setValidStrings("filter_aaa_proteins", ListUtils::create<String>("true,false"));
 
     defaults_.setValue("log", "", "Name of log file (created only when specified)");
@@ -421,7 +403,7 @@ void PeptideIndexing2::writeDebug_(const String &text, const Size min_level) con
 
 void PeptideIndexing2::updateMembers_() {
     decoy_string_ = static_cast<String>(param_.getValue("decoy_string"));
-    prefix_ = param_.getValue("prefix").toBool();
+    prefix_ = (param_.getValue("decoy_string_position") == "prefix" ? true : false);
     missing_decoy_action_ = static_cast<String>(param_.getValue("missing_decoy_action"));
     enzyme_name_ = static_cast<String>(param_.getValue("enzyme:name"));
     enzyme_specificity_ = static_cast<String>(param_.getValue("enzyme:specificity"));
@@ -490,8 +472,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
 
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
-                                                           Map<String, Size> acc_to_prot,
-                                                           seqan::StringSet<seqan::Peptide> prot_DB) {
+                                                           Map<String, Size> &acc_to_prot,
+                                                           seqan::StringSet<seqan::Peptide> &prot_DB) {
 /**
 BUILD Protein DB
 */
@@ -527,6 +509,7 @@ BUILD Protein DB
         }
         else {
         // extend protein DB
+            //reverse(str);
             seqan::appendValue(prot_DB, seq.c_str());
             acc_to_prot[acc] = i;
         }
@@ -542,7 +525,7 @@ BUILD Protein DB
 }
 
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB_(seqan::StringSet<seqan::Peptide> pep_DB,
+PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
                                                           std::vector<PeptideIdentification> &pep_ids) {
     for (vector<PeptideIdentification>::const_iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1) {
         //String run_id = it1->getIdentifier();
@@ -560,10 +543,10 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB_(seqan::StringSet<seqan
 }
 
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::searchAC_(seqan::StringSet<seqan::Peptide> prot_DB,
-                                                        seqan::StringSet<seqan::Peptide> pep_DB,
-                                                        seqan::FoundProteinFunctor func,
-                                                        EnzymaticDigestion enzyme) {
+PeptideIndexing2::ExitCodes PeptideIndexing2::searchAC_(seqan::StringSet<seqan::Peptide> &prot_DB,
+                                                        seqan::StringSet<seqan::Peptide> &pep_DB,
+                                                        seqan::FoundProteinFunctor &func,
+                                                        EnzymaticDigestion &enzyme) {
     StopWatch sw;
     sw.start();
     SignedSize protDB_length = (SignedSize) length(prot_DB);
@@ -579,6 +562,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchAC_(seqan::StringSet<seqan::
         // search all peptides in each protein
         for (SignedSize i = 0; i < protDB_length; ++i) {
             seqan::Finder<seqan::Peptide> finder(prot_DB[i]);
+            //std::cout << prot_DB[i] << std::endl;
             while (find(finder, pattern)) {
                 //seqan::appendValue(pat_hits, seqan::Pair<Size, Size>(position(pattern), position(finder)));
 
@@ -604,8 +588,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchAC_(seqan::StringSet<seqan::
                  it != func_threads.pep_to_prot.end(); ++it) {
                 func.pep_to_prot[it->first].insert(func_threads.pep_to_prot[it->first].begin(),
                                                    func_threads.pep_to_prot[it->first].end());
-            }
 
+            }
         }
     } // end parallel
 
@@ -619,10 +603,10 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchAC_(seqan::StringSet<seqan::
 }
 
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::Peptide> prot_DB,
-                                                        seqan::StringSet<seqan::Peptide> pep_DB,
-                                                        seqan::FoundProteinFunctor func,
-                                                        EnzymaticDigestion enzyme){
+PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::Peptide> &prot_DB,
+                                                        seqan::StringSet<seqan::Peptide> &pep_DB,
+                                                        seqan::FoundProteinFunctor &func,
+                                                        EnzymaticDigestion &enzyme) {
     // search using SA, which supports mismatches (introduced by resolving ambiguous AA's by e.g. Mascot) -- expensive!
     writeLog_(String("Using suffix array to find ambiguous matches..."));
 
@@ -631,6 +615,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::
     bool protDB_updated = false; // ... same for prot_DB
     vector<Size> pep_DB_indexes;  // store peptide indices which still need searching, i.e. [index SA Pep DB] --> [index full Pep DB]
     vector<Size> prot_DB_indexes; // store protein indices which still need searching, i.e. [index SA Prot DB] --> [index full Prot DB]
+
     if (!func.pep_to_prot.empty()) // AC was run
     {
         seqan::StringSet<seqan::Peptide> pep_DB_SA;
@@ -640,10 +625,10 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::
         // with SeqAn 1.4!
         //
         // Only search peptides which remained unidentified during Aho-Corasick:
-        for (Size i = 0; i < length(pep_DB); ++i)
-        {
-            if (!func.pep_to_prot.has(i))
-            {
+
+        for (Size i = 0; i < length(pep_DB); ++i) {
+            if (!func.pep_to_prot.has(i)) {
+                //std::cout << pep_DB[i] << std::endl;
                 appendValue(pep_DB_SA, pep_DB[i]);
                 pep_DB_indexes.push_back(i);
                 //std::cerr << "SA search pep " << i << " " <<  pep_DB[i] << "\n";
@@ -656,15 +641,12 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::
         if (filter_aaa_proteins_) // only search proteins with AAA's
         {
             seqan::StringSet<seqan::Peptide> prot_DB_SA;
-            for (Size i = 0; i < length(prot_DB); ++i)
-            {
+            for (Size i = 0; i < length(prot_DB); ++i) {
                 // check if the protein contains ambiguous amino acids:
                 Size length_prot = length(prot_DB[i]);
-                for (Size j = 0; j < length_prot; ++j)
-                {
+                for (Size j = 0; j < length_prot; ++j) {
                     if ((prot_DB[i][j] == 'B') || (prot_DB[i][j] == 'X') ||
-                        (prot_DB[i][j] == 'Z'))
-                    {
+                        (prot_DB[i][j] == 'Z')) {
                         appendValue(prot_DB_SA, prot_DB[i]);
                         prot_DB_indexes.push_back(i);
                         break;
@@ -675,37 +657,55 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::
             protDB_updated = true;
             writeLog_("... in " + String(length(prot_DB)) + " protein(s) with ambiguous AA's.");
         }
-        else
-        {
+        else {
             writeLog_("... in all " + String(length(prot_DB)) + " protein(s).");
         }
     }
 
     seqan::FoundProteinFunctor func_SA(enzyme);
 
-    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexWotd<> > TIndex;
-    TIndex prot_Index(prot_DB);
-    TIndex pep_Index(pep_DB);
+    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexWotd<> > TIndexW;
+    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > TIndex;
+    TIndex prot_Index(prot_DB); // indexSa
+    TIndexW pep_Index(pep_DB); // WOTD ohne .i1 i2 // dann mit - vergleich
 
     // use only full peptides in Suffix Array
     const Size length_SA = length(pep_DB);
     resize(indexSA(pep_Index), length_SA);
-    for (Size i = 0; i < length_SA; ++i)
-    {
-        indexSA(pep_Index)[i].i1 = (unsigned)i;
+    for (Size i = 0; i < length_SA; ++i) {
+        indexSA(pep_Index)[i].i1 = (unsigned) i;
         indexSA(pep_Index)[i].i2 = 0;
     }
 
     typedef seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TTreeIter;
-
+    typedef seqan::Iterator<TIndexW, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TTreeIterW;
     //seqan::open(indexSA(prot_Index), "c:\\tmp\\prot_Index.sa");
     //seqan::open(indexDir(prot_Index), "c:\\tmp\\prot_Index.dir");
 
     TTreeIter prot_Iter(prot_Index);
-    TTreeIter pep_Iter(pep_Index);
+    TTreeIterW pep_Iter(pep_Index);
 
     UInt max_aaa = static_cast<int>(param_.getValue("aaa_max"));
     seqan::_approximateAminoAcidTreeSearch<true, true>(func_SA, pep_Iter, 0u, prot_Iter, 0u, mismatches_max_, max_aaa);
+
+
+    std::cout << "After approx-search start:" << std::endl;
+    for (map<unsigned long, std::set<PeptideProteinMatchInformation> >::iterator a = func_SA.pep_to_prot.begin(); a != func_SA.pep_to_prot.end(); a++) {
+        std::cout << (*a).first << std::endl;
+        set<PeptideProteinMatchInformation> b = (*a).second;
+        for (set<PeptideProteinMatchInformation>::iterator l = b.begin(); l != b.end(); l++) {
+
+            std::cout << "index: " << (*l).protein_index << std::endl;
+            std::cout << "before: " << (*l).AABefore << std::endl;
+            std::cout << "after: " << (*l).AAAfter << std::endl;
+            std::cout << "position: " << (*l).position << std::endl;
+            std::cout << " " << std::endl;
+        }
+        std::cout << "________" << std::endl;
+    }
+    std::cout << "After approx-search end" << std::endl;
+
+
 
     // augment results with SA hits
     if (pepDB_updated || protDB_updated) // AC was run and we modified the pep/protDB for SA search
@@ -751,13 +751,13 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchSA_(seqan::StringSet<seqan::
 
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FASTAFile::FASTAEntry>& proteins,
+PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                                 std::vector<ProteinIdentification> &prot_ids,
                                                                 std::vector<PeptideIdentification> &pep_ids,
-                                                                Map<String, bool> protein_is_decoy,
-                                                                Map<Size, std::set<Size> > runidx_to_protidx,
-                                                                Size stats_unmatched,
-                                                                seqan::FoundProteinFunctor func){
+                                                                Map<String, bool> &protein_is_decoy,
+                                                                Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                                Size &stats_unmatched,
+                                                                seqan::FoundProteinFunctor &func){
     /* do mapping */
     writeDebug_("Reindexing peptide/protein matches...", 1);
 
@@ -906,12 +906,12 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFile::FASTAEntry>& proteins,
+PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                              std::vector<ProteinIdentification> &prot_ids,
-                                                             Map<String, Size> acc_to_prot,
-                                                             Map<String, bool> protein_is_decoy,
-                                                             Map<Size, std::set<Size> > runidx_to_protidx,
-                                                             Size stats_unmatched){
+                                                             Map<String, Size> &acc_to_prot,
+                                                             Map<String, bool> &protein_is_decoy,
+                                                             Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                             Size &stats_unmatched){
     Int stats_new_proteins(0);
     Int stats_orphaned_proteins(0);
 
@@ -1011,7 +1011,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFi
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::run(std::vector<FASTAFile::FASTAEntry>& proteins,
+PeptideIndexing2::ExitCodes PeptideIndexing2::run(std::vector<FASTAFile::FASTAEntry> &proteins,
                                 std::vector<ProteinIdentification> &prot_ids,
                                 std::vector<PeptideIdentification> &pep_ids) {
     // proteins = UniprotKB -> FASTA  -> prot_DB aka IndexStruktur
@@ -1102,7 +1102,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::run(std::vector<FASTAFile::FASTAEn
     {
         log_.close();
     }
-
+    sleep(1);
     return EXECUTION_OK;
 }
 /// @endcond

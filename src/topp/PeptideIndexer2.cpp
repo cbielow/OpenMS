@@ -144,21 +144,62 @@ protected:
         // reading input
         //-------------------------------------------------------------
 
-        // we stream the Fasta file
-//    std::vector<FASTAFile::FASTAEntry> proteinDB;
-//    FASTAFile().load(db_name, proteinDB);
 
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > proteinDB;
+        // we stream the Fasta file
+        std::vector<FASTAFile::FASTAEntry> proteins;
+        FASTAFile().load(db_name, proteins);
+
         std::vector<ProteinIdentification> prot_ids;
         std::vector<PeptideIdentification> pep_ids;
 
+
         IdXMLFile().load(in, prot_ids, pep_ids);
+
+/*        std::cout << "Proteins:" << std::endl;
+        for (Size run_idx = 0; run_idx < prot_ids.size(); ++run_idx){
+            std::vector<ProteinIdentification::ProteinGroup> pGr =  prot_ids[run_idx].getIndistinguishableProteins();
+            for (Size grId = 0; grId < pGr.size(); grId++){
+                std::vector<String> grA = pGr.at(grId).accessions;
+                for (Size grAid = 0; grAid < grA.size(); grAid ++){
+                    std::cout << grA.at(grAid).c_str() << std::endl;
+                }
+            }
+            std::cout << prot_ids[run_idx].getIdentifier().c_str() << std::endl;
+            std::vector<ProteinHit> prHit = prot_ids[run_idx].getHits();
+            for (std::vector<OpenMS::ProteinHit>::iterator hIt = prHit.begin();hIt != prHit.end();hIt++){
+                std::cout << (*hIt).getAccession().c_str() << (*hIt).getDescription().c_str() << std::endl;
+            }
+        }*//*
+        std::cout << "Peptides:" << std::endl;
+        for (Size run_id = 0; run_id < pep_ids.size(); ++run_id){
+            std::vector<PeptideHit> pepHits = pep_ids[run_id].getHits();
+            for (Size pep_hit = 0; pep_hit < pepHits.size(); ++pep_hit){
+                if (pepHits[pep_hit].getSequence().toString() == "EAVLSLGIDYM(Oxidation)QGYLIGK") {
+                    std::cout << pepHits[pep_hit].getSequence() << std::endl;
+                }
+
+
+                std::set<String> eProtAcc = pepHits[pep_hit].extractProteinAccessions();
+                for (std::set<OpenMS::String>::iterator ind = eProtAcc.begin(); ind != eProtAcc.end(); ind++){
+                    std::cout << *ind << std::endl;
+                }
+                const std::vector<PeptideEvidence> pepEv = pepHits[pep_hit].getPeptideEvidences();
+                for (Size ev_id = 0; ev_id < pepEv.size(); ++ev_id){
+                    std::cout << pepEv[ev_id].getProteinAccession() << std::endl;
+                }
+                 */
+            //}
+           // std::cout << " " << std::endl;
+        //}
+
+
+//        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > proteinDB;
 
         //-------------------------------------------------------------
         // calculations
         //-------------------------------------------------------------
 
-        PeptideIndexing2::ExitCodes indexer_exit = indexer.run(proteinDB, prot_ids,
+        PeptideIndexing2::ExitCodes indexer_exit = indexer.run(proteins, prot_ids,
                                                                pep_ids);
         if ((indexer_exit != PeptideIndexing2::EXECUTION_OK) &&
             (indexer_exit != PeptideIndexing2::PEPTIDE_IDS_EMPTY)) {
@@ -197,6 +238,7 @@ protected:
 int main(int argc, const char **argv) {
     TOPPPeptideIndexer tool;
     return tool.main(argc, argv);
+
 }
 
 /// @endcond
