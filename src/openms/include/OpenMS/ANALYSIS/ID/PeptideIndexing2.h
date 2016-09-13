@@ -42,6 +42,12 @@
 
 
 struct PeptideProteinMatchInformation;
+struct FMind;
+struct SAind;
+struct WOTDind;
+
+
+
 
 // WARUM NAMESPACE SEQAN?
 namespace seqan {
@@ -147,6 +153,10 @@ namespace OpenMS {
         PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
                                                 std::vector<PeptideIdentification> &pep_ids);
 
+        PeptideIndexing2::ExitCodes buildReversePepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
+                                                std::vector<PeptideIdentification> &pep_ids);
+
+
         PeptideIndexing2::ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                     std::vector<ProteinIdentification> &prot_ids,
                                                     std::vector<PeptideIdentification> &pep_ids);
@@ -203,7 +213,20 @@ namespace OpenMS {
         bool filter_aaa_proteins_;
 
 
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
+                       seqan::StringSet<seqan::Peptide> &prot_DB,
+                       seqan::StringSet<seqan::Peptide> &pep_DB, int mm,
+                       WOTDind /**/);
 
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
+                       seqan::StringSet<seqan::Peptide> &prot_DB,
+                       seqan::StringSet<seqan::Peptide> &pep_DB, int mm,
+                       SAind /**/);
+
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
+                       seqan::StringSet<seqan::Peptide> &prot_DB,
+                       seqan::StringSet<seqan::Peptide> &pep_DB, int mm,
+                       FMind /**/);
     };
 
 

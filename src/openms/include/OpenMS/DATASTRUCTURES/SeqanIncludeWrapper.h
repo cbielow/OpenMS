@@ -41,7 +41,10 @@
 #endif
 
 #include <seqan/index.h>
+#include <seqan/parallel/parallel_algorithms.h>
 #include <seqan/index/index_sa_stree.h>
+#include <seqan/index/find_backtracking.h>
+#include <seqan/index/find_backtracking_exp.h>
 #include <seqan/align.h>
 #include <seqan/graph_align.h>
 

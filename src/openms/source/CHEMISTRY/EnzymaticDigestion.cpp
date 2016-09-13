@@ -141,9 +141,10 @@ namespace OpenMS
       LOG_WARN << "Error: start of peptide is beyond end of protein!" << endl;
       return false;
     }
-    else if (pep_pos + pep_length > protein.size())
+    else if (pep_pos -1  + pep_length > protein.size())
     {
       LOG_WARN << "Error: end of peptide is beyond end of protein!" << endl;
+      std::cout << protein.size() << std::endl;;
       return false;
     }
     else if (pep_length == 0 || protein.size() == 0)
