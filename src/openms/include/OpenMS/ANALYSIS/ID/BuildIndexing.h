@@ -7,6 +7,11 @@
 
 #include <fstream>
 
+
+struct FMind;
+struct SAind;
+struct WOTDind;
+
 namespace OpenMS {
 
     class OPENMS_DLLAPI BuildIndexing :
@@ -21,7 +26,8 @@ namespace OpenMS {
             ILLEGAL_PARAMETERS,
             UNEXPECTED_RESULT,
             OUTPUT_ERROR,
-            CHECKPOINT_OK
+            CHECKPOINT_OK,
+            CHECKPOINT_DONE
         };
 
         /// Default constructor
@@ -35,35 +41,64 @@ namespace OpenMS {
 
     protected:
 
+        virtual void updateMembers_();
+
         void writeLog_(const String &text) const;
 
         void writeDebug_(const String &text, const Size min_level) const;
 
-        ExitCodes buildProtDB(std::vector<FASTAFile::FASTAEntry>& proteins, Map<String, Size> &acc_to_prot, seqan::StringSet<seqan::Peptide> &prot_DB, std::vector<String> &duplicate_accessions);
+        ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                               Map<String, Size> &acc_to_prot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB,
+                               Map<String, Size> &acc_to_AAAprot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+                               std::vector<String> &duplicate_accessions);
+        ExitCodes check_duplicate_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                                   String seq,
+                                   std::vector<String> &duplicate_accessions,
+                                   Map<String, Size> &acc_to_prot,
+                                   String &acc,
+                                   seqan::StringSet<seqan::Peptide>
+                                   &prot_DB, Size protIndex);
 
         /// Output stream for log/debug info
         String log_file_;
         mutable std::ofstream log_;
         /// debug flag
         bool debug_;
-
-        String decoy_string_;
-        bool prefix_;
-        String missing_decoy_action_;
-        String enzyme_name_;
-        String enzyme_specificity_;
-
-        bool write_protein_sequence_;
-        bool write_protein_description_;
-        bool keep_unreferenced_proteins_;
-        bool allow_unmatched_;
-        bool full_tolerant_search_;
+        bool WOTD_;
+        bool suffix_array_;
+        bool FM_index_;
         bool IL_equivalent_;
-        bool fmIndex_;
 
-        Size aaa_max_;
-        UInt mismatches_max_;
-        bool filter_aaa_proteins_;
+        bool has_aaa_(String seq);
 
+        ExitCodes saveOutput_(Map<String, Size> &acc_to_prot,
+                              Map<String, Size> &acc_to_AAAprot,
+                              std::vector<FASTAFile::FASTAEntry>& proteins,
+                              String &out);
+
+        ExitCodes build_index_(Map<String, Size> &acc_to_prot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB,
+                               Map<String, Size> &acc_to_AAAprot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+                               String out,
+                               SAind /**/);
+
+        ExitCodes build_index_(Map<String, Size> &acc_to_prot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB,
+                               Map<String, Size> &acc_to_AAAprot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+                               String out,
+                               FMind /**/);
+
+        ExitCodes build_index_(Map<String, Size> &acc_to_prot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB,
+                               Map<String, Size> &acc_to_AAAprot,
+                               seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+                               String out,
+                               WOTDind /**/);
+
+        ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins);
     };
 }

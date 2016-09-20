@@ -126,6 +126,7 @@ namespace OpenMS {
             DATABASE_CONTAINS_MULTIPLES,
             ILLEGAL_PARAMETERS,
             UNEXPECTED_RESULT,
+            INPUT_ERROR,
             CHECKPOINT_OK
         };
 
@@ -136,8 +137,10 @@ namespace OpenMS {
         virtual ~PeptideIndexing2();
 
         /// main method of PeptideIndexing
-        PeptideIndexing2::ExitCodes run(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids,
-                      std::vector<PeptideIdentification> &pep_ids);
+        //PeptideIndexing2::ExitCodes run(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids,
+        //              std::vector<PeptideIdentification> &pep_ids);
+        PeptideIndexing2::ExitCodes run(String &index, std::vector<ProteinIdentification> &prot_ids,
+                                        std::vector<PeptideIdentification> &pep_ids);
 
     protected:
         virtual void updateMembers_();
@@ -146,30 +149,19 @@ namespace OpenMS {
 
         void writeDebug_(const String &text, const Size min_level) const;
 
-        PeptideIndexing2::ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry> &proteins,
-                                                 Map<String, Size> &acc_to_prot,
-                                                 seqan::StringSet<seqan::Peptide> &prot_DB);
 
         PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
                                                 std::vector<PeptideIdentification> &pep_ids);
 
         PeptideIndexing2::ExitCodes buildReversePepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
-                                                std::vector<PeptideIdentification> &pep_ids);
+                                                       std::vector<PeptideIdentification> &pep_ids);
 
 
-        PeptideIndexing2::ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins,
+        PeptideIndexing2::ExitCodes checkUserInput_(String &index,
                                                     std::vector<ProteinIdentification> &prot_ids,
                                                     std::vector<PeptideIdentification> &pep_ids);
 
-        PeptideIndexing2::ExitCodes searchAC_(seqan::StringSet<seqan::Peptide> &prot_DB,
-                                              seqan::StringSet<seqan::Peptide> &pep_DB,
-                                              seqan::FoundProteinFunctor &func,
-                                              EnzymaticDigestion &enzyme);
 
-        PeptideIndexing2::ExitCodes searchSA_(seqan::StringSet<seqan::Peptide> &prot_DB,
-                                              seqan::StringSet<seqan::Peptide> &pep_DB,
-                                              seqan::FoundProteinFunctor &func,
-                                              EnzymaticDigestion &enzyme);
 
         PeptideIndexing2::ExitCodes mappingPepToProt_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                       std::vector<ProteinIdentification> &prot_ids,
@@ -179,15 +171,16 @@ namespace OpenMS {
                                                       Size &stats_unmatched,
                                                       seqan::FoundProteinFunctor &func);
 
-        ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
-                                 Map <String, Size> &acc_to_prot,
-                                 Map<String, bool> &protein_is_decoy,
-                                 Map <Size, std::set<Size> > &runidx_to_protidx,
-                                 Size &stats_unmatched);
+        ExitCodes
+        updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
+                       Map<String, Size> &acc_to_prot,
+                       Map<String, bool> &protein_is_decoy,
+                       Map<Size, std::set<Size> > &runidx_to_protidx,
+                       Size &stats_unmatched);
         //PeptideIndexing2::ExitCodes searchAC_(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
 
 
-           //PeptideIndexing2::ExitCodes searchSA();
+        //PeptideIndexing2::ExitCodes searchSA();
 
         /// Output stream for log/debug info
         String log_file_;
@@ -212,21 +205,56 @@ namespace OpenMS {
         UInt mismatches_max_;
         bool filter_aaa_proteins_;
 
+        bool WOTD_;
+        bool suffix_array_;
+        bool FM_index_;
+        bool load_index_;
+
 
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                       seqan::StringSet<seqan::Peptide> &prot_DB,
-                       seqan::StringSet<seqan::Peptide> &pep_DB, int mm,
-                       WOTDind /**/);
+                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexWotd<> > &prot_Index,
+                            seqan::StringSet<seqan::Peptide> &pep_DB,
+                            int mm);
 
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                       seqan::StringSet<seqan::Peptide> &prot_DB,
-                       seqan::StringSet<seqan::Peptide> &pep_DB, int mm,
-                       SAind /**/);
+                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
+                            seqan::StringSet<seqan::Peptide> &pep_DB,
+                            int mm,
+                            Size aaa_max);
 
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                       seqan::StringSet<seqan::Peptide> &prot_DB,
-                       seqan::StringSet<seqan::Peptide> &pep_DB, int mm,
-                       FMind /**/);
+                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
+                            seqan::StringSet<seqan::Peptide> &pep_DB,
+                            int mm,
+                            Size aaa_max);
+
+        //bool checkAmbigous_(String tmp_pep, String tmp_prot, Size pos, Size error);
+
+        ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                            Map<String, Size> &acc_to_prot,
+                            Map<String, Size> &acc_to_AAAprot,
+                            String &path);
+
+        ExitCodes processMap_(EnzymaticDigestion enzyme,
+                              String path,
+                              std::vector<ProteinIdentification> &prot_ids,
+                              std::vector<PeptideIdentification> &pep_ids,
+                              SAind /**/);
+
+        ExitCodes processMap_(EnzymaticDigestion enzyme,
+                              String path,
+                              std::vector<ProteinIdentification> &prot_ids,
+                              std::vector<PeptideIdentification> &pep_ids,
+                              FMind /**/);
+
+        ExitCodes processMap_(EnzymaticDigestion enzyme,
+                              String path,
+                              std::vector<ProteinIdentification> &prot_ids,
+                              std::vector<PeptideIdentification> &pep_ids,
+                              WOTDind /**/);
+
+        ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot, String path);
+
     };
 
 

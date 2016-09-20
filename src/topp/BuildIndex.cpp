@@ -74,7 +74,6 @@ protected:
     std::vector<FASTAFile::FASTAEntry> proteins;
     FASTAFile().load(db_name, proteins);
 
-
     //-------------------------------------------------------------
     // calculations
     //-------------------------------------------------------------
@@ -99,29 +98,6 @@ protected:
         return UNKNOWN_ERROR;
       }
     }
-
-    //-------------------------------------------------------------
-    // calculate protein coverage
-    //-------------------------------------------------------------
-
-//    if (param.getValue("write_protein_sequence").toBool())
-//    {
-//      for (Size i = 0; i < prot_ids.size(); ++i)
-//      {
-//        prot_ids[i].computeCoverage(pep_ids);
-//      }
-//    }
-
-    //-------------------------------------------------------------
-    // writing output
-    //-------------------------------------------------------------
-    //IdXMLFile().store(out, prot_ids, pep_ids);
-//    seqan::indexRequire(index, seqan::FibreSaLfTable());
-    // seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &index
-//    if (!seqan::save(index, out.c_str() )) {
-//        return CANNOT_WRITE_OUTPUT_FILE;
-//    }
-
 
     return EXECUTION_OK;
   }

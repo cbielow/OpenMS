@@ -102,10 +102,12 @@ protected:
     void registerOptionsAndFlags_() {
         registerInputFile_("in", "<file>", "", "Input idXML file containing the identifications.");
         setValidFormats_("in", ListUtils::create<String>("idXML"));
-        registerInputFile_("fasta", "<file>", "",
-                           "Input sequence database in FASTA format. Non-existing relative filenames are looked up via 'OpenMS.ini:id_db_dir'",
-                           true, false, ListUtils::create<String>("skipexists"));
-        setValidFormats_("fasta", ListUtils::create<String>("fasta"));
+        registerOutputFile_("index", "<file>", "", "inputIndex file.");
+        setValidFormats_("index", ListUtils::create<String>("txt"));
+//        registerInputFile_("fasta", "<file>", "",
+//                           "Input sequence database in FASTA format. Non-existing relative filenames are looked up via 'OpenMS.ini:id_db_dir'",
+//                           true, false, ListUtils::create<String>("skipexists"));
+//        setValidFormats_("fasta", ListUtils::create<String>("fasta"));
         registerOutputFile_("out", "<file>", "", "Output idXML file.");
         setValidFormats_("out", ListUtils::create<String>("idXML"));
 
@@ -118,6 +120,7 @@ protected:
         // parsing parameters
         //-------------------------------------------------------------
         String in = getStringOption_("in");
+        String index = getStringOption_("index");
         String out = getStringOption_("out");
 
         PeptideIndexing2 indexer;
@@ -126,80 +129,45 @@ protected:
         param_pi.update(param, false, Log_debug); // suppress param. update message
         indexer.setParameters(param_pi);
 
-        String db_name = getStringOption_("fasta");
-        if (!File::readable(db_name)) {
-            String full_db_name;
-            try {
-                full_db_name = File::findDatabase(db_name);
-            }
-            catch (...) {
-                printUsage_();
-                return ILLEGAL_PARAMETERS;
-            }
-            db_name = full_db_name;
-        }
+//        String db_name = getStringOption_("fasta");
+//        if (!File::readable(db_name)) {
+//            String full_db_name;
+//            try {
+//                full_db_name = File::findDatabase(db_name);
+//            }
+//            catch (...) {
+//                printUsage_();
+//                return ILLEGAL_PARAMETERS;
+//            }
+//            db_name = full_db_name;
+//        }
 
 
         //-------------------------------------------------------------
         // reading input
         //-------------------------------------------------------------
 
+        // read Index
+
 
         // we stream the Fasta file
-        std::vector<FASTAFile::FASTAEntry> proteins;
-        FASTAFile().load(db_name, proteins);
+//        std::vector<FASTAFile::FASTAEntry> proteins;
+//        FASTAFile().load(db_name, proteins);
 
+        // load Index
+        // this should be here but with old seqan its not possible...
+
+        // idXML
         std::vector<ProteinIdentification> prot_ids;
         std::vector<PeptideIdentification> pep_ids;
-
-
         IdXMLFile().load(in, prot_ids, pep_ids);
 
-/*        std::cout << "Proteins:" << std::endl;
-        for (Size run_idx = 0; run_idx < prot_ids.size(); ++run_idx){
-            std::vector<ProteinIdentification::ProteinGroup> pGr =  prot_ids[run_idx].getIndistinguishableProteins();
-            for (Size grId = 0; grId < pGr.size(); grId++){
-                std::vector<String> grA = pGr.at(grId).accessions;
-                for (Size grAid = 0; grAid < grA.size(); grAid ++){
-                    std::cout << grA.at(grAid).c_str() << std::endl;
-                }
-            }
-            std::cout << prot_ids[run_idx].getIdentifier().c_str() << std::endl;
-            std::vector<ProteinHit> prHit = prot_ids[run_idx].getHits();
-            for (std::vector<OpenMS::ProteinHit>::iterator hIt = prHit.begin();hIt != prHit.end();hIt++){
-                std::cout << (*hIt).getAccession().c_str() << (*hIt).getDescription().c_str() << std::endl;
-            }
-        }*//*
-        std::cout << "Peptides:" << std::endl;
-        for (Size run_id = 0; run_id < pep_ids.size(); ++run_id){
-            std::vector<PeptideHit> pepHits = pep_ids[run_id].getHits();
-            for (Size pep_hit = 0; pep_hit < pepHits.size(); ++pep_hit){
-                if (pepHits[pep_hit].getSequence().toString() == "EAVLSLGIDYM(Oxidation)QGYLIGK") {
-                    std::cout << pepHits[pep_hit].getSequence() << std::endl;
-                }
-
-
-                std::set<String> eProtAcc = pepHits[pep_hit].extractProteinAccessions();
-                for (std::set<OpenMS::String>::iterator ind = eProtAcc.begin(); ind != eProtAcc.end(); ind++){
-                    std::cout << *ind << std::endl;
-                }
-                const std::vector<PeptideEvidence> pepEv = pepHits[pep_hit].getPeptideEvidences();
-                for (Size ev_id = 0; ev_id < pepEv.size(); ++ev_id){
-                    std::cout << pepEv[ev_id].getProteinAccession() << std::endl;
-                }
-                 */
-            //}
-           // std::cout << " " << std::endl;
-        //}
-
-
-//        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > proteinDB;
 
         //-------------------------------------------------------------
         // calculations
         //-------------------------------------------------------------
 
-        PeptideIndexing2::ExitCodes indexer_exit = indexer.run(proteins, prot_ids,
+        PeptideIndexing2::ExitCodes indexer_exit = indexer.run(index, prot_ids,
                                                                pep_ids);
         if ((indexer_exit != PeptideIndexing2::EXECUTION_OK) &&
             (indexer_exit != PeptideIndexing2::PEPTIDE_IDS_EMPTY)) {
