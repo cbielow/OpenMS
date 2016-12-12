@@ -59,6 +59,9 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_pr
                                                     std::vector<FASTAFile::FASTAEntry>& proteins,
                                                     String &out){
     // save them on disk
+    // jede accession nummer wird die Position in dem Suffix-Array gespeichert
+    // Eintrag: CAQ30518;1383
+    // accession Nummern sind alphabetisch geordet
     std::ofstream acc_to_prot_out((out + "_acc_to_prot").c_str());
     for (map<OpenMS::String, unsigned long>::iterator i = acc_to_prot.begin(); i != acc_to_prot.end(); i++){
         acc_to_prot_out << (*i).first;
@@ -77,6 +80,7 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_pr
     }
     acc_to_AAAprot_out.close();
 
+    // speichert quasi die Fasta erneut.
     std::ofstream proteins_out((out + "_proteins").c_str());
     for (vector<OpenMS::FASTAFile::FASTAEntry>::iterator i = proteins.begin(); i != proteins.end(); i++){
         proteins_out << (*i).identifier;
@@ -208,7 +212,13 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Pep
 }
 
 
-BuildIndexing::ExitCodes BuildIndexing::check_duplicate_(std::vector<FASTAFile::FASTAEntry>& proteins, String seq, std::vector<String> &duplicate_accessions, Map<String, Size> &acc_to_prot, String &acc, seqan::StringSet<seqan::Peptide>  &prot_DB, Size protIndex){
+BuildIndexing::ExitCodes BuildIndexing::check_duplicate_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                         String seq,
+                                                         std::vector<String> &duplicate_accessions,
+                                                         Map<String, Size> &acc_to_prot,
+                                                         String &acc,
+                                                         seqan::StringSet<seqan::Peptide>  &prot_DB,
+                                                         Size protIndex){
     if (acc_to_prot.has(acc)) {
         duplicate_accessions.push_back(acc);
         // check if sequence is identical
@@ -270,6 +280,31 @@ BuildIndexing::ExitCodes BuildIndexing::checkUserInput_(std::vector<FASTAFile::F
     return CHECKPOINT_OK;
 }
 
+BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                      String &seq,
+                                                      std::vector<String> &duplicate_accessions,
+                                                      Map<String, Size> &acc_to_prot,
+                                                      String &acc,
+                                                      seqan::StringSet<seqan::Peptide> &db,
+                                                      Size &i){
+    // check for duplicate proteins in db
+    auto erg = check_duplicate_(proteins, seq, duplicate_accessions, acc_to_prot,acc,db,i);
+    if (erg != BuildIndexing::CHECKPOINT_OK) {
+        if (erg != BuildIndexing::CHECKPOINT_DONE){
+            // case database contained multiples
+            return erg;
+        }
+        // case where duplicate entry has been removed!
+        i--;
+    } else {
+        // add protein to db
+        seqan::appendValue(db, seq.c_str());
+        acc_to_prot[acc] = i;
+    }
+    return BuildIndexing::CHECKPOINT_OK;
+}
+
+
 BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
                                                      Map<String, Size> &acc_to_prot,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB,
@@ -287,38 +322,17 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FAST
 
         // check if the protein contains ambiguous amino acids:
         if (has_aaa_(seq)){
-            // check for duplicate proteins in aaa db
-            auto erg = check_duplicate_(proteins, seq, duplicate_accessions, acc_to_AAAprot,acc,prot_DB_AAA,i);
-            if (erg != BuildIndexing::CHECKPOINT_OK) {
-                if (erg != BuildIndexing::CHECKPOINT_DONE){
-                    // case database contained multiples
-                    return erg;
-                }
-                // case where duplicate entry has been removed!
-                i--;
-            } else {
-                // add protein to aaa db
-                seqan::appendValue(prot_DB_AAA, seq.c_str());
-                acc_to_prot[acc] = i;
-            }
+            // case AAA
+            if (appendWrapper_(proteins,seq,duplicate_accessions,acc_to_AAAprot,acc,prot_DB_AAA,i)!=BuildIndexing::CHECKPOINT_OK){
+                return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
+            };
         }else{
-            // check for duplicate proteins in normal db
-            auto erg = check_duplicate_(proteins, seq, duplicate_accessions, acc_to_prot,acc,prot_DB,i);
-            if (erg != BuildIndexing::CHECKPOINT_OK) {
-                if (erg != BuildIndexing::CHECKPOINT_DONE){
-                    // case database contained multiples
-                    return erg;
-                }
-                // case where duplicate entry has been removed!
-                i--;
-            } else {
-
-                // add protein to normal db
-                seqan::appendValue(prot_DB, seq.c_str());
-                acc_to_prot[acc] = i;
-
-            }
+            // case normal
+            if (BuildIndexing::appendWrapper_(proteins,seq,duplicate_accessions,acc_to_prot,acc,prot_DB,i)!=BuildIndexing::CHECKPOINT_OK){
+                return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
+            };
         }
+
     }
     return BuildIndexing::CHECKPOINT_OK;
 }

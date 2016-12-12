@@ -90,5 +90,14 @@ namespace OpenMS {
                                FMind /**/);
 
         ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins);
+
+
+        ExitCodes appendWrapper_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                                        String &seq,
+                                                                        std::vector<String> &duplicate_accessions,
+                                                                        Map<String, Size> &acc_to_prot,
+                                                                        String &acc,
+                                                                        seqan::StringSet<seqan::Peptide> &db,
+                                                                        Size &i);
     };
 }

@@ -985,6 +985,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 
     /// index existing proteins
     Map<String, Size> runid_to_runidx; // identifier to index
+    // mapping von identifier des <ProteinIdentification> zu Position in idXML file
+    // hat die idXML 2 <ProteinIdentification>...</ProteinIdentification> so gibt es 2 Einträge in runid_to_runidx
     for (Size run_idx = 0; run_idx < prot_ids.size(); ++run_idx)
     {
         //std::cout << prot_ids[run_idx].getIdentifier() << std::endl;
@@ -1011,6 +1013,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
         Size run_idx = runid_to_runidx[it1->getIdentifier()];
         // findet heraus ob der Identifier des <PeptidIdentification>...</PeptidIdentification> zum
         // 1. <ProteinIdentification>...</ProteinIdentification> in der idXML gehört oder zu, 2. 3. etc. (sofern vorhanden)
+        // anhand des identifiers
 
 
         vector<PeptideHit>& hits = it1->getHits();
@@ -1023,7 +1026,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 
             // Map<OpenMS::Size, std::set<PeptideProteinMatchInformation> > ist der typ des pep_to_prot
             // in pep_to_prot sind nach <PeptidHit> NUMMER!!! sortiert alle hits die gefunden sind gespeichert.
-            // gibt es also in der Pep_ids aus der idXML 10 <PeptideIdentification> mit jeweils 2 Hits so hat
+            // gibt es also in der Pep_ids aus der idXML 10 <PeptideIdentification> mit jeweils 2 Hits so hatt
             // pep_to_prot den maximalen Index der Größe 20 (genau dann wenn alle Hits gefunden werden)
 
             // pep_idx wird bei jedem Hit der in allen PeptidIdentification existeirt hochgezählt...
@@ -1037,8 +1040,9 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
                 // für alle Treffer zu dem Hit hinter der Nummer pep_idx wurd nun der Identifier eingetragen.
                 // wenn also der Hit mit der nummer pep_idx aus der idXML in 5 Einträgen aus der DB gefunden wird dann werden
                 // hier 5 Einträge gemacht.
+                // in proteins stehen die Proteine in denen gesucht werden geordnet nach der ursprünglichen FASTA file
                 const String& accession = proteins[it_i->protein_index].identifier;
-                // protein_index ist die Position des Proteins in dem SuffixArray in dem der Hit gefunden wurde
+                // protein_index ist die Position des Proteins in der fastaFile in dem der Hit gefunden wurde
                 PeptideEvidence pe;
                 pe.setProteinAccession(accession);
                 pe.setStart(it_i->position);
@@ -1051,6 +1055,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
                 // run_idx ist der counter der bestimmt in welchem <ProteinIdentification> das Peptid zu finden ist
                 // (meistens 0)
                 // hier wird also die Position festgehalten bei welchem Protein in der Datenbank der Hit gefunden wurde
+                // Spaeter koennen dieses nun geupdated werden in der idXML
                 runidx_to_protidx[run_idx].insert(it_i->protein_index); // fill protein hits
                 //std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
                 // der rest ist statistik!
