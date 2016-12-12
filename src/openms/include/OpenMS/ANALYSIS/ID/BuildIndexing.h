@@ -53,6 +53,7 @@ namespace OpenMS {
                                Map<String, Size> &acc_to_AAAprot,
                                seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                std::vector<String> &duplicate_accessions);
+
         ExitCodes check_duplicate_(std::vector<FASTAFile::FASTAEntry>& proteins,
                                    String seq,
                                    std::vector<String> &duplicate_accessions,
@@ -78,26 +79,15 @@ namespace OpenMS {
                               std::vector<FASTAFile::FASTAEntry>& proteins,
                               String &out);
 
-        ExitCodes build_index_(Map<String, Size> &acc_to_prot,
-                               seqan::StringSet<seqan::Peptide> &prot_DB,
-                               Map<String, Size> &acc_to_AAAprot,
+        ExitCodes build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
                                seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                String out,
                                SAind /**/);
 
-        ExitCodes build_index_(Map<String, Size> &acc_to_prot,
-                               seqan::StringSet<seqan::Peptide> &prot_DB,
-                               Map<String, Size> &acc_to_AAAprot,
+        ExitCodes build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
                                seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                String out,
                                FMind /**/);
-
-        ExitCodes build_index_(Map<String, Size> &acc_to_prot,
-                               seqan::StringSet<seqan::Peptide> &prot_DB,
-                               Map<String, Size> &acc_to_AAAprot,
-                               seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
-                               String out,
-                               WOTDind /**/);
 
         ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins);
     };

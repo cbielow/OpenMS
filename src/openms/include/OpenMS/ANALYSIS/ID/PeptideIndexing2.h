@@ -157,8 +157,7 @@ namespace OpenMS {
                                                        std::vector<PeptideIdentification> &pep_ids);
 
 
-        PeptideIndexing2::ExitCodes checkUserInput_(String &index,
-                                                    std::vector<ProteinIdentification> &prot_ids,
+        PeptideIndexing2::ExitCodes checkUserInput_(std::vector<ProteinIdentification> &prot_ids,
                                                     std::vector<PeptideIdentification> &pep_ids);
 
 
@@ -208,13 +207,8 @@ namespace OpenMS {
         bool WOTD_;
         bool suffix_array_;
         bool FM_index_;
-        bool load_index_;
 
 
-        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexWotd<> > &prot_Index,
-                            seqan::StringSet<seqan::Peptide> &pep_DB,
-                            int mm);
 
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
@@ -246,12 +240,6 @@ namespace OpenMS {
                               std::vector<ProteinIdentification> &prot_ids,
                               std::vector<PeptideIdentification> &pep_ids,
                               FMind /**/);
-
-        ExitCodes processMap_(EnzymaticDigestion enzyme,
-                              String path,
-                              std::vector<ProteinIdentification> &prot_ids,
-                              std::vector<PeptideIdentification> &pep_ids,
-                              WOTDind /**/);
 
         ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot, String path);
 

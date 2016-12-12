@@ -31,7 +31,7 @@ struct WOTDind {
 
 BuildIndexing::BuildIndexing() :
         DefaultParamHandler("BuildIndexing") {
-    defaults_.setValue("suffix_array", "true", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
+    defaults_.setValue("suffix_array", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
     defaults_.setValidStrings("suffix_array", ListUtils::create<String>("true,false"));
 
     defaults_.setValue("FM_index", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
@@ -82,6 +82,8 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_pr
         proteins_out << (*i).identifier;
         proteins_out << ";";
         proteins_out << (*i).sequence;
+        proteins_out << ";";
+        proteins_out << (*i).description;
         proteins_out << "\n";
     }
     proteins_out.close();
@@ -123,19 +125,15 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
         return erg;
     }
 
-    writeDebug_("Collecting peptides...", 1);
-
-
-
     /**
        BUILD Protein DB
     */
+    writeLog_(String("Building protein database..."));
     Map<String, Size> acc_to_prot; // build map: accessions to FASTA protein index
     Map<String, Size> acc_to_AAAprot;
     seqan::StringSet<seqan::Peptide> prot_DB;
     seqan::StringSet<seqan::Peptide> prot_DB_AAA;
     vector<String> duplicate_accessions;
-    writeDebug_("Building protein database...", 1);
     // check for duplicated accessions & build prot DB
     if (buildProtDB_(proteins, acc_to_prot, prot_DB, acc_to_AAAprot, prot_DB_AAA, duplicate_accessions) != CHECKPOINT_OK ) {
         return DATABASE_CONTAINS_MULTIPLES;
@@ -144,32 +142,25 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     /**
     BUILD Index & Save
     */
+    writeLog_(String("building protein database index..."));
     if (suffix_array_){
-        if (build_index_(acc_to_prot,prot_DB,acc_to_AAAprot,prot_DB_AAA,out,SAind()) != CHECKPOINT_OK){
+        if (build_index_(prot_DB,prot_DB_AAA,out,SAind()) != CHECKPOINT_OK){
             return OUTPUT_ERROR;
         }
-    }else if (FM_index_){
-        if (build_index_(acc_to_prot,prot_DB,acc_to_AAAprot,prot_DB_AAA,out,FMind()) != CHECKPOINT_OK){
-            return OUTPUT_ERROR;
-        }
-    }else{
-        if (build_index_(acc_to_prot,prot_DB,acc_to_AAAprot,prot_DB_AAA,out,WOTDind()) != CHECKPOINT_OK){
+    }else {
+        if (build_index_(prot_DB,prot_DB_AAA,out,FMind()) != CHECKPOINT_OK){
             return OUTPUT_ERROR;
         }
     }
 
-    writeDebug_("building protein database index...", 1);
-
-
+    writeLog_(String("saving protein database index..."));
     saveOutput_(acc_to_prot,acc_to_AAAprot, proteins, out);
 
 
     return EXECUTION_OK;
 }
 
-BuildIndexing::ExitCodes BuildIndexing::build_index_(Map<String, Size> &acc_to_prot,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB,
-                                                     Map<String, Size> &acc_to_AAAprot,
+BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                                      String out,
                                                      SAind /**/){
@@ -192,18 +183,8 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(Map<String, Size> &acc_to_p
     return CHECKPOINT_OK;
 }
 
-BuildIndexing::ExitCodes BuildIndexing::build_index_(Map<String, Size> &acc_to_prot,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB,
-                                                     Map<String, Size> &acc_to_AAAprot,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
-                                                     String out,
-                                                     WOTDind /**/){
-    return CHECKPOINT_OK;
-}
 
-BuildIndexing::ExitCodes BuildIndexing::build_index_(Map<String, Size> &acc_to_prot,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB,
-                                                     Map<String, Size> &acc_to_AAAprot,
+BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                                      String out,
                                                      FMind /**/){
@@ -236,7 +217,7 @@ BuildIndexing::ExitCodes BuildIndexing::check_duplicate_(std::vector<FASTAFile::
             LOG_ERROR << "Fatal error: Protein identifier '" << acc <<
                       "' found multiple times with different sequences" << (IL_equivalent_ ? " (I/L substituted)" : "") <<
                       ":\n"
-                      << tmp_prot << "\nvs.\n" << seq << "\nPlease fix the database and run PeptideIndexer again." <<
+                      << tmp_prot << "\nvs.\n" << seq << "\nPlease fix the database and build index again." <<
                       std::endl;
             return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
         }
@@ -273,17 +254,28 @@ BuildIndexing::ExitCodes BuildIndexing::checkUserInput_(std::vector<FASTAFile::F
         LOG_ERROR << "Error: An empty database was provided. Mapping makes no sense. Aborting..." << std::endl;
         return DATABASE_EMPTY;
     }
-    if ((suffix_array_ && FM_index_ && WOTD_) || (suffix_array_ && FM_index_) || (suffix_array_ && WOTD_) || (FM_index_ && WOTD_))
+    if (!suffix_array_ && !FM_index_ && !WOTD_){
+        LOG_ERROR <<
+                  "Fatal error: Specify a Tree format to build index.\n"
+                  << "Please adapt your settings." << endl;
+        return ILLEGAL_PARAMETERS;
+    }
+    else if ((suffix_array_ && FM_index_ && WOTD_) || (suffix_array_ && FM_index_) || (suffix_array_ && WOTD_) || (FM_index_ && WOTD_))
     {
         LOG_ERROR <<
-                  "Fatal error: Cannot use more than one Tree format to build/load index.\n"
+                  "Fatal error: Cannot use more than one Tree format to build index.\n"
                   << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }
     return CHECKPOINT_OK;
 }
 
-BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins, Map<String, Size> &acc_to_prot, seqan::StringSet<seqan::Peptide> &prot_DB, Map<String, Size> &acc_to_AAAprot, seqan::StringSet<seqan::Peptide> &prot_DB_AAA, std::vector<String> &duplicate_accessions){
+BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                     Map<String, Size> &acc_to_prot,
+                                                     seqan::StringSet<seqan::Peptide> &prot_DB,
+                                                     Map<String, Size> &acc_to_AAAprot,
+                                                     seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+                                                     std::vector<String> &duplicate_accessions){
     //
     for (Size i = 0; i != proteins.size(); ++i) {
         String seq = proteins[i].sequence.remove('*');
