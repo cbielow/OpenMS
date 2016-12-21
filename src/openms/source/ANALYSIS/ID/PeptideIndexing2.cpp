@@ -1055,7 +1055,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
                 // run_idx ist der counter der bestimmt in welchem <ProteinIdentification> das Peptid zu finden ist
                 // (meistens 0)
                 // hier wird also die Position festgehalten bei welchem Protein in der Datenbank der Hit gefunden wurde
-                // Spaeter koennen dieses nun geupdated werden in der idXML
+                // Spaeter koennen diese nun geupdated werden in der idXML
                 runidx_to_protidx[run_idx].insert(it_i->protein_index); // fill protein hits
                 //std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
                 // der rest ist statistik!

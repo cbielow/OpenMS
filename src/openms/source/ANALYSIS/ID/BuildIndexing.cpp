@@ -124,7 +124,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     // calculations
     //-------------------------------------------------------------
 
-    auto erg = checkUserInput_(proteins);
+    ExitCodes erg = checkUserInput_(proteins);
     if (erg != CHECKPOINT_OK){
         return erg;
     }
@@ -288,7 +288,7 @@ BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FA
                                                       seqan::StringSet<seqan::Peptide> &db,
                                                       Size &i){
     // check for duplicate proteins in db
-    auto erg = check_duplicate_(proteins, seq, duplicate_accessions, acc_to_prot,acc,db,i);
+    ExitCodes erg = check_duplicate_(proteins, seq, duplicate_accessions, acc_to_prot,acc,db,i);
     if (erg != BuildIndexing::CHECKPOINT_OK) {
         if (erg != BuildIndexing::CHECKPOINT_DONE){
             // case database contained multiples
