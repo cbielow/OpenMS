@@ -67,7 +67,6 @@ namespace OpenMS {
         mutable std::ofstream log_;
         /// debug flag
         bool debug_;
-        bool WOTD_;
         bool suffix_array_;
         bool FM_index_;
         bool IL_equivalent_;

@@ -197,14 +197,12 @@ namespace OpenMS {
         bool write_protein_description_;
         bool keep_unreferenced_proteins_;
         bool allow_unmatched_;
-        bool full_tolerant_search_;
         bool IL_equivalent_;
 
         Size aaa_max_;
         UInt mismatches_max_;
-        bool filter_aaa_proteins_;
+        bool search_only_aaa_proteins_;
 
-        bool WOTD_;
         bool suffix_array_;
         bool FM_index_;
 

@@ -694,29 +694,23 @@ PeptideIndexing2::PeptideIndexing2() :
     defaults_.setValue("allow_unmatched", "false", "If set, unmatched peptide sequences are allowed. By default (i.e. if this flag is not set) the program terminates with an error on unmatched peptides.");
     defaults_.setValidStrings("allow_unmatched", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("full_tolerant_search", "false", "If set, all peptide sequences are matched using tolerant search. Thus potentially more proteins (containing ambiguous amino acids) are associated. This is much slower!");
-    defaults_.setValidStrings("full_tolerant_search", ListUtils::create<String>("true,false"));
-
-    defaults_.setValue("aaa_max", 4, "[tolerant search only] Maximal number of ambiguous amino acids (AAAs) allowed when matching to a protein database with AAAs. AAAs are 'B', 'Z' and 'X'");
+    defaults_.setValue("aaa_max", 4, "Maximal number of ambiguous amino acids (AAAs) allowed when matching to a protein database with AAAs. AAAs are 'B', 'Z' and 'X'");
     defaults_.setMinInt("aaa_max", 0);
 
-    defaults_.setValue("mismatches_max", 0, "[tolerant search only] Maximal number of real mismatches (will be used after checking for ambiguous AA's (see 'aaa_max' option). In general this param should only be changed if you want to look for other potential origins of a peptide which might have unknown SNPs or the like.");
+    defaults_.setValue("mismatches_max", 0, " Maximal number of real mismatches (will be used after checking for ambiguous AA's (see 'aaa_max' option). In general this param should only be changed if you want to look for other potential origins of a peptide which might have unknown SNPs or the like.");
     defaults_.setMinInt("mismatches_max", 0);
 
     defaults_.setValue("IL_equivalent", "false", "Treat the isobaric amino acids isoleucine ('I') and leucine ('L') as equivalent (indistinguishable)");
     defaults_.setValidStrings("IL_equivalent", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("filter_aaa_proteins", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
-    defaults_.setValidStrings("filter_aaa_proteins", ListUtils::create<String>("true,false"));
+    defaults_.setValue("search_only_aaa_proteins", "false", "Indicates to search for AAA proteins in AAA protein database");
+    defaults_.setValidStrings("search_only_aaa_proteins", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("suffix_array", "true", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
+    defaults_.setValue("suffix_array", "true", "The index specified under -in is a suffix array");
     defaults_.setValidStrings("suffix_array", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("FM_index", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
+    defaults_.setValue("FM_index", "false", "The index specified under -in is an FM-index");
     defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
-
-    defaults_.setValue("WOTD", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
-    defaults_.setValidStrings("WOTD", ListUtils::create<String>("true,false"));
 
     defaults_.setValue("log", "", "Name of log file (created only when specified)");
     defaults_.setValue("debug", 0, "Sets the debug level");
@@ -752,16 +746,14 @@ void PeptideIndexing2::updateMembers_() {
     write_protein_description_ = param_.getValue("write_protein_description").toBool();
     keep_unreferenced_proteins_ = param_.getValue("keep_unreferenced_proteins").toBool();
     allow_unmatched_ = param_.getValue("allow_unmatched").toBool();
-    full_tolerant_search_ = param_.getValue("full_tolerant_search").toBool();
     IL_equivalent_ = param_.getValue("IL_equivalent").toBool();
 
     aaa_max_ = static_cast<Size>(param_.getValue("aaa_max"));
     mismatches_max_ = static_cast<Size>(param_.getValue("mismatches_max"));
-    filter_aaa_proteins_ = param_.getValue("filter_aaa_proteins").toBool();
+    search_only_aaa_proteins_ = param_.getValue("search_only_aaa_proteins").toBool();
 
     suffix_array_ = param_.getValue("suffix_array").toBool();
     FM_index_ = param_.getValue("FM_index").toBool();
-    WOTD_ = param_.getValue("WOTD").toBool();
     //load_index_ = param_.getValue("load_index").toBool();
 
     log_file_ = param_.getValue("log");
@@ -790,28 +782,18 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
 
 
     // check for Parameter Error
-    if (!full_tolerant_search_ && (mismatches_max_ >
-                                   0)) // this combination is not allowed, and we want the user to make a conscious decision about it
+    if (mismatches_max_ > 4) // this would talke to much time!
     {
         LOG_ERROR <<
-        "Fatal error: Allowing mismatches ('mismatches_max' > 0) requires a full tolerant search ('full_tolerant_search').\n"
+        "Fatal error: Searching for Peptides allowing > 4 mistakes would blow up search time.\n"
         << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }
 
-    if (full_tolerant_search_ && (mismatches_max_ == 0) && (aaa_max_ ==
-                                                            0)) // this combination is not allowed, and we want the user to make a conscious decision about it
+    if (suffix_array_ && FM_index_)
     {
         LOG_ERROR <<
-        "Fatal error: Cannot run full tolerant search ('full_tolerant_search') when no ambiguous AA's or mismatched AA's are allowed.\n"
-        << "Please adapt your settings." << endl;
-        return ILLEGAL_PARAMETERS;
-    }
-
-    if ((suffix_array_ && FM_index_ && WOTD_) || (suffix_array_ && FM_index_) || (suffix_array_ && WOTD_) || (FM_index_ && WOTD_))
-    {
-        LOG_ERROR <<
-                  "Fatal error: Cannot use more than one Tree format to build/load index.\n"
+                  "Fatal error: Cannot use more than one format to load index.\n"
                   << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }
@@ -1298,7 +1280,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
 
     //writeLog_(String("Mapping ") + length(pep_DB) + " peptides to " + length(prot_DB) + " proteins.");
 
-    /* SEARCH WITH SUFFIX ARRAY */
+    /* SEARCH WITH INDEX */
     writeLog_(String("Searching ..."));
     searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_);
 

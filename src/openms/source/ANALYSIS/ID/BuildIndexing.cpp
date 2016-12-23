@@ -31,16 +31,13 @@ struct WOTDind {
 
 BuildIndexing::BuildIndexing() :
         DefaultParamHandler("BuildIndexing") {
-    defaults_.setValue("suffix_array", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
+    defaults_.setValue("suffix_array", "false", "Using the Suffix Array as index");
     defaults_.setValidStrings("suffix_array", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("FM_index", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
+    defaults_.setValue("FM_index", "false", "Using the FM-Index as index");
     defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
 
-    defaults_.setValue("WOTD", "false", "In the tolerant search for matches to proteins with ambiguous amino acids (AAAs), rebuild the search database to only consider proteins with AAAs. This may save time if most proteins don't contain AAAs and if there is a significant number of peptides that enter the tolerant search.");
-    defaults_.setValidStrings("WOTD", ListUtils::create<String>("true,false"));
-
-    defaults_.setValue("IL_equivalent", "false",
+     defaults_.setValue("IL_equivalent", "false",
                        "Treat the isobaric amino acids isoleucine ('I') and leucine ('L') as equivalent (indistinguishable)");
     defaults_.setValidStrings("IL_equivalent", ListUtils::create<String>("true,false"));
 //
@@ -253,7 +250,6 @@ bool BuildIndexing::has_aaa_(String seq){
 void BuildIndexing::updateMembers_() {
     suffix_array_ = param_.getValue("suffix_array").toBool();
     FM_index_ = param_.getValue("FM_index").toBool();
-    WOTD_ = param_.getValue("WOTD").toBool();
     log_file_ = param_.getValue("log");
     debug_ = static_cast<Size>(param_.getValue("debug")) > 0;
 }
@@ -264,16 +260,15 @@ BuildIndexing::ExitCodes BuildIndexing::checkUserInput_(std::vector<FASTAFile::F
         LOG_ERROR << "Error: An empty database was provided. Mapping makes no sense. Aborting..." << std::endl;
         return DATABASE_EMPTY;
     }
-    if (!suffix_array_ && !FM_index_ && !WOTD_){
+    if (!suffix_array_ && !FM_index_){
         LOG_ERROR <<
                   "Fatal error: Specify a Tree format to build index.\n"
                   << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }
-    else if ((suffix_array_ && FM_index_ && WOTD_) || (suffix_array_ && FM_index_) || (suffix_array_ && WOTD_) || (FM_index_ && WOTD_))
-    {
+    if (suffix_array_ && FM_index_){
         LOG_ERROR <<
-                  "Fatal error: Cannot use more than one Tree format to build index.\n"
+                  "Fatal error: Specify only one Tree format to build index.\n"
                   << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }
