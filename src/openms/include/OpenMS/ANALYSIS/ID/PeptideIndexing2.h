@@ -44,7 +44,6 @@
 struct PeptideProteinMatchInformation;
 struct FMind;
 struct SAind;
-struct WOTDind;
 
 
 
@@ -139,7 +138,7 @@ namespace OpenMS {
         /// main method of PeptideIndexing
         //PeptideIndexing2::ExitCodes run(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids,
         //              std::vector<PeptideIdentification> &pep_ids);
-        PeptideIndexing2::ExitCodes run(String &index, std::vector<ProteinIdentification> &prot_ids,
+        PeptideIndexing2::ExitCodes run(String &index, String &indexAAA,std::vector<ProteinIdentification> &prot_ids,
                                         std::vector<PeptideIdentification> &pep_ids);
 
     protected:
@@ -201,7 +200,8 @@ namespace OpenMS {
 
         Size aaa_max_;
         UInt mismatches_max_;
-        bool search_only_aaa_proteins_;
+        bool search_for_aaa_proteins_;
+        bool search_for_normal_proteins_;
 
         bool suffix_array_;
         bool FM_index_;
@@ -229,12 +229,14 @@ namespace OpenMS {
 
         ExitCodes processMap_(EnzymaticDigestion enzyme,
                               String path,
+                              String pathAAA,
                               std::vector<ProteinIdentification> &prot_ids,
                               std::vector<PeptideIdentification> &pep_ids,
                               SAind /**/);
 
         ExitCodes processMap_(EnzymaticDigestion enzyme,
                               String path,
+                              String pathAAA,
                               std::vector<ProteinIdentification> &prot_ids,
                               std::vector<PeptideIdentification> &pep_ids,
                               FMind /**/);

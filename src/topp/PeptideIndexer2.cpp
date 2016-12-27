@@ -102,12 +102,16 @@ protected:
     void registerOptionsAndFlags_() {
         registerInputFile_("in", "<file>", "", "Input idXML file containing the identifications.");
         setValidFormats_("in", ListUtils::create<String>("idXML"));
-        registerOutputFile_("index", "<file>", "", "inputIndex file.");
+
+        // would love to take registerInputFile_ but this one trys to find the file under the given path.
+        // but there is not ONE file to find because its an index... i dont know how to skip this
+
+        registerOutputFile_("index", "<file>", "", "Input index file.", false);
         setValidFormats_("index", ListUtils::create<String>("txt"));
-//        registerInputFile_("fasta", "<file>", "",
-//                           "Input sequence database in FASTA format. Non-existing relative filenames are looked up via 'OpenMS.ini:id_db_dir'",
-//                           true, false, ListUtils::create<String>("skipexists"));
-//        setValidFormats_("fasta", ListUtils::create<String>("fasta"));
+
+        registerOutputFile_("indexAAA", "<file>", "", "TEST",false);
+        setValidFormats_("indexAAA", ListUtils::create<String>("txt"));
+
         registerOutputFile_("out", "<file>", "", "Output idXML file.");
         setValidFormats_("out", ListUtils::create<String>("idXML"));
 
@@ -121,7 +125,9 @@ protected:
         //-------------------------------------------------------------
         String in = getStringOption_("in");
         String index = getStringOption_("index");
+        String indexAAA = getStringOption_("indexAAA");
         String out = getStringOption_("out");
+ //       String indexAAA = getStringOption_("indexAAA");
 
         PeptideIndexing2 indexer;
         Param param = getParam_().copy("", true);
@@ -167,8 +173,7 @@ protected:
         // calculations
         //-------------------------------------------------------------
 
-        PeptideIndexing2::ExitCodes indexer_exit = indexer.run(index, prot_ids,
-                                                               pep_ids);
+        PeptideIndexing2::ExitCodes indexer_exit = indexer.run(index,indexAAA,prot_ids,pep_ids);
         if ((indexer_exit != PeptideIndexing2::EXECUTION_OK) &&
             (indexer_exit != PeptideIndexing2::PEPTIDE_IDS_EMPTY)) {
             if (indexer_exit == PeptideIndexing2::DATABASE_EMPTY) {
