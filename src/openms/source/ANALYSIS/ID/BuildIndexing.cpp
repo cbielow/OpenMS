@@ -143,7 +143,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     /**
     BUILD Index & Save
     */
-    writeLog_(String("building protein database index..."));
+    writeLog_(String("Building protein database index..."));
     if (suffix_array_){
         if (build_index_(prot_DB,prot_DB_AAA,out,SAind()) != CHECKPOINT_OK){
             return OUTPUT_ERROR;
@@ -166,9 +166,9 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Pep
                                                      String out,
                                                      SAind /**/){
     if (!seqan::empty(prot_DB_AAA)){
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > index(prot_DB_AAA);
-        seqan::indexRequire(index, seqan::FibreSA());
-        if (!seqan::save(index, (out + "_AAA").c_str() )) {
+        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > indexAAA(prot_DB_AAA);
+        seqan::indexRequire(indexAAA, seqan::FibreSA());
+        if (!seqan::save(indexAAA, (out + "_AAA").c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
         }
@@ -190,9 +190,9 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Pep
                                                      String out,
                                                      FMind /**/){
     if (!seqan::empty(prot_DB_AAA)){
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index(prot_DB_AAA);
-        seqan::indexRequire(index, seqan::FibreSaLfTable());
-        if (!seqan::save(index, (out + "_AAA").c_str() )) {
+        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > indexAAA(prot_DB_AAA);
+        seqan::indexRequire(indexAAA, seqan::FibreSaLfTable());
+        if (!seqan::save(indexAAA, (out + "_AAA").c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
         }
@@ -262,13 +262,13 @@ BuildIndexing::ExitCodes BuildIndexing::checkUserInput_(std::vector<FASTAFile::F
     }
     if (!suffix_array_ && !FM_index_){
         LOG_ERROR <<
-                  "Fatal error: Specify a Tree format to build index.\n"
+                  "Fatal error: Specify a format to build index.\n"
                   << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }
     if (suffix_array_ && FM_index_){
         LOG_ERROR <<
-                  "Fatal error: Specify only one Tree format to build index.\n"
+                  "Fatal error: Specify only one format to build index.\n"
                   << "Please adapt your settings." << endl;
         return ILLEGAL_PARAMETERS;
     }

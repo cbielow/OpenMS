@@ -182,6 +182,9 @@ protected:
             else if (indexer_exit == PeptideIndexing2::UNEXPECTED_RESULT) {
                 return UNEXPECTED_RESULT;
             }
+            else if (indexer_exit == PeptideIndexing2::INPUT_ERROR) {
+                return INPUT_FILE_CORRUPT;
+            }
             else {
                 return UNKNOWN_ERROR;
             }
