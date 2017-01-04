@@ -169,9 +169,9 @@ namespace OpenMS {
                                                       Size &stats_unmatched,
                                                       seqan::FoundProteinFunctor &func);
 
-        ExitCodes
-        updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
+        PeptideIndexing2::ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
                        Map<String, Size> &acc_to_prot,
+                       Map<String, Size> &acc_to_AAAprot,
                        Map<String, bool> &protein_is_decoy,
                        Map<Size, std::set<Size> > &runidx_to_protidx,
                        Size &stats_unmatched);
@@ -225,7 +225,8 @@ namespace OpenMS {
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
                             Map<String, Size> &acc_to_prot,
                             Map<String, Size> &acc_to_AAAprot,
-                            String &path);
+                            String &path,
+                            String &pathAAA);
 
         ExitCodes processMap_(EnzymaticDigestion enzyme,
                               String path,

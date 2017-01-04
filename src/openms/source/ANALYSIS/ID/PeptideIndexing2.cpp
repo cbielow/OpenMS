@@ -865,7 +865,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::readAcc_to_prot_(Map<String, Size>
 PeptideIndexing2::ExitCodes PeptideIndexing2::loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                         Map<String, Size> &acc_to_prot,
                                                         Map<String, Size> &acc_to_AAAprot,
-                                                        String &path) {
+                                                        String &path,
+                                                        String &pathAAA) {
     // read Acc_to_prot only if we search for normal proteins
     if (search_for_normal_proteins_) {
         if (readAcc_to_prot_(acc_to_prot, (path + "_acc_to_prot")) != CHECKPOINT_OK) {
@@ -874,12 +875,16 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::loadInfo_(std::vector<FASTAFile::F
     }
     // read _acc_to_AAAprot only if we search for AAA proteins
     if (search_for_aaa_proteins_) {
-        if (readAcc_to_prot_(acc_to_AAAprot, (path + "_acc_to_AAAprot")) != CHECKPOINT_OK) {
+        if (readAcc_to_prot_(acc_to_AAAprot, (pathAAA + "_acc_to_prot")) != CHECKPOINT_OK) {
             return INPUT_ERROR;
         };
     }
     // read Proteins
     fstream infile;
+    // proteins is safed without _AAA-ending!
+    if (search_for_aaa_proteins_ && !search_for_normal_proteins_) {
+        path =  pathAAA.substr(0, pathAAA.size()-4);
+    }
     infile.open((path + "_proteins").c_str(), std::ios::in);
     if (!infile.is_open()){
         return INPUT_ERROR;
@@ -1158,6 +1163,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                              std::vector<ProteinIdentification> &prot_ids,
                                                              Map<String, Size> &acc_to_prot,
+                                                             Map<String, Size> &acc_to_AAAprot,
                                                              Map<String, bool> &protein_is_decoy,
                                                              Map<Size, std::set<Size> > &runidx_to_protidx,
                                                              Size &stats_unmatched){
@@ -1199,7 +1205,25 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFi
 
                 new_protein_hits.push_back(*p_hit);
                 masterset.erase(acc_to_prot[acc]); // remove from master (at the end only new proteins remain)
+            } else if (acc_to_AAAprot.has(acc) && masterset.find(acc_to_AAAprot[acc]) != masterset.end()){
+                String seq;
+                if (write_protein_sequence_)
+                {
+                    seq = proteins[acc_to_AAAprot[acc]].sequence;
+                }
+                p_hit->setSequence(seq);
+
+                if (write_protein_description_)
+                {
+                    const String& description = proteins[acc_to_AAAprot[acc]].description;
+                    //std::cout << "Description = " << description << "\n";
+                    p_hit->setDescription(description);
+                }
+
+                new_protein_hits.push_back(*p_hit);
+                masterset.erase(acc_to_AAAprot[acc]); // remove from master (at the end only new proteins remain)
             }
+
             else // old hit is orphaned
             {
                 ++stats_orphaned_proteins;
@@ -1278,13 +1302,13 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
                                                           FMind /**/) {
     seqan::FoundProteinFunctor func(enzyme); // stores the matches
     seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index;
-    if (!search_for_aaa_proteins_) {
+    if (search_for_normal_proteins_) {
         if (!seqan::open(index, path.c_str())) {
             return INPUT_ERROR;
         }
     }
     seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > indexAAA;
-    if (!search_for_normal_proteins_) {
+    if (search_for_aaa_proteins_) {
         if (!seqan::open(indexAAA, pathAAA.c_str())) {
             return INPUT_ERROR;
         }
@@ -1293,7 +1317,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     std::vector<FASTAFile::FASTAEntry> proteins;
     Map<String, Size> acc_to_prot;
     Map<String, Size> acc_to_AAAprot;
-    if (loadInfo_(proteins, acc_to_prot, acc_to_AAAprot, path) != CHECKPOINT_OK){
+    if (loadInfo_(proteins, acc_to_prot, acc_to_AAAprot, path , pathAAA) != CHECKPOINT_OK){
         return INPUT_ERROR;
     };
 
@@ -1336,7 +1360,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
 
     /* UPDATE HITS */
     writeLog_(String("Updating"));
-    if (updateProtHit_(proteins, prot_ids, acc_to_prot, protein_is_decoy, runidx_to_protidx, stats_unmatched)!= CHECKPOINT_OK){
+    if (updateProtHit_(proteins, prot_ids, acc_to_prot,acc_to_AAAprot, protein_is_decoy, runidx_to_protidx, stats_unmatched)!= CHECKPOINT_OK){
         return UNEXPECTED_RESULT;
     }
     return CHECKPOINT_OK;
@@ -1368,7 +1392,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     std::vector<FASTAFile::FASTAEntry> proteins;
     Map<String, Size> acc_to_prot;
     Map<String, Size> acc_to_AAAprot;
-    if (loadInfo_(proteins, acc_to_prot, acc_to_AAAprot, path) != CHECKPOINT_OK){
+    if (loadInfo_(proteins, acc_to_prot, acc_to_AAAprot, path, pathAAA) != CHECKPOINT_OK){
         return INPUT_ERROR;
     };
     writeLog_(String("Build Peptide DB"));
@@ -1411,7 +1435,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
 
     /* UPDATE HITS */
     writeLog_(String("Updating"));
-    if (updateProtHit_(proteins, prot_ids, acc_to_prot, protein_is_decoy, runidx_to_protidx, stats_unmatched)!= CHECKPOINT_OK){
+    if (updateProtHit_(proteins, prot_ids, acc_to_prot, acc_to_AAAprot, protein_is_decoy, runidx_to_protidx, stats_unmatched)!= CHECKPOINT_OK){
         return UNEXPECTED_RESULT;
     }
     return CHECKPOINT_OK;

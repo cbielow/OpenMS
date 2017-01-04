@@ -29,6 +29,12 @@ struct WOTDind {
     WOTDind() { }
 };
 
+//template<>
+//struct seqan::SAValue< seqan::StringSet<seqan::Peptide > >
+//{
+//    typedef seqan::Pair<short, unsigned> Type;
+//};
+
 BuildIndexing::BuildIndexing() :
         DefaultParamHandler("BuildIndexing") {
     defaults_.setValue("suffix_array", "false", "Using the Suffix Array as index");
@@ -68,7 +74,7 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_pr
     }
     acc_to_prot_out.close();
 
-    std::ofstream acc_to_AAAprot_out((out + "_acc_to_AAAprot").c_str());
+    std::ofstream acc_to_AAAprot_out((out + "_AAA_acc_to_prot").c_str());
     for (map<OpenMS::String, unsigned long>::iterator i = acc_to_AAAprot.begin(); i != acc_to_AAAprot.end(); i++){
         acc_to_AAAprot_out << (*i).first;
         acc_to_AAAprot_out << ";";
