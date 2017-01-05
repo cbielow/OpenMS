@@ -48,6 +48,7 @@ namespace OpenMS {
         void writeDebug_(const String &text, const Size min_level) const;
 
         ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                               std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                Map<String, Size> &acc_to_prot,
                                seqan::StringSet<seqan::Peptide> &prot_DB,
                                Map<String, Size> &acc_to_AAAprot,
@@ -76,6 +77,7 @@ namespace OpenMS {
         ExitCodes saveOutput_(Map<String, Size> &acc_to_prot,
                               Map<String, Size> &acc_to_AAAprot,
                               std::vector<FASTAFile::FASTAEntry>& proteins,
+                              std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                               String &out);
 
         ExitCodes build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,

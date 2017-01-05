@@ -60,6 +60,7 @@ BuildIndexing::~BuildIndexing() {
 BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_prot,
                                                     Map<String, Size> &acc_to_AAAprot,
                                                     std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                    std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                                     String &out){
     // save them on disk
     // jede accession nummer wird die Position in dem Suffix-Array gespeichert
@@ -95,6 +96,16 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_pr
     }
     proteins_out.close();
 
+    std::ofstream proteinsAAA_out((out + "_AAA_proteins").c_str());
+    for (vector<OpenMS::FASTAFile::FASTAEntry>::iterator i = proteinsAAA.begin(); i != proteinsAAA.end(); i++){
+        proteinsAAA_out << (*i).identifier;
+        proteinsAAA_out << ";";
+        proteinsAAA_out << (*i).sequence;
+        proteinsAAA_out << ";";
+        proteinsAAA_out << (*i).description;
+        proteinsAAA_out << "\n";
+    }
+    proteinsAAA_out.close();
 
     return CHECKPOINT_OK;
 
@@ -136,13 +147,14 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
        BUILD Protein DB
     */
     writeLog_(String("Building protein database..."));
+    std::vector<FASTAFile::FASTAEntry> proteinsAAA;
     Map<String, Size> acc_to_prot; // build map: accessions to FASTA protein index
     Map<String, Size> acc_to_AAAprot;
     seqan::StringSet<seqan::Peptide> prot_DB;
     seqan::StringSet<seqan::Peptide> prot_DB_AAA;
     vector<String> duplicate_accessions;
     // check for duplicated accessions & build prot DB
-    if (buildProtDB_(proteins, acc_to_prot, prot_DB, acc_to_AAAprot, prot_DB_AAA, duplicate_accessions) != CHECKPOINT_OK ) {
+    if (buildProtDB_(proteins, proteinsAAA, acc_to_prot, prot_DB, acc_to_AAAprot, prot_DB_AAA, duplicate_accessions) != CHECKPOINT_OK ) {
         return DATABASE_CONTAINS_MULTIPLES;
     }
 
@@ -161,7 +173,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     }
 
     writeLog_(String("saving protein database index..."));
-    saveOutput_(acc_to_prot,acc_to_AAAprot, proteins, out);
+    saveOutput_(acc_to_prot,acc_to_AAAprot, proteins, proteinsAAA, out);
 
 
     return EXECUTION_OK;
@@ -307,12 +319,14 @@ BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FA
 
 
 BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                     std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                                      Map<String, Size> &acc_to_prot,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB,
                                                      Map<String, Size> &acc_to_AAAprot,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                                      std::vector<String> &duplicate_accessions){
     //
+    Size j = 0;
     for (Size i = 0; i != proteins.size(); ++i) {
         String seq = proteins[i].sequence.remove('*');
         if (IL_equivalent_) // convert  L to I; warning: do not use 'J', since Seqan does not know about it and will convert 'J' to 'X'
@@ -324,7 +338,11 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FAST
         // check if the protein contains ambiguous amino acids:
         if (has_aaa_(seq)){
             // case AAA
-            if (appendWrapper_(proteins,seq,duplicate_accessions,acc_to_AAAprot,acc,prot_DB_AAA,i)!=BuildIndexing::CHECKPOINT_OK){
+            proteinsAAA.push_back(proteins[i]);
+            proteins.erase(proteins.begin() + i);
+            i--;
+            j++;
+            if (appendWrapper_(proteinsAAA,seq,duplicate_accessions,acc_to_AAAprot,acc,prot_DB_AAA,j)!=BuildIndexing::CHECKPOINT_OK){
                 return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
             };
         }else{

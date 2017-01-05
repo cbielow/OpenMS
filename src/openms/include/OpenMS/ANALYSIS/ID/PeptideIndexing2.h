@@ -162,19 +162,24 @@ namespace OpenMS {
 
 
         PeptideIndexing2::ExitCodes mappingPepToProt_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                      std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                                                       std::vector<ProteinIdentification> &prot_ids,
                                                       std::vector<PeptideIdentification> &pep_ids,
                                                       Map<String, bool> &protein_is_decoy,
                                                       Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                      Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                       Size &stats_unmatched,
                                                       seqan::FoundProteinFunctor &func);
 
-        PeptideIndexing2::ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins, std::vector<ProteinIdentification> &prot_ids,
-                       Map<String, Size> &acc_to_prot,
-                       Map<String, Size> &acc_to_AAAprot,
-                       Map<String, bool> &protein_is_decoy,
-                       Map<Size, std::set<Size> > &runidx_to_protidx,
-                       Size &stats_unmatched);
+        PeptideIndexing2::ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                   std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
+                                                   std::vector<ProteinIdentification> &prot_ids,
+                                                   Map<String, Size> &acc_to_prot,
+                                                   Map<String, Size> &acc_to_AAAprot,
+                                                   Map<String, bool> &protein_is_decoy,
+                                                   Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                   Map<Size, std::set<Size> > &runidx_to_protidxAAA,
+                                                   Size &stats_unmatched);
         //PeptideIndexing2::ExitCodes searchAC_(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
 
 
@@ -212,17 +217,20 @@ namespace OpenMS {
                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
                             seqan::StringSet<seqan::Peptide> &pep_DB,
                             int mm,
-                            Size aaa_max);
+                            Size aaa_max,
+                            Size indexType);
 
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
                             seqan::StringSet<seqan::Peptide> &pep_DB,
                             int mm,
-                            Size aaa_max);
+                            Size aaa_max,
+                            Size indexType);
 
         //bool checkAmbigous_(String tmp_pep, String tmp_prot, Size pos, Size error);
 
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                            std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                             Map<String, Size> &acc_to_prot,
                             Map<String, Size> &acc_to_AAAprot,
                             String &path,
@@ -242,7 +250,11 @@ namespace OpenMS {
                               std::vector<PeptideIdentification> &pep_ids,
                               FMind /**/);
 
-        ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot, String path);
+        ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot,
+                                   String path);
+
+        ExitCodes readProteins_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                String path);
 
     };
 

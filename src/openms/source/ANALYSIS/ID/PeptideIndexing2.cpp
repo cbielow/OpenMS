@@ -53,6 +53,8 @@ struct PeptideProteinMatchInformation {
     /// index of the protein the peptide is contained in
     OpenMS::Size protein_index;
 
+    OpenMS::Size indexType;
+
     /// the amino acid after the peptide in the protein
     char AABefore;
 
@@ -109,9 +111,11 @@ namespace seqan
     struct FoundProteinFunctor {
     public:
         typedef OpenMS::Map<OpenMS::Size, std::set<PeptideProteinMatchInformation> > MapType;
+        typedef OpenMS::Map<OpenMS::Size, std::set<OpenMS::Size> > MapType2;
 
         /// peptide index --> protein indices
         MapType pep_to_prot;
+
 
         /// number of accepted hits (passing addHit() constraints)
         OpenMS::Size filter_passed;
@@ -128,7 +132,7 @@ namespace seqan
         }
 
         template<typename TIter1, typename TIter2>
-        void operator()(const TIter1 &iter_pep, const TIter2 &iter_prot) {
+        void operator()(const TIter1 &iter_pep, const TIter2 &iter_prot, OpenMS::Size indexType) {
             // the peptide sequence (will not change)
             const OpenMS::String tmp_pep(begin(representative(iter_pep)),
                                          end(representative(iter_pep)));
@@ -147,7 +151,7 @@ namespace seqan
                             end(indexText(container(iter_prot))[getSeqNo(prot_occ)]));
                     // check if hit is valid and add (if valid)
                     addHit(idx_pep, prot_occ.i1, tmp_pep, tmp_prot,
-                           getSeqOffset(prot_occ));
+                           getSeqOffset(prot_occ),indexType);
                 }
             }
         }
@@ -172,7 +176,8 @@ namespace seqan
 
         void addHit(OpenMS::Size idx_pep, OpenMS::Size idx_prot,
                     const OpenMS::String &seq_pep, const OpenMS::String &protein,
-                    OpenMS::Size position) {
+                    OpenMS::Size position,
+                    OpenMS::Size indexType) {
             if (enzyme_.isValidProduct(AASequence::fromString(protein), position,
                                        seq_pep.length(), true)) {
                 PeptideProteinMatchInformation match;
@@ -181,8 +186,9 @@ namespace seqan
                 match.AABefore = (position == 0) ? PeptideEvidence::N_TERMINAL_AA : protein[position - 1];
                 match.AAAfter = (position + seq_pep.length() >= protein.size()) ? PeptideEvidence::C_TERMINAL_AA
                                                                                 : protein[position + seq_pep.length()];
+                match.indexType = indexType;
                 pep_to_prot[idx_pep].insert(match);
-                //std:: cout <<"Treffer hinzugefügt. \n \t Index des Proteins der DB: "<<  idx_prot<< std::endl;
+                //std:: cout <<"Treffer hinzugefügt. \n \t Index des Proteins in der DB: "<<  idx_prot<< std::endl;
                 //std:: cout <<"\t Index des PeptideHit aus der idXML: " << idx_pep<< std::endl;
                 ++filter_passed;
             }
@@ -862,29 +868,9 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::readAcc_to_prot_(Map<String, Size>
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
-                                                        Map<String, Size> &acc_to_prot,
-                                                        Map<String, Size> &acc_to_AAAprot,
-                                                        String &path,
-                                                        String &pathAAA) {
-    // read Acc_to_prot only if we search for normal proteins
-    if (search_for_normal_proteins_) {
-        if (readAcc_to_prot_(acc_to_prot, (path + "_acc_to_prot")) != CHECKPOINT_OK) {
-            return INPUT_ERROR;
-        };
-    }
-    // read _acc_to_AAAprot only if we search for AAA proteins
-    if (search_for_aaa_proteins_) {
-        if (readAcc_to_prot_(acc_to_AAAprot, (pathAAA + "_acc_to_prot")) != CHECKPOINT_OK) {
-            return INPUT_ERROR;
-        };
-    }
+PeptideIndexing2::ExitCodes PeptideIndexing2::readProteins_(std::vector<FASTAFile::FASTAEntry> &proteins, String path){
     // read Proteins
     fstream infile;
-    // proteins is safed without _AAA-ending!
-    if (search_for_aaa_proteins_ && !search_for_normal_proteins_) {
-        path =  pathAAA.substr(0, pathAAA.size()-4);
-    }
     infile.open((path + "_proteins").c_str(), std::ios::in);
     if (!infile.is_open()){
         return INPUT_ERROR;
@@ -910,6 +896,34 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::loadInfo_(std::vector<FASTAFile::F
         proteins.push_back(fastaEnt);
     }
     infile.close();
+
+    return CHECKPOINT_OK;
+}
+
+PeptideIndexing2::ExitCodes PeptideIndexing2::loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                        std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
+                                                        Map<String, Size> &acc_to_prot,
+                                                        Map<String, Size> &acc_to_AAAprot,
+                                                        String &path,
+                                                        String &pathAAA) {
+    // read Acc_to_prot and proteins only if we search for normal proteins
+    if (search_for_normal_proteins_) {
+        if (readAcc_to_prot_(acc_to_prot, (path + "_acc_to_prot")) != CHECKPOINT_OK) {
+            return INPUT_ERROR;
+        };
+        if (readProteins_(proteins, path) != CHECKPOINT_OK) {
+            return INPUT_ERROR;
+        };
+    }
+    // read _acc_to_AAAprot only if we search for AAA proteins
+    if (search_for_aaa_proteins_) {
+        if (readAcc_to_prot_(acc_to_AAAprot, (pathAAA + "_acc_to_prot")) != CHECKPOINT_OK) {
+            return INPUT_ERROR;
+        };
+        if (readProteins_(proteinsAAA, pathAAA) != CHECKPOINT_OK) {
+            return INPUT_ERROR;
+        };
+    }
     return CHECKPOINT_OK;
 }
 
@@ -917,11 +931,12 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
                                              seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
                                              seqan::StringSet<seqan::Peptide> &pep_DB,
                                              int mm,
-                                             OpenMS::Size max_aaa){
+                                             OpenMS::Size max_aaa,
+                                             OpenMS::Size indexType){
     typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > TIndex;
     typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
     typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
-    auto delegate = [&func_SA, &prot_Index, max_aaa ](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
+    auto delegate = [&func_SA, &prot_Index, max_aaa, indexType](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
         //auto pattern_len = length(*patternsIt);
         //std::cout << "laenge: " << pattern_len << std::endl;
         long indexOfPeptideHit = position(patternsIt);
@@ -942,7 +957,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
 
 
             if(func_SA.checkAmbigous_(tmp_pep, tmp_prot, beg, max_aaa)){
-               func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg);
+               func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg,indexType);
             }
         }
     };
@@ -953,11 +968,12 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
                                              seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
                                              seqan::StringSet<seqan::Peptide> &pep_DB,
                                              int mm,
-                                             Size max_aaa){
+                                             Size max_aaa,
+                                             OpenMS::Size indexType){
     typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > TIndex;
     typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
     typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
-    auto delegate = [&func_SA, &prot_Index, max_aaa ](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
+    auto delegate = [&func_SA, &prot_Index, max_aaa, indexType](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
         long indexOfPeptideHit = position(patternsIt);
         for (auto occ: getOccurrences(it)){
             long entryNr = seqan::getSeqNo(occ);
@@ -966,7 +982,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
             const OpenMS::String tmp_prot(begin(seqan::indexText(prot_Index)[entryNr]),
                                           end(seqan::indexText(prot_Index)[entryNr]));
             if(func_SA.checkAmbigous_(tmp_pep, tmp_prot, beg, max_aaa)){
-                func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg);
+                func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg, indexType);
             }
         }
     };
@@ -975,10 +991,12 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
 
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                                std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                                                                 std::vector<ProteinIdentification> &prot_ids,
                                                                 std::vector<PeptideIdentification> &pep_ids,
                                                                 Map<String, bool> &protein_is_decoy,
                                                                 Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                                Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                                 Size &stats_unmatched,
                                                                 seqan::FoundProteinFunctor &func){
     /* do mapping */
@@ -1004,6 +1022,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
     //Map<Size, set<Size> > runidx_to_protidx; // in which protID do appear which proteins (according to mapped peptides)
 
     Size pep_idx(0);
+    int pephit = 0;
     //unsigned peptidIdentificationCounter = 0;
     // iteriere durch alle <PeptidIdentification>...</PeptidIdentification> der idXML
     for (vector<PeptideIdentification>::iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1)
@@ -1018,9 +1037,11 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 
 
         vector<PeptideHit>& hits = it1->getHits();
+
         // Iteriere durch alle <PeptideHit> ...</PeptideHit> der <PeptidIdentification>... </PeptidIdentification>
         for (vector<PeptideHit>::iterator it2 = hits.begin(); it2 != hits.end(); ++it2)
         {
+
             //std::cout << "PeptideHit Nummer: " << pep_idx << std::endl;
             // clear protein accessions
             it2->setPeptideEvidences(vector<PeptideEvidence>());
@@ -1036,33 +1057,60 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 
             // add new protein references
             for (set<PeptideProteinMatchInformation>::const_iterator it_i = func.pep_to_prot[pep_idx].begin();
-                 it_i != func.pep_to_prot[pep_idx].end(); ++it_i)
-            {
-                // für alle Treffer zu dem Hit hinter der Nummer pep_idx wurd nun der Identifier eingetragen.
-                // wenn also der Hit mit der nummer pep_idx aus der idXML in 5 Einträgen aus der DB gefunden wird dann werden
-                // hier 5 Einträge gemacht.
-                // in proteins stehen die Proteine in denen gesucht werden geordnet nach der ursprünglichen FASTA file
-                const String& accession = proteins[it_i->protein_index].identifier;
-                // protein_index ist die Position des Proteins in der fastaFile in dem der Hit gefunden wurde
-                PeptideEvidence pe;
-                pe.setProteinAccession(accession);
-                pe.setStart(it_i->position);
-                pe.setEnd(it_i->position + it2->getSequence().size() - 1);
-                pe.setAABefore(it_i->AABefore);
-                pe.setAAAfter(it_i->AAAfter);
-                it2->addPeptideEvidence(pe);
+                 it_i != func.pep_to_prot[pep_idx].end(); ++it_i) {
 
-                // runidx_to_protidx ist am anfang leer und vom typ Map<Size, set<Size> >
-                // run_idx ist der counter der bestimmt in welchem <ProteinIdentification> das Peptid zu finden ist
-                // (meistens 0)
-                // hier wird also die Position festgehalten bei welchem Protein in der Datenbank der Hit gefunden wurde
-                // Spaeter koennen diese nun geupdated werden in der idXML
-                runidx_to_protidx[run_idx].insert(it_i->protein_index); // fill protein hits
-                //std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
-                // der rest ist statistik!
-                if (!protein_is_decoy.has(accession))
-                {
-                    protein_is_decoy[accession] = (prefix_ && accession.hasPrefix(decoy_string_)) || (!prefix_ && accession.hasSuffix(decoy_string_));
+                // check in wich index hit was found
+                if (!it_i->indexType) {
+                    // für alle Treffer zu dem Hit hinter der Nummer pep_idx wurd nun der Identifier eingetragen.
+                    // wenn also der Hit mit der nummer pep_idx aus der idXML in 5 Einträgen aus der DB gefunden wird dann werden
+                    // hier 5 Einträge gemacht.
+                    // in proteins stehen die Proteine in denen gesucht werden geordnet nach der ursprünglichen FASTA file
+                    const String &accession = proteins[it_i->protein_index].identifier;
+                    //Index des Proteins in der DB (index): protein_index
+                    PeptideEvidence pe;
+                    pe.setProteinAccession(accession);
+                    pe.setStart(it_i->position);
+                    pe.setEnd(it_i->position + it2->getSequence().size() - 1);
+                    pe.setAABefore(it_i->AABefore);
+                    pe.setAAAfter(it_i->AAAfter);
+                    it2->addPeptideEvidence(pe);
+
+                    // runidx_to_protidx ist am anfang leer und vom typ Map<Size, set<Size> >
+                    // run_idx ist der counter der bestimmt in welchem <ProteinIdentification> das Peptid zu finden ist
+                    // (meistens 0)
+                    // hier wird also die Position festgehalten bei welchem Protein in der Datenbank der Hit gefunden wurde
+                    // Spaeter koennen diese nun geupdated werden in der idXML
+                    runidx_to_protidx[run_idx].insert(it_i->protein_index); // fill protein hits
+                    //std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
+                    // der rest ist statistik!
+                    if (!protein_is_decoy.has(accession)) {
+                        protein_is_decoy[accession] = (prefix_ && accession.hasPrefix(decoy_string_)) ||
+                                                      (!prefix_ && accession.hasSuffix(decoy_string_));
+                    }
+                }else{
+                    // hier der fall der hit kommt aus AAA db müsste in runidx_to_protidxAAA kommen
+                    const String &accession = proteinsAAA[it_i->protein_index].identifier;
+                    //Index des Proteins in der DB (index): protein_index
+                    PeptideEvidence pe;
+                    pe.setProteinAccession(accession);
+                    pe.setStart(it_i->position);
+                    pe.setEnd(it_i->position + it2->getSequence().size() - 1);
+                    pe.setAABefore(it_i->AABefore);
+                    pe.setAAAfter(it_i->AAAfter);
+                    it2->addPeptideEvidence(pe);
+
+                    // runidx_to_protidx ist am anfang leer und vom typ Map<Size, set<Size> >
+                    // run_idx ist der counter der bestimmt in welchem <ProteinIdentification> das Peptid zu finden ist
+                    // (meistens 0)
+                    // hier wird also die Position festgehalten bei welchem Protein in der Datenbank der Hit gefunden wurde
+                    // Spaeter koennen diese nun geupdated werden in der idXML
+                    runidx_to_protidxAAA[run_idx].insert(it_i->protein_index); // fill protein hits
+                    //std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
+                    // der rest ist statistik!
+                    if (!protein_is_decoy.has(accession)) {
+                        protein_is_decoy[accession] = (prefix_ && accession.hasPrefix(decoy_string_)) ||
+                                                      (!prefix_ && accession.hasSuffix(decoy_string_));
+                    }
                 }
             }
 
@@ -1127,8 +1175,12 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 
             ++pep_idx; // next hit
         }
-
     }
+    std::cout<<" anzahl pephit   " << pephit << std::endl;
+    std::cout<<"               " << runidx_to_protidx[0].size() << std::endl;
+    std::cout<<"pep_to_prot " << func.pep_to_prot.size() << std::endl;
+
+
     LOG_INFO << "-----------------------------------\n";
     LOG_INFO << "Peptides statistics\n";
     LOG_INFO << "\n";
@@ -1161,11 +1213,13 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
 }
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
+                                                             std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                                                              std::vector<ProteinIdentification> &prot_ids,
                                                              Map<String, Size> &acc_to_prot,
                                                              Map<String, Size> &acc_to_AAAprot,
                                                              Map<String, bool> &protein_is_decoy,
                                                              Map<Size, std::set<Size> > &runidx_to_protidx,
+                                                             Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                              Size &stats_unmatched){
     Int stats_new_proteins(0);
     Int stats_orphaned_proteins(0);
@@ -1178,6 +1232,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFi
         // es wird die Information in masterset gespeichert wo festgehalten ist zu welchem
         // Protein in der DB Treffer gefunden wurden.
         set<Size> masterset = runidx_to_protidx[run_idx]; // all found protein matches
+        set<Size> mastersetAAA = runidx_to_protidxAAA[run_idx]; // all found protein AAA matches
 
         vector<ProteinHit> new_protein_hits;
         // go through existing hits and update (do not create from anew, as there might be other information (score, rank, etc.) which
@@ -1205,23 +1260,23 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFi
 
                 new_protein_hits.push_back(*p_hit);
                 masterset.erase(acc_to_prot[acc]); // remove from master (at the end only new proteins remain)
-            } else if (acc_to_AAAprot.has(acc) && masterset.find(acc_to_AAAprot[acc]) != masterset.end()){
+            } else if (acc_to_AAAprot.has(acc) && mastersetAAA.find(acc_to_AAAprot[acc]) != mastersetAAA.end()){
                 String seq;
                 if (write_protein_sequence_)
                 {
-                    seq = proteins[acc_to_AAAprot[acc]].sequence;
+                    seq = proteinsAAA[acc_to_AAAprot[acc]].sequence;
                 }
                 p_hit->setSequence(seq);
 
                 if (write_protein_description_)
                 {
-                    const String& description = proteins[acc_to_AAAprot[acc]].description;
+                    const String& description = proteinsAAA[acc_to_AAAprot[acc]].description;
                     //std::cout << "Description = " << description << "\n";
                     p_hit->setDescription(description);
                 }
 
                 new_protein_hits.push_back(*p_hit);
-                masterset.erase(acc_to_AAAprot[acc]); // remove from master (at the end only new proteins remain)
+                mastersetAAA.erase(acc_to_AAAprot[acc]); // remove from master (at the end only new proteins remain)
             }
 
             else // old hit is orphaned
@@ -1251,6 +1306,31 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::updateProtHit_(std::vector<FASTAFi
             {
                 //std::cout << "Description = " << proteins[*it].description << "\n";
                 hit.setDescription(proteins[*it].description);
+            }
+
+            new_protein_hits.push_back(hit);
+            ++stats_new_proteins;
+        }
+        // add remaining AAA new hits schaue aber hier in proteinsAAA nach!
+        for (set<Size>::const_iterator it = mastersetAAA.begin();
+             it != mastersetAAA.end(); ++it)
+        {
+            // schleife durch alle Indexe von Proteinen der DB die noch  nicht vorhanden waren in der idXML
+            // da ich hier eventuell in einer größeren DB mit mehr Proteinen suche!
+
+            // in *it ist also der index des Proteins aus der db wo ein treffer gefunden wurde.
+            ProteinHit hit;
+            hit.setAccession(proteinsAAA[*it].identifier);
+            if (write_protein_sequence_)
+            {
+                //std::cout << "sequence = " << proteins[*it].sequence << "\n";
+                hit.setSequence(proteinsAAA[*it].sequence);
+            }
+
+            if (write_protein_description_)
+            {
+                //std::cout << "Description = " << proteins[*it].description << "\n";
+                hit.setDescription(proteinsAAA[*it].description);
             }
 
             new_protein_hits.push_back(hit);
@@ -1315,9 +1395,10 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     }
 
     std::vector<FASTAFile::FASTAEntry> proteins;
+    std::vector<FASTAFile::FASTAEntry> proteinsAAA;
     Map<String, Size> acc_to_prot;
     Map<String, Size> acc_to_AAAprot;
-    if (loadInfo_(proteins, acc_to_prot, acc_to_AAAprot, path , pathAAA) != CHECKPOINT_OK){
+    if (loadInfo_(proteins, proteinsAAA, acc_to_prot, acc_to_AAAprot, path , pathAAA) != CHECKPOINT_OK){
         return INPUT_ERROR;
     };
 
@@ -1333,15 +1414,17 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     // check options
     if (search_for_normal_proteins_ && search_for_aaa_proteins_) {
         // search normal
-        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
+        std::cout << "suche 1 " << func.pep_to_prot.size() << std::endl;
         // search AAA
-        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
+        std::cout << "suche 2 " << func.pep_to_prot.size() << std::endl;
     } else if (search_for_normal_proteins_ && !search_for_aaa_proteins_ ){
         // search normal
-        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
     } else {
         // search AAA
-        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
     }
 
     // write some stats
@@ -1351,16 +1434,17 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /* MAPPING */
     writeLog_(String("Mapping"));
     Map<Size, set<Size> > runidx_to_protidx;
+    Map<Size, set<Size> > runidx_to_protidxAAA;
     /// store target/decoy status of proteins
     Map<String, bool> protein_is_decoy; // accession -> is decoy?
     Size stats_unmatched(0);
-    if (mappingPepToProt_(proteins, prot_ids, pep_ids, protein_is_decoy, runidx_to_protidx, stats_unmatched, func)!= CHECKPOINT_OK) {
+    if (mappingPepToProt_(proteins, proteinsAAA, prot_ids, pep_ids, protein_is_decoy, runidx_to_protidx, runidx_to_protidxAAA, stats_unmatched, func)!= CHECKPOINT_OK) {
         return UNEXPECTED_RESULT;
     }
 
     /* UPDATE HITS */
     writeLog_(String("Updating"));
-    if (updateProtHit_(proteins, prot_ids, acc_to_prot,acc_to_AAAprot, protein_is_decoy, runidx_to_protidx, stats_unmatched)!= CHECKPOINT_OK){
+    if (updateProtHit_(proteins, proteinsAAA, prot_ids, acc_to_prot,acc_to_AAAprot, protein_is_decoy, runidx_to_protidx, runidx_to_protidxAAA, stats_unmatched)!= CHECKPOINT_OK){
         return UNEXPECTED_RESULT;
     }
     return CHECKPOINT_OK;
@@ -1390,9 +1474,10 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
         }
     }
     std::vector<FASTAFile::FASTAEntry> proteins;
+    std::vector<FASTAFile::FASTAEntry> proteinsAAA;
     Map<String, Size> acc_to_prot;
     Map<String, Size> acc_to_AAAprot;
-    if (loadInfo_(proteins, acc_to_prot, acc_to_AAAprot, path, pathAAA) != CHECKPOINT_OK){
+    if (loadInfo_(proteins, proteinsAAA, acc_to_prot, acc_to_AAAprot, path, pathAAA) != CHECKPOINT_OK){
         return INPUT_ERROR;
     };
     writeLog_(String("Build Peptide DB"));
@@ -1408,34 +1493,38 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     // check options
     if (search_for_normal_proteins_ && search_for_aaa_proteins_) {
         // search normal
-        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
+        std::cout << "suche 1 " << func.pep_to_prot.size() << std::endl;
         // search AAA
-        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
+        std::cout << "suche 2 " << func.pep_to_prot.size() << std::endl;
     } else if (search_for_normal_proteins_ && !search_for_aaa_proteins_ ){
         // search normal
-        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
     } else {
         // search AAA
-        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_);
+        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
     }
 
     // write some stats
+
     LOG_INFO << "Peptide hits passing enzyme filter: " << func.filter_passed << "\n"
              << "     ... rejected by enzyme filter: " << func.filter_rejected << std::endl;
 
     /* MAPPING */
     writeLog_(String("Mapping" ));
     Map<Size, set<Size> > runidx_to_protidx;
+    Map<Size, set<Size> > runidx_to_protidxAAA;
     /// store target/decoy status of proteins
     Map<String, bool> protein_is_decoy; // accession -> is decoy?
     Size stats_unmatched(0);
-    if (mappingPepToProt_(proteins, prot_ids, pep_ids, protein_is_decoy, runidx_to_protidx, stats_unmatched, func)!= CHECKPOINT_OK) {
+    if (mappingPepToProt_(proteins, proteinsAAA, prot_ids, pep_ids, protein_is_decoy, runidx_to_protidx, runidx_to_protidxAAA, stats_unmatched, func)!= CHECKPOINT_OK) {
         return UNEXPECTED_RESULT;
     }
 
     /* UPDATE HITS */
     writeLog_(String("Updating"));
-    if (updateProtHit_(proteins, prot_ids, acc_to_prot, acc_to_AAAprot, protein_is_decoy, runidx_to_protidx, stats_unmatched)!= CHECKPOINT_OK){
+    if (updateProtHit_(proteins, proteinsAAA, prot_ids, acc_to_prot, acc_to_AAAprot, protein_is_decoy, runidx_to_protidx, runidx_to_protidxAAA,stats_unmatched)!= CHECKPOINT_OK){
         return UNEXPECTED_RESULT;
     }
     return CHECKPOINT_OK;
