@@ -53,6 +53,7 @@ struct PeptideProteinMatchInformation {
     /// index of the protein the peptide is contained in
     OpenMS::Size protein_index;
 
+    /// index Peptide was found in
     OpenMS::Size indexType;
 
     /// the amino acid after the peptide in the protein
@@ -77,6 +78,9 @@ struct PeptideProteinMatchInformation {
         else if (AAAfter != other.AAAfter) {
             return AAAfter < other.AAAfter;
         }
+        else if (indexType != other.indexType){
+            return indexType < other.indexType;
+        }
         return false;
     }
 
@@ -84,7 +88,8 @@ struct PeptideProteinMatchInformation {
         return protein_index == other.protein_index &&
                position == other.position &&
                AABefore == other.AABefore &&
-               AAAfter == other.AAAfter;
+               AAAfter == other.AAAfter &&
+               indexType == other.indexType;
     }
 
 };
@@ -111,11 +116,9 @@ namespace seqan
     struct FoundProteinFunctor {
     public:
         typedef OpenMS::Map<OpenMS::Size, std::set<PeptideProteinMatchInformation> > MapType;
-        typedef OpenMS::Map<OpenMS::Size, std::set<OpenMS::Size> > MapType2;
 
         /// peptide index --> protein indices
         MapType pep_to_prot;
-
 
         /// number of accepted hits (passing addHit() constraints)
         OpenMS::Size filter_passed;
@@ -174,8 +177,10 @@ namespace seqan
             return true;
         }
 
-        void addHit(OpenMS::Size idx_pep, OpenMS::Size idx_prot,
-                    const OpenMS::String &seq_pep, const OpenMS::String &protein,
+        void addHit(OpenMS::Size idx_pep,
+                    OpenMS::Size idx_prot,
+                    const OpenMS::String &seq_pep,
+                    const OpenMS::String &protein,
                     OpenMS::Size position,
                     OpenMS::Size indexType) {
             if (enzyme_.isValidProduct(AASequence::fromString(protein), position,
@@ -1022,7 +1027,6 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
     //Map<Size, set<Size> > runidx_to_protidx; // in which protID do appear which proteins (according to mapped peptides)
 
     Size pep_idx(0);
-    int pephit = 0;
     //unsigned peptidIdentificationCounter = 0;
     // iteriere durch alle <PeptidIdentification>...</PeptidIdentification> der idXML
     for (vector<PeptideIdentification>::iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1)
@@ -1176,11 +1180,6 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
             ++pep_idx; // next hit
         }
     }
-    std::cout<<" anzahl pephit   " << pephit << std::endl;
-    std::cout<<"               " << runidx_to_protidx[0].size() << std::endl;
-    std::cout<<"pep_to_prot " << func.pep_to_prot.size() << std::endl;
-
-
     LOG_INFO << "-----------------------------------\n";
     LOG_INFO << "Peptides statistics\n";
     LOG_INFO << "\n";
