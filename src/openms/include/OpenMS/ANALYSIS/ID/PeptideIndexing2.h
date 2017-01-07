@@ -45,9 +45,6 @@ struct PeptideProteinMatchInformation;
 struct FMind;
 struct SAind;
 
-
-
-
 // WARUM NAMESPACE SEQAN?
 namespace seqan {
     struct FoundProteinFunctor;
@@ -148,19 +145,42 @@ namespace OpenMS {
 
         void writeDebug_(const String &text, const Size min_level) const;
 
+        /// Output stream for log/debug info
+        String log_file_;
+        mutable std::ofstream log_;
+        /// debug flag
+        bool debug_;
+        /// program options
+        Size aaa_max_;
+        UInt mismatches_max_;
+        String decoy_string_;
+        String missing_decoy_action_;
+        String enzyme_name_;
+        String enzyme_specificity_;
+        bool prefix_;
+        bool write_protein_sequence_;
+        bool write_protein_description_;
+        bool keep_unreferenced_proteins_;
+        bool allow_unmatched_;
+        bool IL_equivalent_;
+        bool search_for_aaa_proteins_;
+        bool search_for_normal_proteins_;
+        bool suffix_array_;
+        bool FM_index_;
 
+        /// function to build peptide DB for suffix array
         PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
                                                 std::vector<PeptideIdentification> &pep_ids);
 
+        /// function to build peptide DB for FM index
         PeptideIndexing2::ExitCodes buildReversePepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
                                                        std::vector<PeptideIdentification> &pep_ids);
 
-
+        /// function to check input options
         PeptideIndexing2::ExitCodes checkUserInput_(std::vector<ProteinIdentification> &prot_ids,
                                                     std::vector<PeptideIdentification> &pep_ids);
 
-
-
+        /// function to map peptides to Proteins
         PeptideIndexing2::ExitCodes mappingPepToProt_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                       std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                                                       std::vector<ProteinIdentification> &prot_ids,
@@ -171,6 +191,7 @@ namespace OpenMS {
                                                       Size &stats_unmatched,
                                                       seqan::FoundProteinFunctor &func);
 
+        /// function to update idXML input file
         PeptideIndexing2::ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                                    std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                                                    std::vector<ProteinIdentification> &prot_ids,
@@ -180,39 +201,8 @@ namespace OpenMS {
                                                    Map<Size, std::set<Size> > &runidx_to_protidx,
                                                    Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                    Size &stats_unmatched);
-        //PeptideIndexing2::ExitCodes searchAC_(seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index, seqan::StringSet<seqan::Peptide> pep_DB, seqan::FoundProteinFunctor func, EnzymaticDigestion enzyme);
 
-
-        //PeptideIndexing2::ExitCodes searchSA();
-
-        /// Output stream for log/debug info
-        String log_file_;
-        mutable std::ofstream log_;
-        /// debug flag
-        bool debug_;
-
-        String decoy_string_;
-        bool prefix_;
-        String missing_decoy_action_;
-        String enzyme_name_;
-        String enzyme_specificity_;
-
-        bool write_protein_sequence_;
-        bool write_protein_description_;
-        bool keep_unreferenced_proteins_;
-        bool allow_unmatched_;
-        bool IL_equivalent_;
-
-        Size aaa_max_;
-        UInt mismatches_max_;
-        bool search_for_aaa_proteins_;
-        bool search_for_normal_proteins_;
-
-        bool suffix_array_;
-        bool FM_index_;
-
-
-
+        /// wrapper function to search within a suffix array
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
                             seqan::StringSet<seqan::Peptide> &pep_DB,
@@ -220,6 +210,7 @@ namespace OpenMS {
                             Size aaa_max,
                             Size indexType);
 
+        /// wrapper function to search within a FM index
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
                             seqan::StringSet<seqan::Peptide> &pep_DB,
@@ -227,8 +218,7 @@ namespace OpenMS {
                             Size aaa_max,
                             Size indexType);
 
-        //bool checkAmbigous_(String tmp_pep, String tmp_prot, Size pos, Size error);
-
+        /// function to load additional information
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
                             std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
                             Map<String, Size> &acc_to_prot,
@@ -236,6 +226,7 @@ namespace OpenMS {
                             String &path,
                             String &pathAAA);
 
+        /// routine to do when searching with suffix array
         ExitCodes processMap_(EnzymaticDigestion enzyme,
                               String path,
                               String pathAAA,
@@ -243,6 +234,7 @@ namespace OpenMS {
                               std::vector<PeptideIdentification> &pep_ids,
                               SAind /**/);
 
+        /// routine to do when searching with FM index
         ExitCodes processMap_(EnzymaticDigestion enzyme,
                               String path,
                               String pathAAA,
@@ -250,13 +242,26 @@ namespace OpenMS {
                               std::vector<PeptideIdentification> &pep_ids,
                               FMind /**/);
 
+        /// function to read accsession-to-protein information
         ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot,
                                    String path);
 
+        /// function to read protein information
         ExitCodes readProteins_(std::vector<FASTAFile::FASTAEntry> &proteins,
                                 String path);
 
+        /// function to add hits to PeptideHit
+        ExitCodes addRemainingNewHits_(std::set<Size> &masterset,
+                                       std::vector<FASTAFile::FASTAEntry> &proteins,
+                                       std::vector<ProteinHit> &new_protein_hits,
+                                       Int &stats_new_proteins);
+
+        /// function to set information for a PeptideHit
+        ExitCodes setPeptideEvidence_(std::vector<PeptideHit>::iterator &it2,
+                                      std::set<PeptideProteinMatchInformation>::const_iterator &it_i,
+                                      std::vector<FASTAFile::FASTAEntry> &proteins,
+                                      Map<Size, std::set<Size> > &runidx_to_protidx,
+                                      Map<String, bool> &protein_is_decoy,
+                                      Size run_idx);
     };
-
-
 }

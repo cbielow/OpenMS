@@ -24,16 +24,13 @@ struct SAind {
     SAind() { }
 };
 
-/* */
-struct WOTDind {
-    WOTDind() { }
-};
-
-//template<>
-//struct seqan::SAValue< seqan::StringSet<seqan::Peptide > >
-//{
-//    typedef seqan::Pair<short, unsigned> Type;
-//};
+//namespace seqan {
+//    template<>
+//    struct SAValue<StringSet<Peptide> > {
+//    // anzahl strings - laenge strings
+//        typedef Pair<unsigned, unsigned> Type;
+//    };
+//}
 
 BuildIndexing::BuildIndexing() :
         DefaultParamHandler("BuildIndexing") {
@@ -110,7 +107,6 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(Map<String, Size> &acc_to_pr
     return CHECKPOINT_OK;
 
 }
-
 
 void BuildIndexing::writeLog_(const String &text) const {
     LOG_INFO << text << endl;
@@ -202,7 +198,6 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Pep
     return CHECKPOINT_OK;
 }
 
-
 BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                                      String out,
@@ -225,7 +220,6 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Pep
     }
     return CHECKPOINT_OK;
 }
-
 
 BuildIndexing::ExitCodes BuildIndexing::check_duplicate_(std::vector<FASTAFile::FASTAEntry>& proteins,
                                                          String seq,
@@ -317,7 +311,6 @@ BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FA
     return BuildIndexing::CHECKPOINT_OK;
 }
 
-
 BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
                                                      std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                                      Map<String, Size> &acc_to_prot,
@@ -325,7 +318,6 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FAST
                                                      Map<String, Size> &acc_to_AAAprot,
                                                      seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
                                                      std::vector<String> &duplicate_accessions){
-    //
     Size j = 0;
     for (Size i = 0; i != proteins.size(); ++i) {
         String seq = proteins[i].sequence.remove('*');
@@ -351,7 +343,6 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FAST
                 return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
             };
         }
-
     }
     return BuildIndexing::CHECKPOINT_OK;
 }
