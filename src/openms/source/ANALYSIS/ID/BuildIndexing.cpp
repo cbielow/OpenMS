@@ -333,10 +333,10 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FAST
             proteinsAAA.push_back(proteins[i]);
             proteins.erase(proteins.begin() + i);
             i--;
-            j++;
             if (appendWrapper_(proteinsAAA,seq,duplicate_accessions,acc_to_AAAprot,acc,prot_DB_AAA,j)!=BuildIndexing::CHECKPOINT_OK){
                 return BuildIndexing::DATABASE_CONTAINS_MULTIPLES;
             };
+            j++;
         }else{
             // case normal
             if (BuildIndexing::appendWrapper_(proteins,seq,duplicate_accessions,acc_to_prot,acc,prot_DB,i)!=BuildIndexing::CHECKPOINT_OK){

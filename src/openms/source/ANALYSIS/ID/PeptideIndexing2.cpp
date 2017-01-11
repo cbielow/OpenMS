@@ -63,7 +63,7 @@ struct PeptideProteinMatchInformation {
     char AAAfter;
 
     /// the position of the peptide in the protein
-    OpenMS::Int position;
+    OpenMS::Size position;
 
     bool operator<(const PeptideProteinMatchInformation &other) const {
         if (protein_index != other.protein_index) {
@@ -1013,6 +1013,12 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::setPeptideEvidence_(vector<Peptide
     // hier wird also die Position festgehalten bei welchem Protein in der Datenbank der Hit gefunden wurde
     // Spaeter koennen diese nun geupdated werden in der idXML
     runidx_to_protidx[run_idx].insert(it_i->protein_index); // fill protein hits
+    if (proteins[(*it_i).protein_index].sequence.size() < (*it_i).position){
+        std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
+        std::cout << "Laenge Protein Sequence: "<< proteins[(*it_i).protein_index].sequence.size() << std::endl;
+        std::cout << "Position Hit "<< (*it_i).position << std::endl;
+    }
+
     //std::cout << "Index des Proteins in der Datenbank: "<< it_i->protein_index << std::endl;
     // der rest ist statistik!
     if (!protein_is_decoy.has(accession)) {
@@ -1042,6 +1048,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
     {
         //std::cout << prot_ids[run_idx].getIdentifier() << std::endl;
         runid_to_runidx[prot_ids[run_idx].getIdentifier()] = run_idx;
+
     }
 
     /// for peptides --> proteins
@@ -1366,7 +1373,6 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
             return INPUT_ERROR;
         }
     }
-
     std::vector<FASTAFile::FASTAEntry> proteins;
     std::vector<FASTAFile::FASTAEntry> proteinsAAA;
     Map<String, Size> acc_to_prot;
@@ -1476,7 +1482,6 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
         searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
     }
     if (search_for_aaa_proteins_) {
-        // search AAA
         searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
     }
     // write out some stats
