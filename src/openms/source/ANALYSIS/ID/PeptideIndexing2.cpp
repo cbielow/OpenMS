@@ -54,7 +54,7 @@ struct PeptideProteinMatchInformation {
     OpenMS::Size protein_index;
 
     /// index Peptide was found in
-    OpenMS::Size indexType;
+    bool indexType;
 
     /// the amino acid after the peptide in the protein
     char AABefore;
@@ -129,7 +129,7 @@ namespace seqan
         }
 
         template<typename TIter1, typename TIter2>
-        void operator()(const TIter1 &iter_pep, const TIter2 &iter_prot, OpenMS::Size indexType) {
+        void operator()(const TIter1 &iter_pep, const TIter2 &iter_prot, bool indexType) {
             // the peptide sequence (will not change)
             const OpenMS::String tmp_pep(begin(representative(iter_pep)),
                                          end(representative(iter_pep)));
@@ -176,7 +176,7 @@ namespace seqan
                     const OpenMS::String &seq_pep,
                     const OpenMS::String &protein,
                     OpenMS::Size position,
-                    OpenMS::Size indexType) {
+                    bool indexType) {
             if (enzyme_.isValidProduct(AASequence::fromString(protein), position,
                                        seq_pep.length(), true)) {
                 PeptideProteinMatchInformation match;
@@ -274,110 +274,7 @@ namespace seqan
                     static_cast<unsigned>(-1),  // 22 Unknown (matches ALL)
                     static_cast<unsigned>(-1), // 23 Terminator (dummy)
             };
-    template <bool enumerateA, bool enumerateB, typename TOnFoundFunctor,
-            typename TTreeIteratorA, typename TIterPosA,
-            typename TTreeIteratorB, typename TIterPosB, typename TErrors>
-    inline void _approximateAminoAcidTreeSearch(TOnFoundFunctor& onFoundFunctor,
-                                                TTreeIteratorA iterA,
-                                                TIterPosA iterPosA,
-                                                TTreeIteratorB iterB_,
-                                                TIterPosB iterPosB,
-                                                TErrors errorsLeft, // usually 0 for our case
-                                                TErrors classErrorsLeft) // ambiguous AA's allowed
-    {
-        if (enumerateA && !goDown(iterA)) return;
 
-        if (enumerateB && !goDown(iterB_)) return;
-
-        do
-        {
-            //std::cout << "B: " << repLength(iterB_) << "..." <<  representative(iterB_) << std::endl;
-            TTreeIteratorB iterB = iterB_;
-            do
-            {
-                TErrors e = errorsLeft;
-                TErrors ec = classErrorsLeft;
-                TIterPosA ipA = iterPosA;
-                TIterPosB ipB = iterPosB;
-
-                while (true)
-                {
-                    if (ipA == repLength(iterA))
-                    {
-                        if (isLeaf(iterA))
-                        {
-                            onFoundFunctor(iterA, iterB);
-                        }
-                        else if (ipB == repLength(iterB) && !isLeaf(iterB))
-                        {
-                            _approximateAminoAcidTreeSearch<true, true>(
-                                    onFoundFunctor, iterA, ipA, iterB, ipB, e, ec);
-                        }
-                        else
-                        {
-                            _approximateAminoAcidTreeSearch<true, false>(
-                                    onFoundFunctor, iterA, ipA, iterB, ipB, e, ec);
-                        }
-                        break;
-                    }
-                    else
-                    {
-                        if (ipB == repLength(iterB))
-                        {
-                            if (!isLeaf(iterB))
-                            {
-                                _approximateAminoAcidTreeSearch<false, true>(
-                                        onFoundFunctor, iterA, ipA, iterB, ipB, e, ec);
-                            }
-                            break;
-                        }
-                    }
-
-                    if (_charComparator(representative(iterA)[ipA],
-                                        representative(iterB)[ipB],
-                                        EquivalenceClassAA_<char>::VALUE))
-                    {
-                        // matched (including character classes) - look at ambiguous AA in
-                        // PROTEIN tree (peptide tree is not considered!)
-                        const char x_prot = representative(iterB)[ipB];
-                        if ((x_prot == 'X') || (x_prot == 'B') || (x_prot == 'Z'))
-                        {
-                            if (ec == 0) break;
-                            --ec; // decrease class error tokens
-                        }
-
-                        // dealing with 'X' in peptide sequence: only match exactly 'X' in
-                        // proteinDB, not just any representative of 'X' (this is how X!
-                        // Tandem would report results)
-                        const char x_pep = representative(iterA)[ipA];
-                        if ((x_pep == 'X') || (x_pep == 'B') || (x_pep == 'Z'))
-                        {
-                            if (x_pep != x_prot) break;
-                        }
-                    }
-                    else // real mismatches (e.g., when checking for SNP's)
-                    {
-                        if (e == 0) break;
-                        --e;
-                    }
-
-                    ++ipA;
-                    ++ipB;
-                }
-            }
-            while (enumerateB && goRight(iterB));
-        }
-        while (enumerateA && goRight(iterA));
-    }
-
-    template <typename TEquivalenceTable>
-    inline bool _charComparator(AminoAcid charA, AminoAcid charB,
-                                TEquivalenceTable equivalence)
-    {
-        const unsigned a_index = ordValue(charA);
-        const unsigned b_index = ordValue(charB);
-        return (equivalence[a_index] & equivalence[b_index]) != 0;
-    }
 
     template <typename TContainer, typename TFunctor, typename TIterTag, typename TParallelTag>
     inline void iterate(TContainer & c, TFunctor f, Tag<TIterTag> const & iterTag, Tag<TParallelTag> const &)
@@ -397,19 +294,51 @@ namespace seqan
                       TThreshold errors,
                       TThreshold threshold,
                       TDelegate && delegate,
+                                  bool searchAAA,
                       TDistance)
     {
-        // Exact case.
-        if (errors == threshold)
-        {
-            //std::cout << suffix(needle, position(needleIt, needle)) << std::endl;
-            if (goDown(indexIt, suffix(needle, position(needleIt, needle)))){
-
-                //std::cout << "rep: " << representative(indexIt) << std::endl;
-                delegate(indexIt, errors);
+        // Exact case
+        if (errors == threshold) {
+            // exakt case without AAA
+            if (!searchAAA)
+            {
+                if (goDown(indexIt, suffix(needle, position(needleIt, needle)))) {
+                    //std::cout << "rep: " << representative(indexIt) << std::endl;
+                    delegate(indexIt, errors);
+                }
             }
+            else // case with AAA but no errors allowed
+            {
+                if (atEnd(needleIt, needle))
+                {
+                    delegate(indexIt, errors);
+                    return;
+                }
 
+                if (goDown(indexIt))
+                {
+                    do
+                    {
+                        // rekursiver aufruf. checken auf AAA
+                        if (
+
+                                ordEqual(parentEdgeLabel(indexIt), value(needleIt)) ||
+                                ordEqual(parentEdgeLabel(indexIt), 'X') ||
+                            (ordEqual(parentEdgeLabel(indexIt), 'B') && (ordEqual(value(needleIt), 'D') || ordEqual(value(needleIt), 'N') )) ||
+                            (ordEqual(parentEdgeLabel(indexIt), 'Z') && (ordEqual(value(needleIt), 'E') || ordEqual(value(needleIt), 'Q') ))
+
+
+                                )
+                        {
+                            _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance() );
+                        }
+
+                    }
+                    while (goRight(indexIt));
+                }
+            }
         }
+
         // Approximate case.
         else if (errors < threshold)
         {
@@ -425,7 +354,7 @@ namespace seqan
                 if (IsSameType<TDistance, EditDistance>::VALUE)
                 {
                     _findBacktracking(indexIt, needle, needleIt + 1,
-                                      static_cast<TThreshold>(errors + 1), threshold, delegate, TDistance());
+                                      static_cast<TThreshold>(errors + 1), threshold, delegate, searchAAA, TDistance());
                 }
 
                 if (goDown(indexIt))
@@ -435,14 +364,30 @@ namespace seqan
                         //std::cout << "rep: " << representative(indexIt) << std::endl;
                         // Mismatch.
                         TThreshold delta = !ordEqual(parentEdgeLabel(indexIt), value(needleIt));
+                        // calculate delta cost again depending if AAA-search
+                        if (searchAAA)
+                        {
+                            // cases where delta has to be set to 0 because combination is allowed
+                            if (
+                                    ordEqual(parentEdgeLabel(indexIt), 'X') ||
+                                     (ordEqual(parentEdgeLabel(indexIt), 'B')   && (ordEqual(value(needleIt), 'D')  ||ordEqual(value(needleIt), 'N')  ) ) ||
+                                     (ordEqual(parentEdgeLabel(indexIt), 'Z')   && (ordEqual(value(needleIt), 'E')  ||ordEqual(value(needleIt), 'Q')  ) )
+
+
+                                    )
+                            {
+                                delta = 0;
+                            }
+                        }
+
                         _findBacktracking(indexIt, needle, needleIt + 1,
-                                          static_cast<TThreshold>(errors + delta), threshold, delegate, TDistance());
+                                          static_cast<TThreshold>(errors + delta), threshold, delegate, searchAAA, TDistance());
 
                         // Deletion.
                         if (IsSameType<TDistance, EditDistance>::VALUE)
                         {
                             _findBacktracking(indexIt, needle, needleIt,
-                                              static_cast<TThreshold>(errors + 1), threshold, delegate, TDistance());
+                                              static_cast<TThreshold>(errors + 1), threshold, delegate, searchAAA, TDistance());
                         }
                     }
                     while (goRight(indexIt));
@@ -459,6 +404,7 @@ namespace seqan
               TNeedle const & needle,
               TThreshold threshold,
               TDelegate && delegate,
+                   bool searchAAA,
               Backtracking<TDistance, TSpec>)
     {
         typedef typename Iterator<TIndex, TopDown<> >::Type       TIndexIt;
@@ -468,9 +414,8 @@ namespace seqan
         TNeedleIt needleIt = begin(needle, Standard());
         TThreshold errors = 0;
 
-        _findBacktracking(indexIt, needle, needleIt, errors, threshold, delegate, TDistance());
+        _findBacktracking(indexIt, needle, needleIt, errors, threshold, delegate, searchAAA, TDistance() );
     }
-
 
     template <typename TText, typename TPattern>
     struct DefaultFind
@@ -542,13 +487,13 @@ namespace seqan
     // ----------------------------------------------------------------------------
 
     template <typename TText, typename TPattern, typename TThreshold, typename TDelegate, typename TAlgorithm>
-    inline void find(TText & text, TPattern const & pattern, TThreshold threshold, TDelegate && delegate, TAlgorithm)
+    inline void find(TText & text, TPattern const & pattern, TThreshold threshold, TDelegate && delegate, bool searchAAA, TAlgorithm)
     {
         typedef typename FindState_<TText, TPattern const, TAlgorithm>::Type    TState;
 
         TState state;
         _findStateInit(state, text, pattern, threshold, TAlgorithm());
-        _findImpl(state, text, pattern, threshold, delegate, TAlgorithm());
+        _findImpl(state, text, pattern, threshold, delegate, searchAAA, TAlgorithm());
     }
 
     // ----------------------------------------------------------------------------
@@ -556,11 +501,11 @@ namespace seqan
     // ----------------------------------------------------------------------------
 
     template <typename TText, typename TPattern, typename TDelegate>
-    inline void find(TText & text, TPattern const & pattern, TDelegate && delegate)
+    inline void find(TText & text, TPattern const & pattern, TDelegate && delegate, bool searchAAA)
     {
         typedef typename DefaultFind<TText, TPattern const>::Type   TAlgorithm;
 
-        find(text, pattern, unsigned(), delegate, TAlgorithm());
+        find(text, pattern, unsigned(), delegate, searchAAA, TAlgorithm());
     }
 
     // ----------------------------------------------------------------------------
@@ -613,6 +558,7 @@ namespace seqan
                      StringSet<TNeedle_, TSSetSpec> const & needles,
                      TThreshold threshold,
                      TDelegate && delegate,
+                     bool searchAAA,
                      TAlgorithm,
                      TThreading)
     {
@@ -637,7 +583,7 @@ namespace seqan
                     TDelegator delegator(delegate, needlesIt);
 
                     _findStateInit(state, text, needle, threshold, TAlgorithm());
-                    _findImpl(state, text, needle, threshold, delegator, TAlgorithm());
+                    _findImpl(state, text, needle, threshold, delegator,searchAAA ,TAlgorithm());
                 },
                 Rooted(), TThreading());
     }
@@ -652,9 +598,10 @@ namespace seqan
                      StringSet<TNeedle, TSSetSpec> const & needles,
                      TThreshold threshold,
                      TDelegate && delegate,
+                     bool searchAAA,
                      TAlgorithm)
     {
-        find(text, needles, threshold, delegate, TAlgorithm(), Serial());
+        find(text, needles, threshold, delegate, searchAAA, TAlgorithm(), Serial());
     }
 
 
@@ -930,7 +877,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
                                              seqan::StringSet<seqan::Peptide> &pep_DB,
                                              int mm,
                                              OpenMS::Size max_aaa,
-                                             OpenMS::Size indexType){
+                                             bool indexType){
     typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > TIndex;
     typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
     typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
@@ -959,7 +906,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
 }
 
 inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA,
@@ -967,7 +914,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
                                              seqan::StringSet<seqan::Peptide> &pep_DB,
                                              int mm,
                                              Size max_aaa,
-                                             OpenMS::Size indexType){
+                                             bool indexType){
     typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > TIndex;
     typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
     typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
@@ -984,7 +931,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
 }
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::setPeptideEvidence_(vector<PeptideHit>::iterator &it2,

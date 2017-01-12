@@ -208,7 +208,7 @@ namespace OpenMS {
                             seqan::StringSet<seqan::Peptide> &pep_DB,
                             int mm,
                             Size aaa_max,
-                            Size indexType);
+                            bool indexType);
 
         /// wrapper function to search within a FM index
         void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
@@ -216,7 +216,7 @@ namespace OpenMS {
                             seqan::StringSet<seqan::Peptide> &pep_DB,
                             int mm,
                             Size aaa_max,
-                            Size indexType);
+                            bool indexType);
 
         /// function to load additional information
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
