@@ -350,12 +350,14 @@ namespace seqan
             // Recursive case.
             else
             {
+                /*
                 // Insertion.
                 if (IsSameType<TDistance, EditDistance>::VALUE)
                 {
                     _findBacktracking(indexIt, needle, needleIt + 1,
                                       static_cast<TThreshold>(errors + 1), threshold, delegate, searchAAA, TDistance());
                 }
+                */
 
                 if (goDown(indexIt))
                 {
@@ -383,12 +385,14 @@ namespace seqan
                         _findBacktracking(indexIt, needle, needleIt + 1,
                                           static_cast<TThreshold>(errors + delta), threshold, delegate, searchAAA, TDistance());
 
+                        /*
                         // Deletion.
                         if (IsSameType<TDistance, EditDistance>::VALUE)
                         {
                             _findBacktracking(indexIt, needle, needleIt,
                                               static_cast<TThreshold>(errors + 1), threshold, delegate, searchAAA, TDistance());
                         }
+                        */
                     }
                     while (goRight(indexIt));
                 }
