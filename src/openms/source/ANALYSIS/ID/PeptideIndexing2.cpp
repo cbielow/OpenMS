@@ -315,7 +315,36 @@ namespace seqan
                     return;
                 }
 
-                if (goDown(indexIt))
+                auto indexIt2 = indexIt;
+                if (goDown(indexIt, value(needleIt)))
+                {
+                    _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                }
+
+                indexIt = indexIt2;
+                if (goDown(indexIt, AminoAcid('X')))
+                {
+                    _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                }
+
+                if (ordEqual(value(needleIt), 'D') || ordEqual(value(needleIt), 'N') )
+                {
+                    indexIt = indexIt2;
+                    if (goDown(indexIt, AminoAcid('B')))
+                    {
+                        _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                    }
+                }
+                else if (ordEqual(value(needleIt), 'E') || ordEqual(value(needleIt), 'Q') )
+                {
+                    indexIt = indexIt2;
+                    if (goDown(indexIt, AminoAcid('Z')))
+                    {
+                        _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                    }
+                }
+
+                /*if (goDown(indexIt))
                 {
                     do
                     {
@@ -335,7 +364,7 @@ namespace seqan
 
                     }
                     while (goRight(indexIt));
-                }
+                }*/
             }
         }
 
@@ -363,7 +392,8 @@ namespace seqan
                 {
                     do
                     {
-                        //std::cout << "rep: " << representative(indexIt) << std::endl;
+                        std::cout << suffix(needle, position(needleIt, needle)) << std::endl;
+                        std::cout << "rep: " << representative(indexIt) << std::endl;
                         // Mismatch.
                         TThreshold delta = !ordEqual(parentEdgeLabel(indexIt), value(needleIt));
                         // calculate delta cost again depending if AAA-search
