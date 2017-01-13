@@ -218,6 +218,37 @@ namespace OpenMS {
                             Size aaa_max,
                             bool indexType);
 
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
+                          seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
+                          seqan::StringSet<seqan::Peptide> &pep_DB,
+                          OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
+                          int mm,
+                          Size max_aaa,
+                          bool indexType);
+
+
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
+                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
+                            seqan::StringSet<seqan::Peptide> &pep_DB,
+                            OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
+                            int mm,
+                            Size max_aaa,
+                            bool indexType);
+
+        ExitCodes searchApprox_(seqan::FoundProteinFunctor &func_SA,
+                                seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
+                                seqan::StringSet<seqan::Peptide> pep_DB,
+                                int mm,
+                                Size max_aaa,
+                                bool indexType);
+
+        ExitCodes searchApprox_(seqan::FoundProteinFunctor &func_SA,
+                                seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
+                                seqan::StringSet<seqan::Peptide> pep_DB,
+                                int mm,
+                                Size max_aaa,
+                                bool indexType);
+
         /// function to load additional information
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
                             std::vector<FASTAFile::FASTAEntry> &proteinsAAA,
