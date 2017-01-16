@@ -44,10 +44,10 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <seqan2/index.h>
 
 using namespace OpenMS;
 using namespace std;
-
 
 struct PeptideProteinMatchInformation {
     /// index of the protein the peptide is contained in
@@ -66,6 +66,8 @@ struct PeptideProteinMatchInformation {
     OpenMS::Size position;
 
     bool operator<(const PeptideProteinMatchInformation &other) const {
+        seqan2::String<seqan2::Dna> bla("voll fett alter!");
+        std::cout << bla << std::endl;
         if (protein_index != other.protein_index) {
             return protein_index < other.protein_index;
         }
@@ -83,7 +85,8 @@ struct PeptideProteinMatchInformation {
         }
         return false;
     }
-
+ // openms/src/openms/include
+    // contrib-build/src/include
     bool operator==(const PeptideProteinMatchInformation &other) const {
         return protein_index == other.protein_index &&
                position == other.position &&
