@@ -375,17 +375,14 @@ namespace OpenMS
       if (map_acc_2_evidence.find(accession) != map_acc_2_evidence.end())
       {
         const set<PeptideEvidence> & evidences = map_acc_2_evidence.at(accession);
-        for (set<PeptideEvidence>::const_iterator sit = evidences.begin(); sit != evidences.end(); ++sit)
-        {
-          int start = sit->getStart();
-          int stop = sit->getEnd();
-          
-          if (start == PeptideEvidence::UNKNOWN_POSITION || stop == PeptideEvidence::UNKNOWN_POSITION)
-          {
-            throw Exception::MissingInformation(__FILE__, __LINE__, __PRETTY_FUNCTION__, " PeptideEvidence does not contain start or end position. Cannot compute coverage!");
-          }
-          
-          std::fill(covered_amino_acids.begin() + start, covered_amino_acids.begin() + stop + 1, true);
+        for (set<PeptideEvidence>::const_iterator sit = evidences.begin(); sit != evidences.end(); ++sit) {
+            int start = sit->getStart();
+            int stop = sit->getEnd();
+            if (start == PeptideEvidence::UNKNOWN_POSITION || stop == PeptideEvidence::UNKNOWN_POSITION) {
+                throw Exception::MissingInformation(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+                                                    " PeptideEvidence does not contain start or end position. Cannot compute coverage!");
+            }
+            std::fill(covered_amino_acids.begin() + start, covered_amino_acids.begin() + stop + 1, true);
         }
         coverage = 100.0 * (double) std::accumulate(covered_amino_acids.begin(), covered_amino_acids.end(), 0) / protein_length;
       }
