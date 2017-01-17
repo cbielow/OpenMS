@@ -35,7 +35,7 @@
 #include <OpenMS/ANALYSIS/ID/PeptideIndexing2.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
-#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
+//#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <OpenMS/METADATA/ProteinIdentification.h>
 #include <OpenMS/SYSTEM/StopWatch.h>
 #include <OpenMS/METADATA/PeptideEvidence.h>
@@ -45,6 +45,10 @@
 #include <iostream>
 #include <algorithm>
 #include <seqan2/index.h>
+#include <seqan2/find.h>
+#include <seqan2/basic.h>
+#include <seqan2/sequence.h>
+#include <seqan2/stream.h>
 
 using namespace OpenMS;
 using namespace std;
@@ -66,8 +70,6 @@ struct PeptideProteinMatchInformation {
     OpenMS::Size position;
 
     bool operator<(const PeptideProteinMatchInformation &other) const {
-        seqan2::String<seqan2::Dna> bla("voll fett alter!");
-        std::cout << bla << std::endl;
         if (protein_index != other.protein_index) {
             return protein_index < other.protein_index;
         }
@@ -107,7 +109,7 @@ struct SAind {
     SAind() { }
 };
 
-namespace seqan
+namespace seqan2
 {
 
     struct FoundProteinFunctor {
@@ -143,7 +145,7 @@ namespace seqan
                 const OpenMS::Size idx_pep = getOccurrences(iter_pep)[i_pep].i1;
                 const OpenMS::Size count_occ_prot = countOccurrences(iter_prot);
                 for (OpenMS::Size i_prot = 0; i_prot < count_occ_prot; ++i_prot) {
-                    const seqan::Pair<int> prot_occ = getOccurrences(iter_prot)[i_prot];
+                    const seqan2::Pair<int> prot_occ = getOccurrences(iter_prot)[i_prot];
                     // the protein sequence (will change for every Occurrence -- hitting
                     // multiple proteins)
                     const OpenMS::String tmp_prot(
@@ -279,16 +281,6 @@ namespace seqan
             };
 
 
-    template <typename TContainer, typename TFunctor, typename TIterTag, typename TParallelTag>
-    inline void iterate(TContainer & c, TFunctor f, Tag<TIterTag> const & iterTag, Tag<TParallelTag> const &)
-    {
-        typedef Tag<TIterTag> const                                     TIterSpec;
-        typedef typename Iterator<TContainer, TIterSpec>::Type          TIter;
-
-        for (TIter it = begin(c, iterTag); !atEnd(it, c); ++it)
-            f(it);
-    }
-
     template <typename TIndexIt, typename TNeedle, typename TNeedleIt,
               typename TThreshold, typename TDelegate, typename TDistance>
     inline void _findBacktracking(TIndexIt indexIt,
@@ -306,6 +298,7 @@ namespace seqan
             if (!searchAAA)
             {
                 //std::cout << suffix(needle, position(needleIt, needle)) << std::endl;
+                //std::cout << "rep: " << representative(indexIt) << std::endl;
                 if (goDown(indexIt, suffix(needle, position(needleIt, needle)))) {
                     //std::cout << "rep: " << representative(indexIt) << std::endl;
                     delegate(indexIt, errors);
@@ -455,71 +448,6 @@ namespace seqan
         _findBacktracking(indexIt, needle, needleIt, errors, threshold, delegate, searchAAA, TDistance() );
     }
 
-    template <typename TText, typename TPattern>
-    struct DefaultFind
-    {
-        typedef void Type;
-    };
-
-    // ----------------------------------------------------------------------------
-    // Metafunction FindState_<>
-    // ----------------------------------------------------------------------------
-
-    template <typename TText, typename TPattern, typename TAlgorithm>
-    struct FindState_
-    {
-        typedef Nothing Type;
-    };
-
-    // ----------------------------------------------------------------------------
-    // Metafunction HasStatesPool_<>
-    // ----------------------------------------------------------------------------
-
-    template <typename TState, typename TThreading>
-    struct HasStatesPool_
-    {
-        typedef typename IsSameType<TThreading, Parallel>::Type         IsParallel;
-        typedef typename Not<IsSameType<TState, Nothing> >::Type        IsStateful;
-        typedef typename And<IsParallel, IsStateful>::Type              Type;
-    };
-
-    // ----------------------------------------------------------------------------
-    // Metafunction StatesPool_<>
-    // ----------------------------------------------------------------------------
-
-    template <typename TState, typename TThreading>
-    struct StatesPool_
-    {
-        typedef typename HasStatesPool_<TState, TThreading>::Type           HasStatesPool;
-        typedef typename If<HasStatesPool, String<TState>, TState>::Type    Type;
-    };
-
-    // ============================================================================
-    // Classes
-    // ============================================================================
-
-    // ----------------------------------------------------------------------------
-    // Class FindDelegator_
-    // ----------------------------------------------------------------------------
-
-    template <typename TDelegate, typename TNeedlesIt>
-    struct FindDelegator_
-    {
-        TDelegate & delegate;
-        TNeedlesIt & needlesIt;
-
-        FindDelegator_(TDelegate & delegate, TNeedlesIt & needlesIt) :
-                delegate(delegate),
-                needlesIt(needlesIt)
-        {}
-
-        template <typename TTextIt, typename TScore>
-        void operator()(TTextIt & textIt, TScore score)
-        {
-            delegate(textIt, needlesIt, score);
-        }
-    };
-
     // ----------------------------------------------------------------------------
     // Function find(text, pattern, errors, [](...){}, Algorithm());
     // ----------------------------------------------------------------------------
@@ -544,46 +472,6 @@ namespace seqan
         typedef typename DefaultFind<TText, TPattern const>::Type   TAlgorithm;
 
         find(text, pattern, unsigned(), delegate, searchAAA, TAlgorithm());
-    }
-
-    // ----------------------------------------------------------------------------
-    // Function _findStateInit()
-    // ----------------------------------------------------------------------------
-    // Stateless algorithm.
-
-    template <typename TState, typename TText, typename TPattern, typename TThreshold, typename TAlgorithm>
-    inline void
-    _findStateInit(TState & /* s */, TText const & /* t */, TPattern const & /* p */, TThreshold /* t */, TAlgorithm) {}
-
-    // ----------------------------------------------------------------------------
-    // Function _findStatesPoolInit()
-    // ----------------------------------------------------------------------------
-
-    template <typename TState>
-    inline void _findStatesPoolInit(TState & /* pool */, False) {}
-
-    template <typename TStates>
-    inline void _findStatesPoolInit(TStates & pool, True)
-    {
-        resize(pool, omp_get_num_threads(), Exact());
-    }
-
-    // ----------------------------------------------------------------------------
-    // Function _findPickState()
-    // ----------------------------------------------------------------------------
-
-    template <typename TState>
-    inline TState &
-    _findPickState(TState & state, False)
-    {
-        return state;
-    }
-
-    template <typename TStates>
-    inline typename Value<TStates>::Type &
-    _findPickState(TStates & pool, True)
-    {
-        return pool[omp_get_thread_num()];
     }
 
     // ----------------------------------------------------------------------------
@@ -639,13 +527,9 @@ namespace seqan
                      bool searchAAA,
                      TAlgorithm)
     {
-        find(text, needles, threshold, delegate, searchAAA, TAlgorithm(), Serial());
+        find(text, needles, threshold, delegate, searchAAA, TAlgorithm(), Parallel());
     }
-
-
-
-
-} // end namespace seqan
+} // end namespace seqan2
 
 PeptideIndexing2::PeptideIndexing2() :
         DefaultParamHandler("PeptideIndexing2") {
@@ -794,7 +678,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
+PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                                           std::vector<PeptideIdentification> &pep_ids) {
     for (vector<PeptideIdentification>::const_iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1) {
         //String run_id = it1->getIdentifier();
@@ -811,7 +695,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::buildPepDB_(seqan::StringSet<seqan
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::buildReversePepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
+PeptideIndexing2::ExitCodes PeptideIndexing2::buildReversePepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                                                  std::vector<PeptideIdentification> &pep_ids) {
     for (vector<PeptideIdentification>::const_iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1) {
         //String run_id = it1->getIdentifier();
@@ -910,15 +794,15 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::loadInfo_(std::vector<FASTAFile::F
     return CHECKPOINT_OK;
 }
 
-inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
-                                             seqan::StringSet<seqan::Peptide> &pep_DB,
+inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                                             seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                              int mm,
                                              OpenMS::Size max_aaa,
                                              bool indexType){
-    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > TIndex;
-    typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
-    typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
+    typedef seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > TIndex;
+    typedef typename seqan2::Iterator<seqan2::StringSet<seqan2::Peptide> const, seqan2::Rooted>::Type TPatternsIt;
+    typedef typename seqan2::Iterator<TIndex, seqan2::TopDown<seqan2::PreorderEmptyEdges> >::Type TIndexIt;
     auto delegate = [&func_SA, &prot_Index, max_aaa, indexType](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
         //auto pattern_len = length(*patternsIt);
         //std::cout << "laenge: " << pattern_len << std::endl;
@@ -927,16 +811,16 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
         // loop through occurences of pattern in text
         for (auto &occ: getOccurrences(it)){
 
-            long entryNr = seqan::getSeqNo(occ);
+            long entryNr = seqan2::getSeqNo(occ);
             //std::cout << "Treffer Nummer: " << countHit << " in der DB an Position: " << entryNr << std::endl;
-            long beg = seqan::getSeqOffset(occ);
+            long beg = seqan2::getSeqOffset(occ);
             //long end_ = beg + pattern_len;
 
             const OpenMS::String tmp_pep(begin(*patternsIt),end(*patternsIt));
             //std::cout << "Peptid: " << tmp_pep << std::endl;
 
-            const OpenMS::String tmp_prot(begin(seqan::indexText(prot_Index)[entryNr]),
-                                          end(seqan::indexText(prot_Index)[entryNr]));
+            const OpenMS::String tmp_prot(begin(seqan2::indexText(prot_Index)[entryNr]),
+                                          end(seqan2::indexText(prot_Index)[entryNr]));
 
 
             if(func_SA.checkAmbigous_(tmp_pep, tmp_prot, beg, max_aaa)){
@@ -944,84 +828,84 @@ inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Serial());
 }
 
-inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
-                                             seqan::StringSet<seqan::Peptide> &pep_DB,
+inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                                             seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
+                                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                              int mm,
                                              Size max_aaa,
                                              bool indexType){
-    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > TIndex;
-    typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
-    typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
+    typedef seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > TIndex;
+    typedef typename seqan2::Iterator<seqan2::StringSet<seqan2::Peptide> const, seqan2::Rooted>::Type TPatternsIt;
+    typedef typename seqan2::Iterator<TIndex, seqan2::TopDown<seqan2::PreorderEmptyEdges> >::Type TIndexIt;
     auto delegate = [&func_SA, &prot_Index, max_aaa, indexType](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
         long indexOfPeptideHit = position(patternsIt);
         for (auto occ: getOccurrences(it)){
-            long entryNr = seqan::getSeqNo(occ);
-            long beg = seqan::getSeqOffset(occ);
+            long entryNr = seqan2::getSeqNo(occ);
+            long beg = seqan2::getSeqOffset(occ);
             const OpenMS::String tmp_pep(begin(*patternsIt),end(*patternsIt));
-            const OpenMS::String tmp_prot(begin(seqan::indexText(prot_Index)[entryNr]),
-                                          end(seqan::indexText(prot_Index)[entryNr]));
+            const OpenMS::String tmp_prot(begin(seqan2::indexText(prot_Index)[entryNr]),
+                                          end(seqan2::indexText(prot_Index)[entryNr]));
             if(func_SA.checkAmbigous_(tmp_pep, tmp_prot, beg, max_aaa)){
                 func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg, indexType);
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
-inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
-                                             seqan::StringSet<seqan::Peptide> &pep_DB,
+inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                                             seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
+                                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                              OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                                              int mm,
                                              Size max_aaa,
                                              bool indexType){
-    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > TIndex;
-    typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
-    typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
+    typedef seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > TIndex;
+    typedef typename seqan2::Iterator<seqan2::StringSet<seqan2::Peptide> const, seqan2::Rooted>::Type TPatternsIt;
+    typedef typename seqan2::Iterator<TIndex, seqan2::TopDown<seqan2::PreorderEmptyEdges> >::Type TIndexIt;
     auto delegate = [&func_SA, &prot_Index, max_aaa, indexType, &pep_to_pepUnmatched](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
         long indexOfPeptideHit = pep_to_pepUnmatched[position(patternsIt)];
         for (auto occ: getOccurrences(it)){
-            long entryNr = seqan::getSeqNo(occ);
-            long beg = seqan::getSeqOffset(occ);
+            long entryNr = seqan2::getSeqNo(occ);
+            long beg = seqan2::getSeqOffset(occ);
             const OpenMS::String tmp_pep(begin(*patternsIt),end(*patternsIt));
-            const OpenMS::String tmp_prot(begin(seqan::indexText(prot_Index)[entryNr]),
-                                          end(seqan::indexText(prot_Index)[entryNr]));
+            const OpenMS::String tmp_prot(begin(seqan2::indexText(prot_Index)[entryNr]),
+                                          end(seqan2::indexText(prot_Index)[entryNr]));
             if(func_SA.checkAmbigous_(tmp_pep, tmp_prot, beg, max_aaa)){
                 func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg, indexType);
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
-inline void PeptideIndexing2::searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                                             seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
-                                             seqan::StringSet<seqan::Peptide> &pep_DB,
+inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                                             seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                              OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                                              int mm,
                                              OpenMS::Size max_aaa,
                                              bool indexType){
-    typedef seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > TIndex;
-    typedef typename seqan::Iterator<seqan::StringSet<seqan::Peptide> const, seqan::Rooted>::Type TPatternsIt;
-    typedef typename seqan::Iterator<TIndex, seqan::TopDown<seqan::PreorderEmptyEdges> >::Type TIndexIt;
+    typedef seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > TIndex;
+    typedef typename seqan2::Iterator<seqan2::StringSet<seqan2::Peptide> const, seqan2::Rooted>::Type TPatternsIt;
+    typedef typename seqan2::Iterator<TIndex, seqan2::TopDown<seqan2::PreorderEmptyEdges> >::Type TIndexIt;
     auto delegate = [&func_SA, &prot_Index, max_aaa, indexType, &pep_to_pepUnmatched](TIndexIt const &it, TPatternsIt const &patternsIt, unsigned /*score*/) {
         long indexOfPeptideHit = pep_to_pepUnmatched[position(patternsIt)];
         for (auto &occ: getOccurrences(it)){
-            long entryNr = seqan::getSeqNo(occ);
-            long beg = seqan::getSeqOffset(occ);
+            long entryNr = seqan2::getSeqNo(occ);
+            long beg = seqan2::getSeqOffset(occ);
             const OpenMS::String tmp_pep(begin(*patternsIt),end(*patternsIt));
-            const OpenMS::String tmp_prot(begin(seqan::indexText(prot_Index)[entryNr]),
-                                          end(seqan::indexText(prot_Index)[entryNr]));
+            const OpenMS::String tmp_prot(begin(seqan2::indexText(prot_Index)[entryNr]),
+                                          end(seqan2::indexText(prot_Index)[entryNr]));
             if(func_SA.checkAmbigous_(tmp_pep, tmp_prot, beg, max_aaa)){
                 func_SA.addHit(indexOfPeptideHit,entryNr,tmp_pep,tmp_prot,beg,indexType);
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan::Backtracking<seqan::EditDistance>(), seqan::Parallel());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::setPeptideEvidence_(vector<PeptideHit>::iterator &it2,
@@ -1073,7 +957,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
                                                                 Map<Size, std::set<Size> > &runidx_to_protidx,
                                                                 Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                                 Size &stats_unmatched,
-                                                                seqan::FoundProteinFunctor &func){
+                                                                seqan2::FoundProteinFunctor &func){
     /* do mapping */
     writeDebug_("Reindexing peptide/protein matches...", 1);
 
@@ -1237,13 +1121,13 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::mappingPepToProt_(std::vector<FAST
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::searchApprox_(seqan::FoundProteinFunctor &func_SA,
-                                                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
-                                                            seqan::StringSet<seqan::Peptide> pep_DB,
+PeptideIndexing2::ExitCodes PeptideIndexing2::searchApprox_(seqan2::FoundProteinFunctor &func_SA,
+                                                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                                                            seqan2::StringSet<seqan2::Peptide> pep_DB,
                                                             int mm,
                                                             Size max_aaa,
                                                             bool indexType){
-    seqan::StringSet<seqan::Peptide> pep_DBunmatched;
+    seqan2::StringSet<seqan2::Peptide> pep_DBunmatched;
     OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched;
     Size pep_idxUnmatched(0);
     // rebuild peptideDB to search for unmatched
@@ -1261,13 +1145,13 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchApprox_(seqan::FoundProteinF
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::searchApprox_(seqan::FoundProteinFunctor &func_SA,
-                                                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
-                                                            seqan::StringSet<seqan::Peptide> pep_DB,
+PeptideIndexing2::ExitCodes PeptideIndexing2::searchApprox_(seqan2::FoundProteinFunctor &func_SA,
+                                                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
+                                                            seqan2::StringSet<seqan2::Peptide> pep_DB,
                                                             int mm,
                                                             Size max_aaa,
                                                             bool indexType){
-    seqan::StringSet<seqan::Peptide> pep_DBunmatched;
+    seqan2::StringSet<seqan2::Peptide> pep_DBunmatched;
     OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched;
     Size pep_idxUnmatched(0);
     // rebuild peptideDB to search for unmatched
@@ -1445,16 +1329,16 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /**
         Read input
     */
-    seqan::FoundProteinFunctor func(enzyme); // stores the matches
-    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index;
+    seqan2::FoundProteinFunctor func(enzyme); // stores the matches
+    seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > index;
     if (search_for_normal_proteins_) {
-        if (!seqan::open(index, path.c_str())) {
+        if (!seqan2::open(index, path.c_str())) {
             return INPUT_ERROR;
         }
     }
-    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > indexAAA;
+    seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > indexAAA;
     if (search_for_aaa_proteins_) {
-        if (!seqan::open(indexAAA, pathAAA.c_str())) {
+        if (!seqan2::open(indexAAA, pathAAA.c_str())) {
             return INPUT_ERROR;
         }
     }
@@ -1470,7 +1354,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
         Build peptide DB
     */
     writeLog_(String("Build Peptide DB..."));
-    seqan::StringSet<seqan::Peptide> pep_DB;
+    seqan2::StringSet<seqan2::Peptide> pep_DB;
     if (buildReversePepDB_(pep_DB, pep_ids)!= CHECKPOINT_OK){
         return UNEXPECTED_RESULT;
     }
@@ -1492,6 +1376,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /**
         Search approximative for unmatched peptides
     */
+/*
     writeLog_(String("Searching approximate for unmatched peptides..."));
     if (mismatches_max_ == 0){
         if (search_for_normal_proteins_) {
@@ -1504,7 +1389,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
                 return UNEXPECTED_RESULT;
             };
         }
-    }
+    }*/
     // write out some stats
     LOG_INFO << "Peptide hits passing enzyme filter: " << func.filter_passed << "\n"
              << "     ... rejected by enzyme filter: " << func.filter_rejected << std::endl;
@@ -1544,17 +1429,17 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
         Read input
     */
     writeLog_(String("Read Input..."));
-    seqan::FoundProteinFunctor func(enzyme); // stores the matches
-    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > index;
+    seqan2::FoundProteinFunctor func(enzyme); // stores the matches
+    seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > index;
     if (search_for_normal_proteins_) {
-        if (!seqan::open(index, path.c_str())) {
+        if (!seqan2::open(index, path.c_str())) {
             writeLog_(String("ERROR: Could not open Index!"));
             return INPUT_ERROR;
         }
     }
-    seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > indexAAA;
+    seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > indexAAA;
     if (search_for_aaa_proteins_) {
-        if (!seqan::open(indexAAA, pathAAA.c_str())) {
+        if (!seqan2::open(indexAAA, pathAAA.c_str())) {
             writeLog_(String("ERROR: Could not open Index for ambiguous amino acid!"));
             return INPUT_ERROR;
         }
@@ -1571,7 +1456,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
         Build peptide DB
     */
     writeLog_(String("Build Peptide DB..."));
-    seqan::StringSet<seqan::Peptide> pep_DB;
+    seqan2::StringSet<seqan2::Peptide> pep_DB;
     if (buildPepDB_(pep_DB, pep_ids)!= CHECKPOINT_OK){
         return UNEXPECTED_RESULT;
     }
@@ -1592,6 +1477,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /**
         Search approximative for unmatched peptides
     */
+    /*
     writeLog_(String("Searching approximate for unmatched peptides..."));
     if (mismatches_max_ == 0){
         if (search_for_normal_proteins_) {
@@ -1605,7 +1491,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
             };
         }
     }
-
+*/
     // write out some stats
     LOG_INFO << "Peptide hits passing enzyme filter: " << func.filter_passed << "\n"
              << "     ... rejected by enzyme filter: " << func.filter_rejected << std::endl;

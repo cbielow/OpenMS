@@ -1,12 +1,20 @@
 #include <OpenMS/ANALYSIS/ID/BuildIndexing.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
-#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
+//#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <OpenMS/METADATA/ProteinIdentification.h>
 #include <OpenMS/SYSTEM/StopWatch.h>
 #include <OpenMS/METADATA/PeptideEvidence.h>
 #include <OpenMS/CHEMISTRY/EnzymesDB.h>
 #include <OpenMS/DATASTRUCTURES/ListUtils.h>
+#include <seqan2/seq_io.h>
+#include <seqan2/index.h>
+#include <seqan2/seeds.h>
+#include <seqan2/arg_parse.h>
+#include <seqan2/bam_io.h>
+#include <seqan2/find.h>
+#include <seqan2/basic.h>
+#include <seqan2/stream.h>
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -24,7 +32,7 @@ struct SAind {
     SAind() { }
 };
 
-//namespace seqan {
+//namespace seqan2 {
 //    template<>
 //    struct SAValue<StringSet<Peptide> > {
 //    // anzahl strings - laenge strings
@@ -146,8 +154,8 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     std::vector<FASTAFile::FASTAEntry> proteinsAAA;
     Map<String, Size> acc_to_prot; // build map: accessions to FASTA protein index
     Map<String, Size> acc_to_AAAprot;
-    seqan::StringSet<seqan::Peptide> prot_DB;
-    seqan::StringSet<seqan::Peptide> prot_DB_AAA;
+    seqan2::StringSet<seqan2::Peptide> prot_DB;
+    seqan2::StringSet<seqan2::Peptide> prot_DB_AAA;
     vector<String> duplicate_accessions;
     // check for duplicated accessions & build prot DB
     if (buildProtDB_(proteins, proteinsAAA, acc_to_prot, prot_DB, acc_to_AAAprot, prot_DB_AAA, duplicate_accessions) != CHECKPOINT_OK ) {
@@ -175,22 +183,22 @@ BuildIndexing::ExitCodes BuildIndexing::run(std::vector<FASTAFile::FASTAEntry>& 
     return EXECUTION_OK;
 }
 
-BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan2::StringSet<seqan2::Peptide> &prot_DB,
+                                                     seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
                                                      String out,
                                                      SAind /**/){
-    if (!seqan::empty(prot_DB_AAA)){
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > indexAAA(prot_DB_AAA);
-        seqan::indexRequire(indexAAA, seqan::FibreSA());
-        if (!seqan::save(indexAAA, (out + "_AAA").c_str() )) {
+    if (!seqan2::empty(prot_DB_AAA)){
+        seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > indexAAA(prot_DB_AAA);
+        seqan2::indexRequire(indexAAA, seqan2::FibreSA());
+        if (!seqan2::save(indexAAA, (out + "_AAA").c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
         }
     }
-    if (!seqan::empty(prot_DB)){
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > index(prot_DB);
-        seqan::indexRequire(index, seqan::FibreSA());
-        if (!seqan::save(index, out.c_str() )) {
+    if (!seqan2::empty(prot_DB)){
+        seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > index(prot_DB);
+        seqan2::indexRequire(index, seqan2::FibreSA());
+        if (!seqan2::save(index, out.c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
         }
@@ -198,22 +206,25 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Pep
     return CHECKPOINT_OK;
 }
 
-BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan::StringSet<seqan::Peptide> &prot_DB,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan2::StringSet<seqan2::Peptide> &prot_DB,
+                                                     seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
                                                      String out,
                                                      FMind /**/){
-    if (!seqan::empty(prot_DB_AAA)){
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > indexAAA(prot_DB_AAA);
-        seqan::indexRequire(indexAAA, seqan::FibreSaLfTable());
-        if (!seqan::save(indexAAA, (out + "_AAA").c_str() )) {
+    //typedef seqan2::FastFMIndexConfig<void,std::uint32_t,2,1> TFastFMConfig;
+    if (!seqan2::empty(prot_DB_AAA)){
+        //seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<void, TFastFMConfig> > indexAAA(prot_DB_AAA);
+        seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > indexAAA(prot_DB_AAA);
+        seqan2::indexRequire(indexAAA, seqan2::FibreSALF());
+        if (!seqan2::save(indexAAA, (out + "_AAA").c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
         }
     }
-    if (!seqan::empty(prot_DB)){
-        seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > index(prot_DB);
-        seqan::indexRequire(index, seqan::FibreSaLfTable());
-        if (!seqan::save(index, out.c_str() )) {
+    if (!seqan2::empty(prot_DB)){
+        //seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<void, TFastFMConfig> > index(prot_DB);
+        seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > index(prot_DB);
+        seqan2::indexRequire(index, seqan2::FibreSALF());
+        if (!seqan2::save(index, out.c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
         }
@@ -226,12 +237,12 @@ BuildIndexing::ExitCodes BuildIndexing::check_duplicate_(std::vector<FASTAFile::
                                                          std::vector<String> &duplicate_accessions,
                                                          Map<String, Size> &acc_to_prot,
                                                          String &acc,
-                                                         seqan::StringSet<seqan::Peptide>  &prot_DB,
+                                                         seqan2::StringSet<seqan2::Peptide>  &prot_DB,
                                                          Size protIndex){
     if (acc_to_prot.has(acc)) {
         duplicate_accessions.push_back(acc);
         // check if sequence is identical
-        const seqan::Peptide &tmp_prot = prot_DB[acc_to_prot[acc]];
+        const seqan2::Peptide &tmp_prot = prot_DB[acc_to_prot[acc]];
         if (String(begin(tmp_prot), end(tmp_prot)) != seq) {
             LOG_ERROR << "Fatal error: Protein identifier '" << acc <<
                       "' found multiple times with different sequences" << (IL_equivalent_ ? " (I/L substituted)" : "") <<
@@ -267,7 +278,7 @@ void BuildIndexing::updateMembers_() {
 }
 
 BuildIndexing::ExitCodes BuildIndexing::checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins) {
-    if (seqan::empty(proteins)) // we do not allow an empty database
+    if (seqan2::empty(proteins)) // we do not allow an empty database
     {
         LOG_ERROR << "Error: An empty database was provided. Mapping makes no sense. Aborting..." << std::endl;
         return DATABASE_EMPTY;
@@ -292,7 +303,7 @@ BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FA
                                                       std::vector<String> &duplicate_accessions,
                                                       Map<String, Size> &acc_to_prot,
                                                       String &acc,
-                                                      seqan::StringSet<seqan::Peptide> &db,
+                                                      seqan2::StringSet<seqan2::Peptide> &db,
                                                       Size &i){
     // check for duplicate proteins in db
     ExitCodes erg = check_duplicate_(proteins, seq, duplicate_accessions, acc_to_prot,acc,db,i);
@@ -305,7 +316,7 @@ BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FA
         i--;
     } else {
         // add protein to db
-        seqan::appendValue(db, seq.c_str());
+        seqan2::appendValue(db, seq.c_str());
         acc_to_prot[acc] = i;
     }
     return BuildIndexing::CHECKPOINT_OK;
@@ -314,9 +325,9 @@ BuildIndexing::ExitCodes BuildIndexing::appendWrapper_(std::vector<FASTAFile::FA
 BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
                                                      std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                                      Map<String, Size> &acc_to_prot,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB,
+                                                     seqan2::StringSet<seqan2::Peptide> &prot_DB,
                                                      Map<String, Size> &acc_to_AAAprot,
-                                                     seqan::StringSet<seqan::Peptide> &prot_DB_AAA,
+                                                     seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
                                                      std::vector<String> &duplicate_accessions){
     Size j = 0;
     for (Size i = 0; i != proteins.size(); ++i) {

@@ -37,8 +37,14 @@
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
-#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
+//#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <fstream>
+#include <seqan2/index.h>
+#include <seqan2/find.h>
+#include <seqan2/basic.h>
+#include <seqan2/sequence.h>
+#include <seqan2/stream.h>
+
 
 
 struct PeptideProteinMatchInformation;
@@ -46,7 +52,7 @@ struct FMind;
 struct SAind;
 
 // WARUM NAMESPACE SEQAN?
-namespace seqan {
+namespace seqan2 {
     struct FoundProteinFunctor;
 }
 
@@ -169,11 +175,11 @@ namespace OpenMS {
         bool FM_index_;
 
         /// function to build peptide DB for suffix array
-        PeptideIndexing2::ExitCodes buildPepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
+        PeptideIndexing2::ExitCodes buildPepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                                 std::vector<PeptideIdentification> &pep_ids);
 
         /// function to build peptide DB for FM index
-        PeptideIndexing2::ExitCodes buildReversePepDB_(seqan::StringSet<seqan::Peptide> &pep_DB,
+        PeptideIndexing2::ExitCodes buildReversePepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                                        std::vector<PeptideIdentification> &pep_ids);
 
         /// function to check input options
@@ -189,7 +195,7 @@ namespace OpenMS {
                                                       Map<Size, std::set<Size> > &runidx_to_protidx,
                                                       Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                       Size &stats_unmatched,
-                                                      seqan::FoundProteinFunctor &func);
+                                                      seqan2::FoundProteinFunctor &func);
 
         /// function to update idXML input file
         PeptideIndexing2::ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
@@ -203,48 +209,48 @@ namespace OpenMS {
                                                    Size &stats_unmatched);
 
         /// wrapper function to search within a suffix array
-        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
-                            seqan::StringSet<seqan::Peptide> &pep_DB,
+        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                            seqan2::StringSet<seqan2::Peptide> &pep_DB,
                             int mm,
                             Size aaa_max,
                             bool indexType);
 
         /// wrapper function to search within a FM index
-        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
-                            seqan::StringSet<seqan::Peptide> &pep_DB,
+        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
+                            seqan2::StringSet<seqan2::Peptide> &pep_DB,
                             int mm,
                             Size aaa_max,
                             bool indexType);
 
-        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                          seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
-                          seqan::StringSet<seqan::Peptide> &pep_DB,
+        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                          seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
+                          seqan2::StringSet<seqan2::Peptide> &pep_DB,
                           OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                           int mm,
                           Size max_aaa,
                           bool indexType);
 
 
-        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
-                            seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
-                            seqan::StringSet<seqan::Peptide> &pep_DB,
+        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                            seqan2::StringSet<seqan2::Peptide> &pep_DB,
                             OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                             int mm,
                             Size max_aaa,
                             bool indexType);
 
-        ExitCodes searchApprox_(seqan::FoundProteinFunctor &func_SA,
-                                seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::IndexSa<> > &prot_Index,
-                                seqan::StringSet<seqan::Peptide> pep_DB,
+        ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
+                                seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                                seqan2::StringSet<seqan2::Peptide> pep_DB,
                                 int mm,
                                 Size max_aaa,
                                 bool indexType);
 
-        ExitCodes searchApprox_(seqan::FoundProteinFunctor &func_SA,
-                                seqan::Index<seqan::StringSet<seqan::Peptide>, seqan::FMIndex<> > &prot_Index,
-                                seqan::StringSet<seqan::Peptide> pep_DB,
+        ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
+                                seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
+                                seqan2::StringSet<seqan2::Peptide> pep_DB,
                                 int mm,
                                 Size max_aaa,
                                 bool indexType);
