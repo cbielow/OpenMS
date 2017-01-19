@@ -151,6 +151,8 @@ namespace seqan
                     const OpenMS::String& seq_pep, const OpenMS::String& protein,
                     OpenMS::Size position)
         {
+            std::cout << "protein: " <<  protein << std::endl;
+            std::cout << "peptide: " <<  seq_pep << std::endl;
             if (enzyme_.isValidProduct(AASequence::fromString(protein), position,
                                        seq_pep.length(), true))
             {

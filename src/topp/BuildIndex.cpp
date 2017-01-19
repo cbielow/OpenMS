@@ -10,6 +10,16 @@
 #include <OpenMS/METADATA/ProteinIdentification.h>
 #include <OpenMS/SYSTEM/File.h>
 
+#include <seqan2/seq_io.h>
+#include <seqan2/index.h>
+#include <seqan2/seeds.h>
+#include <seqan2/arg_parse.h>
+#include <seqan2/bam_io.h>
+#include <seqan2/find.h>
+#include <seqan2/basic.h>
+#include <seqan2/stream.h>
+
+
 
 using namespace OpenMS;
 
@@ -50,20 +60,20 @@ protected:
     builder.setParameters(param_pi);
 
     String db_name = getStringOption_("fasta");
-    if (!File::readable(db_name))
-    {
-      String full_db_name;
-      try
-      {
-        full_db_name = File::findDatabase(db_name);
-      }
-      catch (...)
-      {
-        printUsage_();
-        return ILLEGAL_PARAMETERS;
-      }
-      db_name = full_db_name;
-    }
+//    if (!File::readable(db_name))
+//    {
+//      String full_db_name;
+//      try
+//      {
+//        full_db_name = File::findDatabase(db_name);
+//      }
+//      catch (...)
+//      {
+//        printUsage_();
+//        return ILLEGAL_PARAMETERS;
+//      }
+//      db_name = full_db_name;
+//    }
 
 
     //-------------------------------------------------------------
@@ -71,14 +81,14 @@ protected:
     //-------------------------------------------------------------
 
     // we stream the Fasta file
-    std::vector<FASTAFile::FASTAEntry> proteins;
-    FASTAFile().load(db_name, proteins);
+//    std::vector<FASTAFile::FASTAEntry> proteins;
+//    FASTAFile().load(db_name, proteins);
 
     //-------------------------------------------------------------
     // calculations
     //-------------------------------------------------------------
 
-    BuildIndexing::ExitCodes builder_exit = builder.run(proteins, out);
+    BuildIndexing::ExitCodes builder_exit = builder.run(db_name, out);
     if ((builder_exit != BuildIndexing::EXECUTION_OK))
     {
       if (builder_exit == BuildIndexing::DATABASE_EMPTY)

@@ -39,12 +39,25 @@
 #include <OpenMS/CONCEPT/LogStream.h>
 
 #include <fstream>
+#include <iostream>
+//#include <seqan/basic.h>
+//#include <seqan/stream.h>
+//#include <seqan/seq_io/guess_stream_format.h>
+//#include <seqan/seq_io/read_fasta_fastq.h>
+//#include <seqan/sequence.h>
 
-#include <seqan/basic.h>
-#include <seqan/stream.h>
-#include <seqan/seq_io/guess_stream_format.h>
-#include <seqan/seq_io/read_fasta_fastq.h>
-#include <seqan/sequence.h>
+#include <seqan2/basic.h>
+#include <seqan2/stream.h>
+#include <seqan2/seq_io.h>
+#include <seqan2/sequence.h>
+#include <seqan2/seq_io.h>
+#include <seqan2/index.h>
+#include <seqan2/seeds.h>
+#include <seqan2/arg_parse.h>
+#include <seqan2/bam_io.h>
+#include <seqan2/find.h>
+#include <seqan2/basic.h>
+#include <seqan2/stream.h>
 
 namespace OpenMS
 {
@@ -60,9 +73,9 @@ namespace OpenMS
 
   }
 
-  void FASTAFile::load(const String& filename, vector<FASTAEntry>& data)
+  void FASTAFile::load(const String& filename, std::vector<FASTAFile::FASTAEntry>& data)
   {
-    data.clear();
+    //data.clear();
 
     if (!File::exists(filename))
     {
@@ -74,48 +87,87 @@ namespace OpenMS
       throw Exception::FileNotReadable(__FILE__, __LINE__, __PRETTY_FUNCTION__, filename);
     }
 
-
-    std::fstream in(filename.c_str(), std::ios::binary | std::ios::in);
-    seqan::RecordReader<std::fstream, seqan::SinglePass<> > reader(in);
-
-    String id, seq;
     String::size_type position = String::npos;
     Size size_read(0);
-
-    while (!atEnd(reader))
+    seqan2::SeqFileIn fastaIn;
+    if (!seqan2::open(fastaIn, seqan2::toCString(filename)))
     {
-      if (readRecord(id, seq, reader, seqan::Fasta()) != 0)
-      {
-        String msg;
-        if (data.empty()) msg = "The first entry could not be read!";
-        else msg = "The last successful FASTA record was: '>" + data.back().identifier + "'. The record after failed.";
-        throw Exception::ParseError(__FILE__, __LINE__, __PRETTY_FUNCTION__, "", "Error while parsing FASTA file '" + filename + "'! " + msg +  " Please check the file!");
-      }
-
+      std::cerr << "ERROR: Could not open the file.\n";
+    }
+    seqan2::StringSet<seqan2::CharString> ids;
+    seqan2::StringSet<seqan2::CharString> seqs;
+    seqan2::StringSet<seqan2::CharString> quals;
+    seqan2::readRecords(ids, seqs, quals, fastaIn);
+    // process ids
+    for (unsigned i = 0; i < seqan2::length(ids);i++){
       FASTAEntry newEntry;
-      newEntry.sequence = seq;
-      newEntry.sequence.removeWhitespaces();
-
-      // handle id
+      String id = seqan2::toCString(ids[i]);
       id = id.trim();
       position = id.find_first_of(" \v\t");
       if (position == String::npos)
       {
         newEntry.identifier = id;
         newEntry.description = "";
-      }
-      else
-      {
+      }else{
         newEntry.identifier = id.substr(0, position);
         newEntry.description = id.suffix(id.size() - position - 1);
       }
-      id.clear();
-      seq.clear();
-      data.push_back(newEntry);
+      std::string seq = seqan2::toCString(seqs[i]);
+      newEntry.sequence = seq;
       size_read += newEntry.sequence.length();
+      data.push_back(newEntry);
     }
+    seqan2::close(fastaIn);
+    // std::cout << data.size() << std::endl;
+    // std::cout << size_read << std::endl;
 
-    in.close();
+
+
+
+
+//    std::fstream in(filename.c_str(), std::ios::binary | std::ios::in);
+//    seqan2::RecordReader<std::fstream, seqan2::SinglePass<> > reader(in);
+//
+//    String id, seq;
+//    String::size_type position = String::npos;
+//    Size size_read(0);
+//
+//    while (!atEnd(reader))
+//    {
+//      if (readRecord(id, seq, reader, seqan2::Fasta()) != 0)
+//      {
+//        String msg;
+//        if (data.empty()) msg = "The first entry could not be read!";
+//        else msg = "The last successful FASTA record was: '>" + data.back().identifier + "'. The record after failed.";
+//        throw Exception::ParseError(__FILE__, __LINE__, __PRETTY_FUNCTION__, "", "Error while parsing FASTA file '" + filename + "'! " + msg +  " Please check the file!");
+//      }
+//
+//      FASTAEntry newEntry;
+//      newEntry.sequence = seq;
+//      newEntry.sequence.removeWhitespaces();
+//
+//      // handle id
+//      id = id.trim();
+//      position = id.find_first_of(" \v\t");
+//      if (position == String::npos)
+//      {
+//        newEntry.identifier = id;
+//        newEntry.description = "";
+//      }
+//      else
+//      {
+//        newEntry.identifier = id.substr(0, position);
+//        newEntry.description = id.suffix(id.size() - position - 1);
+//      }
+//      id.clear();
+//      seq.clear();
+//      data.push_back(newEntry);
+//      size_read += newEntry.sequence.length();
+//    }
+
+//    in.close();
+    // seqan2::CharString out = "/home/phil/Dokumente/Bachelorarbeit/data/pfeuffer/Index/saind/iPRG2016_cRAP_revAAA_small.inx_XXXXX";
+    // seqan2::save(data,seqan2::toCString(out));
 
     if (size_read > 0 && data.empty())
       LOG_WARN << "No entries from FASTA file read. Does the file have MacOS "

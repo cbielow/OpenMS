@@ -41,7 +41,7 @@ namespace OpenMS {
         virtual ~BuildIndexing();
 
         /// main method of PeptideIndexerBuilder
-        ExitCodes run(std::vector<FASTAFile::FASTAEntry> &proteins, String &out);
+        ExitCodes run(const String &in, const String &out);
 
     protected:
 
@@ -60,11 +60,14 @@ namespace OpenMS {
         bool suffix_array_;
         bool FM_index_;
         bool IL_equivalent_;
-        bool has_aaa_(String seq);
+        bool has_aaa_(const String seq);
 
         /// function to build protein database
-        ExitCodes buildProtDB_(std::vector<FASTAFile::FASTAEntry>& proteins,
+        ExitCodes buildProtDB_(const String &in,
+                std::vector<FASTAFile::FASTAEntry>& proteins,
                                std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
+                               seqan2::StringSet<seqan2::CharString>& ids,
+                                seqan2::StringSet<seqan2::CharString>& seqs,
                                Map<String, Size> &acc_to_prot,
                                seqan2::StringSet<seqan2::Peptide> &prot_DB,
                                Map<String, Size> &acc_to_AAAprot,
@@ -72,43 +75,33 @@ namespace OpenMS {
                                std::vector<String> &duplicate_accessions);
 
         /// function to check for duplicate fasta entrys
-        ExitCodes check_duplicate_(std::vector<FASTAFile::FASTAEntry>& proteins,
-                                   String seq,
-                                   std::vector<String> &duplicate_accessions,
-                                   Map<String, Size> &acc_to_prot,
-                                   String &acc,
-                                   seqan2::StringSet<seqan2::Peptide>
-                                   &prot_DB, Size protIndex);
+        bool check_duplicate_(const String seq,
+                           std::vector<String> &duplicate_accessions,
+                           const Map<String, Size> &acc_to_prot,
+                           const String &acc,
+                           const seqan2::StringSet<seqan2::Peptide> &prot_DB);
 
         /// function to safe additional information on disk
-        ExitCodes saveOutput_(Map<String, Size> &acc_to_prot,
-                              Map<String, Size> &acc_to_AAAprot,
-                              std::vector<FASTAFile::FASTAEntry>& proteins,
-                              std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
-                              String &out);
+        ExitCodes saveOutput_(const Map<String, Size> &acc_to_prot,
+                              const Map<String, Size> &acc_to_AAAprot,
+                              const std::vector<FASTAFile::FASTAEntry>& proteins,
+                              const std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
+                              const String &out);
 
         /// function to build suffix array index
-        ExitCodes build_index_(seqan2::StringSet<seqan2::Peptide> &prot_DB,
-                               seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
-                               String out,
+        ExitCodes build_index_(const seqan2::StringSet<seqan2::Peptide> &prot_DB,
+                               const seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
+                               const String out,
                                SAind /**/);
 
         /// function to build FM index
         ExitCodes build_index_(seqan2::StringSet<seqan2::Peptide> &prot_DB,
                                seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
-                               String out,
+                               const String out,
                                FMind /**/);
 
         /// function to check user input
-        ExitCodes checkUserInput_(std::vector<FASTAFile::FASTAEntry> &proteins);
+        ExitCodes checkUserInput_();
 
-        /// function to append protein to index for AAA proteins or index for non AAA proteins
-        ExitCodes appendWrapper_(std::vector<FASTAFile::FASTAEntry>& proteins,
-                                String &seq,
-                                std::vector<String> &duplicate_accessions,
-                                Map<String, Size> &acc_to_prot,
-                                String &acc,
-                                seqan2::StringSet<seqan2::Peptide> &db,
-                                Size &i);
     };
 }

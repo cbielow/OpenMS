@@ -356,6 +356,10 @@ namespace OpenMS
         for (Size pep_ev_i = 0; pep_ev_i != ph_evidences.size(); ++pep_ev_i)
         {
           const PeptideEvidence & evidence = ph_evidences[pep_ev_i];
+          std::cout << peptide_hit.getSequence() << std::endl;
+          std::cout << evidence.getProteinAccession() << std::endl;
+          std::cout << evidence.getStart() << std::endl;
+          std::cout << evidence.getEnd() << std::endl;
           map_acc_2_evidence[evidence.getProteinAccession()].insert(evidence);
         }
       }
@@ -377,7 +381,9 @@ namespace OpenMS
         const set<PeptideEvidence> & evidences = map_acc_2_evidence.at(accession);
         for (set<PeptideEvidence>::const_iterator sit = evidences.begin(); sit != evidences.end(); ++sit) {
             int start = sit->getStart();
+          std::cout << start << std::endl;
             int stop = sit->getEnd();
+          std::cout << stop << std::endl;
             if (start == PeptideEvidence::UNKNOWN_POSITION || stop == PeptideEvidence::UNKNOWN_POSITION) {
                 throw Exception::MissingInformation(__FILE__, __LINE__, __PRETTY_FUNCTION__,
                                                     " PeptideEvidence does not contain start or end position. Cannot compute coverage!");
