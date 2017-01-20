@@ -14,7 +14,6 @@
 
 struct FMind;
 struct SAind;
-struct WOTDind;
 
 namespace OpenMS {
 
@@ -67,7 +66,7 @@ namespace OpenMS {
                 std::vector<FASTAFile::FASTAEntry>& proteins,
                                std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                seqan2::StringSet<seqan2::CharString>& ids,
-                                seqan2::StringSet<seqan2::CharString>& seqs,
+                                seqan2::StringSet<seqan2::Peptide>& seqs,
                                Map<String, Size> &acc_to_prot,
                                seqan2::StringSet<seqan2::Peptide> &prot_DB,
                                Map<String, Size> &acc_to_AAAprot,

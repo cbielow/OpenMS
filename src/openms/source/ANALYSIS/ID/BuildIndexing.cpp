@@ -50,7 +50,7 @@ BuildIndexing::BuildIndexing() :
     defaults_.setValue("FM_index", "false", "Using the FM-Index as index");
     defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
 
-     defaults_.setValue("IL_equivalent", "false",
+    defaults_.setValue("IL_equivalent", "false",
                        "Treat the isobaric amino acids isoleucine ('I') and leucine ('L') as equivalent (indistinguishable)");
     defaults_.setValidStrings("IL_equivalent", ListUtils::create<String>("true,false"));
 //
@@ -137,7 +137,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(const String &in, const String &out)
     */
     writeLog_(String("Building protein database..."));
     seqan2::StringSet<seqan2::CharString> ids;
-    seqan2::StringSet<seqan2::CharString> seqs;
+    seqan2::StringSet<seqan2::Peptide> seqs;
     seqan2::StringSet<seqan2::CharString> quals;
     std::vector<FASTAFile::FASTAEntry> proteinsAAA;
     std::vector<FASTAFile::FASTAEntry> proteins;
@@ -173,10 +173,10 @@ BuildIndexing::ExitCodes BuildIndexing::run(const String &in, const String &out)
 }
 
 BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(const String &in,
-        std::vector<FASTAFile::FASTAEntry>& proteins,
+                                                    std::vector<FASTAFile::FASTAEntry>& proteins,
                                                      std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                                      seqan2::StringSet<seqan2::CharString> & ids,
-                                                     seqan2::StringSet<seqan2::CharString> & seqs,
+                                                     seqan2::StringSet<seqan2::Peptide> & seqs,
                                                      Map<String, Size> &acc_to_prot,
                                                      seqan2::StringSet<seqan2::Peptide> &prot_DB,
                                                      Map<String, Size> &acc_to_AAAprot,
@@ -216,32 +216,32 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(const String &in,
             newEntry.description = id.suffix(id.size() - position - 1);
         }
         // get sequence
-        std::string seq = seqan2::toCString(seqs[i]);
-        String sequence = seq;
         if (IL_equivalent_) {
-            sequence.substitute('L', 'I');
+            for (unsigned j = 0;j<seqan2::length(seqs[i]);++j){
+                if (seqs[i][j] == 'L') seqs[i][j] = 'I';
+            }
         }
-        // set sequence
-        newEntry.sequence = sequence;
-        // add to newEntry to proteins and add sequence to ProteinDB seperated normal and AAA
-        if (has_aaa_(sequence)) { // case AAA Protein
+        seqan2::CharString castedSeq(seqs[i]);
+        newEntry.sequence = seqan2::toCString(castedSeq);
+        // add to newEntry to proteins and add sequence to ProteinDB separated normal and AAA
+        if (has_aaa_(newEntry.sequence)) { // case AAA Protein
             // check if already added
-            if (!check_duplicate_(sequence, duplicate_accessions, acc_to_AAAprot, newEntry.identifier, prot_DB_AAA)) {
+            if (!check_duplicate_(newEntry.sequence, duplicate_accessions, acc_to_AAAprot, newEntry.identifier, prot_DB_AAA)) {
                 // add FastaEntry to proteins
                 proteinsAAA.push_back(newEntry);
                 // add sequence to DB
-                seqan2::appendValue(prot_DB_AAA, sequence.c_str());
+                seqan2::appendValue(prot_DB_AAA, seqs[i]);
                 // link ID to Position in DB
                 acc_to_AAAprot[newEntry.identifier] = counterAcc_to_protAAA;
                 ++counterAcc_to_protAAA;
             }
         } else {
             // check if already added
-            if (!check_duplicate_(sequence, duplicate_accessions, acc_to_prot, newEntry.identifier, prot_DB)) {
+            if (!check_duplicate_(newEntry.sequence, duplicate_accessions, acc_to_prot, newEntry.identifier, prot_DB)) {
                 // add FastaEntry to proteins
                 proteins.push_back(newEntry);
                 // add sequence to DB
-                seqan2::appendValue(prot_DB, sequence.c_str());
+                seqan2::appendValue(prot_DB, seqs[i]);
                 // link ID to Position in DB
                 acc_to_prot[newEntry.identifier] = counterAcc_to_prot;
                 ++counterAcc_to_prot;
@@ -336,6 +336,8 @@ bool BuildIndexing::has_aaa_(const String seq){
 void BuildIndexing::updateMembers_() {
     suffix_array_ = param_.getValue("suffix_array").toBool();
     FM_index_ = param_.getValue("FM_index").toBool();
+    IL_equivalent_ = param_.getValue("IL_equivalent").toBool();
+
     log_file_ = param_.getValue("log");
     debug_ = static_cast<Size>(param_.getValue("debug")) > 0;
 }

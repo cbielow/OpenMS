@@ -42,125 +42,121 @@
 
 namespace OpenMS
 {
-  /**
-    @brief Map class based on the STL map (containing several convenience functions)
-
-    @ingroup Datastructures
-  */
-  template <class Key, class T>
-  class Map :
-    private std::map<Key, T>
-  {
-public:
-
     /**
-      @brief Map illegal key exception
-
-      Thrown when trying to access an element with operator[], which is not contained in the Map
-      , i.e. no default ctor is called (as done in std::map)
-
-      @ingroup Exceptions
+      @brief Map class based on the STL map (containing several convenience functions)
+      @ingroup Datastructures
     */
-    class IllegalKey :
-      public Exception::BaseException
+    template <class Key, class T>
+    class Map :
+            private std::map<Key, T>
     {
-public:
-      IllegalKey(const char* file, int line, const char* function) :
-        Exception::BaseException(file, line, function)
-      {
-      }
+    public:
+
+        /**
+          @brief Map illegal key exception
+          Thrown when trying to access an element with operator[], which is not contained in the Map
+          , i.e. no default ctor is called (as done in std::map)
+          @ingroup Exceptions
+        */
+        class IllegalKey :
+                public Exception::BaseException
+        {
+        public:
+            IllegalKey(const char* file, int line, const char* function) :
+                    Exception::BaseException(file, line, function)
+            {
+            }
+
+        };
+
+        ///@name OpenMS style typedefs
+        //@{
+        typedef std::map<Key, T> Base;
+        typedef typename Base::value_type ValueType;
+        typedef Key KeyType;
+        typedef typename Base::value_type* PointerType;
+        typedef typename Base::iterator Iterator;
+        typedef typename Base::const_iterator ConstIterator;
+        typedef typename Base::reverse_iterator ReverseIterator;
+        typedef typename Base::const_reverse_iterator ConstReverseIterator;
+        //@}
+
+        ///@name Export methods from private base std::vector<Acquisition>
+        //@{
+        using Base::erase;
+        using Base::size;
+        using Base::begin;
+        using Base::rbegin;
+        using Base::end;
+        using Base::rend;
+        using Base::clear;
+        using Base::insert;
+        using Base::find;
+        using Base::empty;
+        using Base::count;
+
+        using typename Base::iterator;
+        using typename Base::const_iterator;
+
+        using typename Base::mapped_type;
+        using typename Base::value_type;
+        //@}
+
+        ///Test whether the map contains the given key.
+        inline bool has(const Key& key) const
+        {
+            return Base::find(key) != Base::end();
+        }
+
+        /**
+          @brief Return a constant reference to the element whose key is @p key.
+          @exception IllegalKey if the given key does not exist
+        */
+        const T& operator[](const Key& key) const;
+
+        /// Return a mutable reference to the element whose key is @p key. If an element with the key @p key does not exist, it is inserted.
+        T& operator[](const Key& key);
+
+
+        inline bool equals(const Map<Key, T>& other) const
+        {
+            return operator==(
+                    static_cast<typename Map<Key, T>::Base>(*this),
+                    static_cast<typename Map<Key, T>::Base>(other)
+            );
+        }
 
     };
 
-    ///@name OpenMS style typedefs
-    //@{
-    typedef std::map<Key, T> Base;
-    typedef typename Base::value_type ValueType;
-    typedef Key KeyType;
-    typedef typename Base::value_type* PointerType;
-    typedef typename Base::iterator Iterator;
-    typedef typename Base::const_iterator ConstIterator;
-    typedef typename Base::reverse_iterator ReverseIterator;
-    typedef typename Base::const_reverse_iterator ConstReverseIterator;
-    //@}
+    //******************************************************************************************
+    // Implementations of template methods
+    //******************************************************************************************
 
-    ///@name Export methods from private base std::vector<Acquisition>
-    //@{
-    using Base::erase;
-    using Base::size;
-    using Base::begin;
-    using Base::rbegin;
-    using Base::end;
-    using Base::rend;
-    using Base::clear;
-    using Base::insert;
-    using Base::find;
-    using Base::empty;
-    using Base::count;
-
-    using typename Base::iterator;
-    using typename Base::const_iterator;
-
-    using typename Base::mapped_type;
-    using typename Base::value_type;
-    //@}
-
-    ///Test whether the map contains the given key.
-    inline bool has(const Key& key) const
+    template <class Key, class T>
+    const T& Map<Key, T>::operator[](const Key& key) const
     {
-      return Base::find(key) != Base::end();
+        ConstIterator it = this->find(key);
+        if (it == Base::end())
+        {
+            throw IllegalKey(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+        }
+        else
+        {
+            return it->second;
+        }
     }
 
-    /**
-      @brief Return a constant reference to the element whose key is @p key.
-
-      @exception IllegalKey if the given key does not exist
-    */
-    const T& operator[](const Key& key) const;
-
-    /// Return a mutable reference to the element whose key is @p key. If an element with the key @p key does not exist, it is inserted.
-    T& operator[](const Key& key);
-
-
-    inline bool equals(const Map<Key, T>& other) const
+    template <class Key, class T>
+    T& Map<Key, T>::operator[](const Key& key)
     {
-      return operator==(
-        static_cast<typename Map<Key, T>::Base>(*this),
-        static_cast<typename Map<Key, T>::Base>(other)
-        );
+        Iterator it = this->find(key);
+        if (it == Base::end())
+        {
+            it = this->insert(ValueType(key, T())).first;
+        }
+        return it->second;
     }
-
-  };
-
-  //******************************************************************************************
-  // Implementations of template methods
-  //******************************************************************************************
-
-  template <class Key, class T>
-  const T& Map<Key, T>::operator[](const Key& key) const
-  {
-    ConstIterator it = this->find(key);
-    if (it == Base::end())
-    {
-      throw IllegalKey(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    else
-    {
-      return it->second;
-    }
-  }
-
-  template <class Key, class T>
-  T& Map<Key, T>::operator[](const Key& key)
-  {
-    Iterator it = this->find(key);
-    if (it == Base::end())
-    {
-      it = this->insert(ValueType(key, T())).first;
-    }
-    return it->second;
-  }
 
 } // namespace OPENMS
 
-#endif // OPENMS_DATASTRUCTURES_MAP_H
+#endif // OPENMS_DATASTRUCTURES_MAP_
