@@ -820,7 +820,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Serial());
+    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
 inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
