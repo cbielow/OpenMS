@@ -70,8 +70,6 @@ namespace seqan2 {
 
         /// index Peptide was found in
         unsigned indexType;
-//    unsigned test;
-//    unsigned test2;
 
         bool operator<(const PeptideProteinMatchInformation &other) const {
             if (protein_index != other.protein_index) {
@@ -85,12 +83,6 @@ namespace seqan2 {
             } else if (indexType != other.indexType) {
                 return indexType < other.indexType;
             }
-//        else if (test != other.test){
-//            return test < other.test;
-//        }
-//        else if (test2 != other.test2){
-//            return test2 < other.test2;
-//        }
             return false;
         }
 
@@ -237,126 +229,70 @@ namespace seqan2 {
 //        typedef Pair<unsigned, unsigned> Type;
 //    };
 
-
-    template<typename T = void>
-    struct EquivalenceClassAA_ {
-        static unsigned const VALUE[24];
-    };
-    template<typename T>
-    unsigned const EquivalenceClassAA_<T>::VALUE[24] =
-            {
-                    1, // 0 Ala Alanine (A)
-                    2, // 1 Arg Arginine (R)
-                    4, // 2 Asn Asparagine (N)
-                    8, // 3 Asp Aspartic Acid (D)
-                    16, // 4 Cys Cystine (C)
-                    32, // 5 Gln Glutamine (Q)
-                    64, // 6 Glu Glutamic Acid (E)
-                    128, // 7 Gly Glycine (G)
-                    256, // 8 His Histidine (H)
-                    512, // 9 Ile Isoleucine (I)
-                    1024, // 10 Leu Leucine (L)
-                    2048, // 11 Lys Lysine (K)
-                    4096, // 12 Met Methionine (M)
-                    8192, // 13 Phe Phenylalanine (F)
-                    16384, // 14 Pro Proline (P)
-                    32768, // 15 Ser Serine (S)
-                    65536, // 16 Thr Threonine (T)
-                    131072, // 17 Trp Tryptophan (W)
-                    262144, // 18 Tyr Tyrosine (Y)
-                    524288, // 19 Val Valine (V)
-                    // ambiguous AA's
-                    4 + 8, //  Aspartic Acid (D), Asparagine(N) == (B)
-                    32 + 64, // Glutamic Acid(E), Glutamine(Q) == (Z)
-                    static_cast<unsigned>(-1),  // 22 Unknown (matches ALL)
-                    static_cast<unsigned>(-1), // 23 Terminator (dummy)
-            };
-
-
     template <typename TIndexIt, typename TNeedle, typename TNeedleIt,
               typename TThreshold, typename TDelegate, typename TDistance>
     inline void _findBacktracking(TIndexIt indexIt,
-                      TNeedle const & needle,
-                      TNeedleIt needleIt,
-                      TThreshold errors,
-                      TThreshold threshold,
-                      TDelegate && delegate,
+                                  TNeedle const & needle,
+                                  TNeedleIt needleIt,
+                                  TThreshold errors,
+                                  TThreshold threshold,
+                                  OpenMS::Size max_aaa,
+                                  TDelegate && delegate,
                                   bool searchAAA,
-                      TDistance)
+                                  TDistance)
     {
         // Exact case
-        if (errors == threshold) {
-            // exakt case without AAA
-            if (!searchAAA)
-            {
+        if (errors == threshold && !searchAAA) {
                 //std::cout << suffix(needle, position(needleIt, needle)) << std::endl;
                 //std::cout << "rep: " << representative(indexIt) << std::endl;
                 if (goDown(indexIt, suffix(needle, position(needleIt, needle)))) {
                     //std::cout << "rep: " << representative(indexIt) << std::endl;
                     delegate(indexIt, errors);
                 }
-            }
-            else // case with AAA but no errors allowed
-            {
-                if (atEnd(needleIt, needle))
-                {
-                    delegate(indexIt, errors);
-                    return;
-                }
-
+        }
+         // case with Ambigous Amino Acid using errors as counting for AAA
+        else if (searchAAA && errors < max_aaa ) {
+            if (atEnd(needleIt, needle)) {
+                delegate(indexIt, errors);
+                return;
+            } else {
+                // save iterator position
                 auto indexIt2 = indexIt;
-                if (goDown(indexIt, value(needleIt)))
-                {
-                    _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                if (goDown(indexIt, value(needleIt))) {
+                    //std::cout << suffix(needle, position(needleIt, needle)) << std::endl;
+                    //std::cout << "rep: " << representative(indexIt) << std::endl;
+                    _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, max_aaa, delegate, searchAAA,
+                                      TDistance());
                 }
-
+                // restore position
                 indexIt = indexIt2;
-                if (goDown(indexIt, AminoAcid('X')))
-                {
-                    _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                if (goDown(indexIt, AminoAcid('X'))) {
+                    //std::cout << suffix(needle, position(needleIt, needle)) << std::endl;
+                    //std::cout << "rep: " << representative(indexIt) << std::endl;
+                    // recursion with errors = Ambigous AminoAcid + 1
+                    _findBacktracking(indexIt, needle, needleIt + 1, errors + 1, threshold, max_aaa, delegate,
+                                      searchAAA,
+                                      TDistance());
                 }
-
-                if (ordEqual(value(needleIt), 'D') || ordEqual(value(needleIt), 'N') )
-                {
+                if (ordEqual(value(needleIt), 'D') || ordEqual(value(needleIt), 'N')) {
                     indexIt = indexIt2;
-                    if (goDown(indexIt, AminoAcid('B')))
-                    {
-                        _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                    if (goDown(indexIt, AminoAcid('B'))) {
+                        // recursion with errors = Ambigous AminoAcid + 1
+                        _findBacktracking(indexIt, needle, needleIt + 1, errors +1, threshold, max_aaa, delegate, searchAAA,
+                                          TDistance());
                     }
                 }
-                else if (ordEqual(value(needleIt), 'E') || ordEqual(value(needleIt), 'Q') )
+                if (ordEqual(value(needleIt), 'E') || ordEqual(value(needleIt), 'Q') )
                 {
                     indexIt = indexIt2;
                     if (goDown(indexIt, AminoAcid('Z')))
                     {
-                        _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance());
+                        // recursion with errors = Ambigous AminoAcid + 1
+                        _findBacktracking(indexIt, needle, needleIt + 1, errors +1, threshold, max_aaa, delegate, searchAAA, TDistance());
                     }
                 }
-
-                /*if (goDown(indexIt))
-                {
-                    do
-                    {
-                        // rekursiver aufruf. checken auf AAA
-                        if (
-
-                                ordEqual(parentEdgeLabel(indexIt), value(needleIt)) ||
-                                ordEqual(parentEdgeLabel(indexIt), 'X') ||
-                            (ordEqual(parentEdgeLabel(indexIt), 'B') && (ordEqual(value(needleIt), 'D') || ordEqual(value(needleIt), 'N') )) ||
-                            (ordEqual(parentEdgeLabel(indexIt), 'Z') && (ordEqual(value(needleIt), 'E') || ordEqual(value(needleIt), 'Q') ))
-
-
-                                )
-                        {
-                            _findBacktracking(indexIt, needle, needleIt + 1, errors, threshold, delegate, searchAAA, TDistance() );
-                        }
-
-                    }
-                    while (goRight(indexIt));
-                }*/
             }
         }
-
         // Approximate case.
         else if (errors < threshold)
         {
@@ -402,7 +338,7 @@ namespace seqan2 {
                         }
 
                         _findBacktracking(indexIt, needle, needleIt + 1,
-                                          static_cast<TThreshold>(errors + delta), threshold, delegate, searchAAA, TDistance());
+                                          static_cast<TThreshold>(errors + delta), threshold, max_aaa,  delegate, searchAAA, TDistance());
 
                         /*
                         // Deletion.
@@ -426,6 +362,7 @@ namespace seqan2 {
               TIndex & index,
               TNeedle const & needle,
               TThreshold threshold,
+                   OpenMS::Size max_aaa,
               TDelegate && delegate,
                    bool searchAAA,
               Backtracking<TDistance, TSpec>)
@@ -437,7 +374,7 @@ namespace seqan2 {
         TNeedleIt needleIt = begin(needle, Standard());
         TThreshold errors = 0;
 
-        _findBacktracking(indexIt, needle, needleIt, errors, threshold, delegate, searchAAA, TDistance() );
+        _findBacktracking(indexIt, needle, needleIt, errors, threshold, max_aaa, delegate, searchAAA, TDistance() );
     }
 
     // ----------------------------------------------------------------------------
@@ -445,13 +382,13 @@ namespace seqan2 {
     // ----------------------------------------------------------------------------
 
     template <typename TText, typename TPattern, typename TThreshold, typename TDelegate, typename TAlgorithm>
-    inline void find(TText & text, TPattern const & pattern, TThreshold threshold, TDelegate && delegate, bool searchAAA, TAlgorithm)
+    inline void find(TText & text, TPattern const & pattern, TThreshold threshold, OpenMS::Size max_aaa,TDelegate && delegate, bool searchAAA, TAlgorithm)
     {
         typedef typename FindState_<TText, TPattern const, TAlgorithm>::Type    TState;
 
         TState state;
         _findStateInit(state, text, pattern, threshold, TAlgorithm());
-        _findImpl(state, text, pattern, threshold, delegate, searchAAA, TAlgorithm());
+        _findImpl(state, text, pattern, threshold, max_aaa, delegate, searchAAA, TAlgorithm());
     }
 
     // ----------------------------------------------------------------------------
@@ -459,11 +396,11 @@ namespace seqan2 {
     // ----------------------------------------------------------------------------
 
     template <typename TText, typename TPattern, typename TDelegate>
-    inline void find(TText & text, TPattern const & pattern, TDelegate && delegate, bool searchAAA)
+    inline void find(TText & text, TPattern const & pattern, OpenMS::Size max_aaa,TDelegate && delegate, bool searchAAA)
     {
         typedef typename DefaultFind<TText, TPattern const>::Type   TAlgorithm;
 
-        find(text, pattern, unsigned(), delegate, searchAAA, TAlgorithm());
+        find(text, pattern, unsigned(),max_aaa ,delegate, searchAAA, TAlgorithm());
     }
 
     // ----------------------------------------------------------------------------
@@ -475,6 +412,7 @@ namespace seqan2 {
     inline void find(TText & text,
                      StringSet<TNeedle_, TSSetSpec> const & needles,
                      TThreshold threshold,
+                     OpenMS::Size max_aaa,
                      TDelegate && delegate,
                      bool searchAAA,
                      TAlgorithm,
@@ -501,7 +439,7 @@ namespace seqan2 {
                     TDelegator delegator(delegate, needlesIt);
 
                     _findStateInit(state, text, needle, threshold, TAlgorithm());
-                    _findImpl(state, text, needle, threshold, delegator,searchAAA ,TAlgorithm());
+                    _findImpl(state, text, needle, threshold, max_aaa, delegator,searchAAA ,TAlgorithm());
                 },
                 Rooted(), TThreading());
     }
@@ -515,11 +453,12 @@ namespace seqan2 {
     inline void find(TText & text,
                      StringSet<TNeedle, TSSetSpec> const & needles,
                      TThreshold threshold,
+                     OpenMS::Size max_aaa,
                      TDelegate && delegate,
                      bool searchAAA,
                      TAlgorithm)
     {
-        find(text, needles, threshold, delegate, searchAAA, TAlgorithm(), Parallel());
+        find(text, needles, threshold, max_aaa, delegate, searchAAA, TAlgorithm(), Parallel());
     }
 } // end namespace seqan2
 
@@ -629,7 +568,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
 
 
     // check if Peptides to search for are empty
-    if (pep_ids.empty()) // Aho-Corasick requires non-empty input
+    if (pep_ids.empty())
     {
         LOG_WARN << "Warning: An empty set of peptide identifications was provided. Output will be empty as well." <<
         std::endl;
@@ -642,7 +581,6 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
         }
         return PEPTIDE_IDS_EMPTY;
     }
-
 
     // check for Parameter Error
     if (mismatches_max_ > 4) // this would talke to much time!
@@ -801,8 +739,9 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
         long indexOfPeptideHit = position(patternsIt);
         //std::cout << "Mindestens ein Treffer in PeptideHit mit der Nummer: " << indexOfPeptideHit << std::endl;
         // loop through occurences of pattern in text
+        //int countHit = -1;
         for (auto &occ: getOccurrences(it)){
-
+            //countHit ++;
             long entryNr = seqan2::getSeqNo(occ);
             //std::cout << "Treffer Nummer: " << countHit << " in der DB an Position: " << entryNr << std::endl;
             long beg = seqan2::getSeqOffset(occ);
@@ -820,7 +759,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
+    find(prot_Index, pep_DB, mm, max_aaa,delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
 inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
@@ -845,7 +784,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
+    find(prot_Index, pep_DB, mm, max_aaa,delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
 inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
@@ -871,7 +810,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
+    find(prot_Index, pep_DB, mm, max_aaa, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
 inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
@@ -897,7 +836,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
             }
         }
     };
-    find(prot_Index, pep_DB, mm, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
+    find(prot_Index, pep_DB, mm, max_aaa, delegate, indexType, seqan2::Backtracking<seqan2::EditDistance>(), seqan2::Parallel());
 }
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::setPeptideEvidence_(vector<PeptideHit>::iterator it2,
@@ -1354,13 +1293,14 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /**
         Search with FM_index
     */
-    writeLog_(String("Searching..."));
     // check options
     if (search_for_normal_proteins_) {
+        writeLog_(String("Searching..."));
         // search normal
         searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
     }
     if (search_for_aaa_proteins_) {
+        writeLog_(String("Searching AAA..."));
         // search AAA
         searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
     }
@@ -1368,8 +1308,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /**
         Search approximative for unmatched peptides
     */
-/*
-    writeLog_(String("Searching approximate for unmatched peptides..."));
+
+/*    writeLog_(String("Searching approximate for unmatched peptides..."));
     if (mismatches_max_ == 0){
         if (search_for_normal_proteins_) {
             if (searchApprox_(func, index, pep_DB, 1, aaa_max_,0) != CHECKPOINT_OK){
@@ -1456,21 +1396,21 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
     /**
         Search with Suffix Array
     */
-    writeLog_(String("Searching..."));
     // check options
     if (search_for_normal_proteins_) {
+        writeLog_(String("Searching..."));
         // search normal
         searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
     }
     if (search_for_aaa_proteins_) {
+        writeLog_(String("Searching AAA..."));
         searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
     }
 
     /**
         Search approximative for unmatched peptides
     */
-    /*
-    writeLog_(String("Searching approximate for unmatched peptides..."));
+/*    writeLog_(String("Searching approximate for unmatched peptides..."));
     if (mismatches_max_ == 0){
         if (search_for_normal_proteins_) {
             if (searchApprox_(func, index, pep_DB, 1, aaa_max_,0) != CHECKPOINT_OK){
@@ -1482,8 +1422,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(EnzymaticDigestion enz
                 return UNEXPECTED_RESULT;
             };
         }
-    }
-*/
+    }*/
+
     // write out some stats
     LOG_INFO << "Peptide hits passing enzyme filter: " << func.filter_passed << "\n"
              << "     ... rejected by enzyme filter: " << func.filter_rejected << std::endl;
