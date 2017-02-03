@@ -205,7 +205,15 @@ namespace OpenMS {
                                                    Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                    Size &stats_unmatched);
 
-        /// wrapper function to search within a suffix array
+        template<typename TIndex>
+        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                                                     TIndex &prot_Index,
+                                                     seqan2::StringSet<seqan2::Peptide> &pep_DB,
+                                                     int mm,
+                                                     OpenMS::Size max_aaa,
+                                                     bool indexType);
+
+/*        /// wrapper function to search within a suffix array
         void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
                             seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
@@ -219,9 +227,20 @@ namespace OpenMS {
                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                             int mm,
                             Size aaa_max,
-                            bool indexType);
+                            bool indexType);*/
 
+
+        template<typename TIndex>
         void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+                                                     TIndex &prot_Index,
+                                                     seqan2::StringSet<seqan2::Peptide> &pep_DB,
+                                                     OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
+                                                     int mm,
+                                                     Size max_aaa,
+                                                     bool indexType);
+
+
+        /*void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
                           seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
                           seqan2::StringSet<seqan2::Peptide> &pep_DB,
                           OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
@@ -237,8 +256,17 @@ namespace OpenMS {
                             int mm,
                             Size max_aaa,
                             bool indexType);
-
+*/
+        template<typename TIndex>
         ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
+                                                                    TIndex &prot_Index,
+                                                                    seqan2::StringSet<seqan2::Peptide> pep_DB,
+                                                                    int mm,
+                                                                    Size max_aaa,
+                                                                    bool indexType);
+
+
+/*        ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
                                 seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
                                 seqan2::StringSet<seqan2::Peptide> pep_DB,
                                 int mm,
@@ -250,7 +278,7 @@ namespace OpenMS {
                                 seqan2::StringSet<seqan2::Peptide> pep_DB,
                                 int mm,
                                 Size max_aaa,
-                                bool indexType);
+                                bool indexType);*/
 
         /// function to load additional information
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
@@ -260,13 +288,38 @@ namespace OpenMS {
                             String &path,
                             String &pathAAA);
 
-        /// routine to do when searching with suffix array
+        template<typename TIndex>
+        ExitCodes processMap_(TIndex index,
+                              TIndex indexAAA,
+                              EnzymaticDigestion enzyme,
+                              String path,
+                              String pathAAA,
+                              std::vector<ProteinIdentification> &prot_ids,
+                              std::vector<PeptideIdentification> &pep_ids);
+
+        ExitCodes processMapWrapper_(EnzymaticDigestion enzyme,
+                                     String path,
+                                     String pathAAA,
+                                     std::vector<ProteinIdentification> &prot_ids,
+                                     std::vector<PeptideIdentification> &pep_ids,
+                                     seqan2::SAind /**/);
+
+        ExitCodes processMapWrapper_(EnzymaticDigestion enzyme,
+                                     String path,
+                                     String pathAAA,
+                                     std::vector<ProteinIdentification> &prot_ids,
+                                     std::vector<PeptideIdentification> &pep_ids,
+                                     seqan2::FMind /**/);
+
+
+
+        /*/// routine to do when searching with suffix array
         ExitCodes processMap_(EnzymaticDigestion enzyme,
                               String path,
                               String pathAAA,
                               std::vector<ProteinIdentification> &prot_ids,
                               std::vector<PeptideIdentification> &pep_ids,
-                              seqan2::SAind /**/);
+                              seqan2::SAind *//**//*);
 
         /// routine to do when searching with FM index
         ExitCodes processMap_(EnzymaticDigestion enzyme,
@@ -274,7 +327,7 @@ namespace OpenMS {
                               String pathAAA,
                               std::vector<ProteinIdentification> &prot_ids,
                               std::vector<PeptideIdentification> &pep_ids,
-                              seqan2::FMind /**/);
+                              seqan2::FMind *//**//*);*/
 
         /// function to read accsession-to-protein information
         ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot,
