@@ -35,7 +35,6 @@
 #include <OpenMS/ANALYSIS/ID/PeptideIndexing2.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
-//#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <OpenMS/METADATA/ProteinIdentification.h>
 #include <OpenMS/SYSTEM/StopWatch.h>
 #include <OpenMS/METADATA/PeptideEvidence.h>
@@ -101,7 +100,6 @@ namespace seqan2 {
             AABefore = '[';
             AAAfter = ']';
         }
-
     };
 
     /* */
@@ -113,7 +111,6 @@ namespace seqan2 {
     struct SAind {
         SAind() { }
     };
-
 
     struct FoundProteinFunctor {
     public:
@@ -223,12 +220,6 @@ namespace seqan2 {
 
     };
 
-//    template<>
-//    struct SAValue<StringSet<Peptide> > {
-//        // anzahl strings - laenge strings
-//        typedef Pair<unsigned, unsigned> Type;
-//    };
-
     template <typename TIndexIt, typename TNeedle, typename TNeedleIt,
               typename TThreshold, typename TDelegate, typename TDistance>
     inline void _findBacktracking(TIndexIt indexIt,
@@ -236,7 +227,7 @@ namespace seqan2 {
                                   TNeedleIt needleIt,
                                   TThreshold errors,
                                   TThreshold threshold,
-                                  OpenMS::Size max_aaa,
+                                  int max_aaa,
                                   TDelegate && delegate,
                                   bool searchAAA,
                                   TDistance)
@@ -361,7 +352,7 @@ namespace seqan2 {
               TIndex & index,
               TNeedle const & needle,
               TThreshold threshold,
-                   OpenMS::Size max_aaa,
+                   int max_aaa,
               TDelegate && delegate,
                    bool searchAAA,
               Backtracking<TDistance, TSpec>)
@@ -381,7 +372,7 @@ namespace seqan2 {
     // ----------------------------------------------------------------------------
 
     template <typename TText, typename TPattern, typename TThreshold, typename TDelegate, typename TAlgorithm>
-    inline void find(TText & text, TPattern const & pattern, TThreshold threshold, OpenMS::Size max_aaa,TDelegate && delegate, bool searchAAA, TAlgorithm)
+    inline void find(TText & text, TPattern const & pattern, TThreshold threshold, int max_aaa,TDelegate && delegate, bool searchAAA, TAlgorithm)
     {
         typedef typename FindState_<TText, TPattern const, TAlgorithm>::Type    TState;
 
@@ -395,7 +386,7 @@ namespace seqan2 {
     // ----------------------------------------------------------------------------
 
     template <typename TText, typename TPattern, typename TDelegate>
-    inline void find(TText & text, TPattern const & pattern, OpenMS::Size max_aaa,TDelegate && delegate, bool searchAAA)
+    inline void find(TText & text, TPattern const & pattern, int max_aaa,TDelegate && delegate, bool searchAAA)
     {
         typedef typename DefaultFind<TText, TPattern const>::Type   TAlgorithm;
 
@@ -411,7 +402,7 @@ namespace seqan2 {
     inline void find(TText & text,
                      StringSet<TNeedle_, TSSetSpec> const & needles,
                      TThreshold threshold,
-                     OpenMS::Size max_aaa,
+                     int max_aaa,
                      TDelegate && delegate,
                      bool searchAAA,
                      TAlgorithm,
@@ -452,7 +443,7 @@ namespace seqan2 {
     inline void find(TText & text,
                      StringSet<TNeedle, TSSetSpec> const & needles,
                      TThreshold threshold,
-                     OpenMS::Size max_aaa,
+                     int max_aaa,
                      TDelegate && delegate,
                      bool searchAAA,
                      TAlgorithm)
@@ -563,9 +554,7 @@ void PeptideIndexing2::updateMembers_() {
 
 PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
                 std::vector<ProteinIdentification> &prot_ids,
-        std::vector<PeptideIdentification> &pep_ids) {
-
-
+                std::vector<PeptideIdentification> &pep_ids) {
     // check if Peptides to search for are empty
     if (pep_ids.empty())
     {
@@ -641,7 +630,8 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::buildReversePepDB_(seqan2::StringS
     return CHECKPOINT_OK;
 }
 
-PeptideIndexing2::ExitCodes PeptideIndexing2::readAcc_to_prot_(Map<String, Size> &acc_to_prot, String path){
+PeptideIndexing2::ExitCodes PeptideIndexing2::readAcc_to_prot_(Map<String, Size> &acc_to_prot,
+                                                               String path){
     ifstream infile;
     infile.open(path.c_str(), std::ios::in);
     if (!infile.is_open()){
@@ -728,7 +718,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
                                              TIndex &prot_Index,
                                              seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                              int mm,
-                                             OpenMS::Size max_aaa,
+                                             int max_aaa,
                                              bool indexType){
     typedef typename seqan2::Iterator<seqan2::StringSet<seqan2::Peptide> const, seqan2::Rooted>::Type TPatternsIt;
     typedef typename seqan2::Iterator<TIndex, seqan2::TopDown<seqan2::PreorderEmptyEdges> >::Type TIndexIt;
@@ -768,7 +758,7 @@ inline void PeptideIndexing2::searchWrapper_(seqan2::FoundProteinFunctor &func_S
                                              seqan2::StringSet<seqan2::Peptide> &pep_DB,
                                              OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                                              int mm,
-                                             Size max_aaa,
+                                             int max_aaa,
                                              bool indexType){
     typedef typename seqan2::Iterator<seqan2::StringSet<seqan2::Peptide> const, seqan2::Rooted>::Type TPatternsIt;
     typedef typename seqan2::Iterator<TIndex, seqan2::TopDown<seqan2::PreorderEmptyEdges> >::Type TIndexIt;
@@ -1006,7 +996,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::searchApprox_(seqan2::FoundProtein
                                                             TIndex &prot_Index,
                                                             seqan2::StringSet<seqan2::Peptide> pep_DB,
                                                             int mm,
-                                                            Size max_aaa,
+                                                            int max_aaa,
                                                             bool indexType){
     seqan2::StringSet<seqan2::Peptide> pep_DBunmatched;
     OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched;
@@ -1222,16 +1212,16 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(TIndex index,
     /**
         Search with Suffix Array
     */
-    unsigned max_aaa = aaa_max_;
+    int max_aaa = aaa_max_;
     // check options
     if (search_for_normal_proteins_) {
         writeLog_(String("Searching..."));
         // search normal
-        searchWrapper_(func, index, pep_DB, mismatches_max_, aaa_max_,0);
+        searchWrapper_(func, index, pep_DB, mismatches_max_, max_aaa,0);
     }
     if (search_for_aaa_proteins_) {
         writeLog_(String("Searching AAA..."));
-        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, aaa_max_,1);
+        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, max_aaa,1);
     }
 
     /**

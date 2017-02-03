@@ -136,8 +136,6 @@ namespace OpenMS {
         virtual ~PeptideIndexing2();
 
         /// main method of PeptideIndexing
-        //PeptideIndexing2::ExitCodes run(std::vector<FASTAFile::FASTAEntry>& proteins, std::vector<ProteinIdentification> &prot_ids,
-        //              std::vector<PeptideIdentification> &pep_ids);
         PeptideIndexing2::ExitCodes run(String &index, String &indexAAA,std::vector<ProteinIdentification> &prot_ids,
                                         std::vector<PeptideIdentification> &pep_ids);
 
@@ -205,80 +203,33 @@ namespace OpenMS {
                                                    Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                    Size &stats_unmatched);
 
+        /// wrapper function to start search
         template<typename TIndex>
         void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
-                                                     TIndex &prot_Index,
-                                                     seqan2::StringSet<seqan2::Peptide> &pep_DB,
-                                                     int mm,
-                                                     OpenMS::Size max_aaa,
-                                                     bool indexType);
-
-/*        /// wrapper function to search within a suffix array
-        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
-                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                            TIndex &prot_Index,
                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                             int mm,
-                            Size aaa_max,
+                            int max_aaa,
                             bool indexType);
 
-        /// wrapper function to search within a FM index
-        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
-                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
-                            seqan2::StringSet<seqan2::Peptide> &pep_DB,
-                            int mm,
-                            Size aaa_max,
-                            bool indexType);*/
-
-
+        /// wrapper function to start search for unmatched
         template<typename TIndex>
         void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
-                                                     TIndex &prot_Index,
-                                                     seqan2::StringSet<seqan2::Peptide> &pep_DB,
-                                                     OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
-                                                     int mm,
-                                                     Size max_aaa,
-                                                     bool indexType);
-
-
-        /*void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
-                          seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
-                          seqan2::StringSet<seqan2::Peptide> &pep_DB,
-                          OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
-                          int mm,
-                          Size max_aaa,
-                          bool indexType);
-
-
-        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
-                            seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                            TIndex &prot_Index,
                             seqan2::StringSet<seqan2::Peptide> &pep_DB,
                             OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                             int mm,
-                            Size max_aaa,
+                            int max_aaa,
                             bool indexType);
-*/
+
+        /// wrapper function to start search approximative
         template<typename TIndex>
         ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
-                                                                    TIndex &prot_Index,
-                                                                    seqan2::StringSet<seqan2::Peptide> pep_DB,
-                                                                    int mm,
-                                                                    Size max_aaa,
-                                                                    bool indexType);
-
-
-/*        ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
-                                seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > &prot_Index,
+                                TIndex &prot_Index,
                                 seqan2::StringSet<seqan2::Peptide> pep_DB,
                                 int mm,
-                                Size max_aaa,
+                                int max_aaa,
                                 bool indexType);
-
-        ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
-                                seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > &prot_Index,
-                                seqan2::StringSet<seqan2::Peptide> pep_DB,
-                                int mm,
-                                Size max_aaa,
-                                bool indexType);*/
 
         /// function to load additional information
         ExitCodes loadInfo_(std::vector<FASTAFile::FASTAEntry> &proteins,
@@ -288,6 +239,7 @@ namespace OpenMS {
                             String &path,
                             String &pathAAA);
 
+        /// function containing main routine for searching
         template<typename TIndex>
         ExitCodes processMap_(TIndex index,
                               TIndex indexAAA,
@@ -297,6 +249,7 @@ namespace OpenMS {
                               std::vector<ProteinIdentification> &prot_ids,
                               std::vector<PeptideIdentification> &pep_ids);
 
+        /// wrapper function to call processMap_
         ExitCodes processMapWrapper_(EnzymaticDigestion enzyme,
                                      String path,
                                      String pathAAA,
@@ -304,30 +257,13 @@ namespace OpenMS {
                                      std::vector<PeptideIdentification> &pep_ids,
                                      seqan2::SAind /**/);
 
+        /// wrapper function to call processMap_
         ExitCodes processMapWrapper_(EnzymaticDigestion enzyme,
                                      String path,
                                      String pathAAA,
                                      std::vector<ProteinIdentification> &prot_ids,
                                      std::vector<PeptideIdentification> &pep_ids,
                                      seqan2::FMind /**/);
-
-
-
-        /*/// routine to do when searching with suffix array
-        ExitCodes processMap_(EnzymaticDigestion enzyme,
-                              String path,
-                              String pathAAA,
-                              std::vector<ProteinIdentification> &prot_ids,
-                              std::vector<PeptideIdentification> &pep_ids,
-                              seqan2::SAind *//**//*);
-
-        /// routine to do when searching with FM index
-        ExitCodes processMap_(EnzymaticDigestion enzyme,
-                              String path,
-                              String pathAAA,
-                              std::vector<ProteinIdentification> &prot_ids,
-                              std::vector<PeptideIdentification> &pep_ids,
-                              seqan2::FMind *//**//*);*/
 
         /// function to read accsession-to-protein information
         ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot,
