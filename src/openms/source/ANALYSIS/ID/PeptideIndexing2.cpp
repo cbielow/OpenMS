@@ -1214,6 +1214,9 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(TIndex index,
             writeLog_(String("ERROR: Could not open Index for ambiguous amino acid!"));
             return INPUT_ERROR;
         }
+    } else {
+        // set search_for_aaa_proteins_ to false
+        search_for_aaa_proteins_ = false;
     }
     std::vector<FASTAFile::FASTAEntry> proteins;
     std::vector<FASTAFile::FASTAEntry> proteinsAAA;
