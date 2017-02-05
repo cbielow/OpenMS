@@ -50,6 +50,7 @@ namespace seqan2 {
     struct PeptideProteinMatchInformation;
     struct FMind;
     struct SAind;
+    struct InsDel;
     struct FoundProteinFunctor;
 }
 
@@ -168,6 +169,8 @@ namespace OpenMS {
         bool search_for_normal_proteins_;
         bool suffix_array_;
         bool FM_index_;
+//        bool deletion_insertion_search_;
+        bool unmatched_approx_search_;
 
         /// function to build peptide DB for suffix array
         PeptideIndexing2::ExitCodes buildPepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,

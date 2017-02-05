@@ -505,6 +505,12 @@ PeptideIndexing2::PeptideIndexing2() :
     defaults_.setValue("FM_index", "false", "Use a FM-Index to search peptides in");
     defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
 
+//    defaults_.setValue("deletion_insertion_search", "false", "If set, PeptideIndexer will also look for insertion or deletions in Protein database.");
+//    defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
+
+    defaults_.setValue("unmatched_approx_search",  "false", "Search after first search approximate for still unmatched peptides. Disables approximate option for first search. Combine with -mismatches_max to set number of allowed mismatches.");
+    defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
+
     defaults_.setValue("log", "", "Name of log file (created only when specified)");
     defaults_.setValue("debug", 0, "Sets the debug level");
 
@@ -547,6 +553,8 @@ void PeptideIndexing2::updateMembers_() {
 
     suffix_array_ = param_.getValue("suffix_array").toBool();
     FM_index_ = param_.getValue("FM_index").toBool();
+//    deletion_insertion_search_ = param_.getValue("deletion_insertion_search").toBool();
+    unmatched_approx_search_ = param_.getValue("unmatched_approx_search").toBool();
 
     log_file_ = param_.getValue("log");
     debug_ = static_cast<Size>(param_.getValue("debug")) > 0;
@@ -584,6 +592,13 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::checkUserInput_(
         LOG_ERROR <<
                   "Fatal error: Cannot use more than one format to load index.\n"
                   << "Please adapt your settings." << endl;
+        return ILLEGAL_PARAMETERS;
+    }
+
+    if (unmatched_approx_search_ && mismatches_max_ == 0)    {
+        LOG_ERROR <<
+                  "Fatal error: Useless to search approximate for unmatched peptides with 0 allowed mistakes.\n"
+                  << "Set -mismatches_max_ > 1." << endl;
         return ILLEGAL_PARAMETERS;
     }
 
@@ -1186,7 +1201,15 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(TIndex index,
             return INPUT_ERROR;
         }
     }
-    if (search_for_aaa_proteins_) {
+    // try to load AAA index
+    if (pathAAA.empty()){
+        pathAAA = path + "_AAA";
+        if (!seqan2::open(indexAAA, pathAAA.c_str())) {
+            writeLog_(String("INFO: No index for ambiguous amino acid Proteins found!"));
+            // set search_for_aaa_proteins_ to false
+            search_for_aaa_proteins_ = false;
+        }
+    } else { // pathAAA explicit set. so throw ERROR
         if (!seqan2::open(indexAAA, pathAAA.c_str())) {
             writeLog_(String("ERROR: Could not open Index for ambiguous amino acid!"));
             return INPUT_ERROR;
@@ -1210,36 +1233,36 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(TIndex index,
     }
 
     /**
-        Search with Suffix Array
+        Search first time
     */
     int max_aaa = aaa_max_;
+    int mm_max = mismatches_max_;
+    // set mismatches max to 0 for exakt search.
+    // mismatches_max_ will be used for approx search for unmatched Peptides afterwards.
+    if (unmatched_approx_search_) mm_max = 0;
     // check options
     if (search_for_normal_proteins_) {
         writeLog_(String("Searching..."));
         // search normal
-        searchWrapper_(func, index, pep_DB, mismatches_max_, max_aaa,0);
+        searchWrapper_(func, index, pep_DB, mm_max, max_aaa,0);
     }
     if (search_for_aaa_proteins_) {
         writeLog_(String("Searching AAA..."));
-        searchWrapper_(func, indexAAA, pep_DB, mismatches_max_, max_aaa,1);
+        searchWrapper_(func, indexAAA, pep_DB, mm_max, max_aaa,1);
     }
 
     /**
         Search approximative for unmatched peptides
     */
-/*    writeLog_(String("Searching approximate for unmatched peptides..."));
-    if (mismatches_max_ == 0){
+    if (unmatched_approx_search_) {
+        writeLog_(String("Searching approximate for unmatched peptides with " + std::to_string(mismatches_max_) + " real mistake(s)."));
         if (search_for_normal_proteins_) {
-            if (searchApprox_(func, index, pep_DB, 1, aaa_max_,0) != CHECKPOINT_OK){
-                return UNEXPECTED_RESULT;
-            };
+            if (searchApprox_(func, index, pep_DB, mismatches_max_, max_aaa,0) != CHECKPOINT_OK) return UNEXPECTED_RESULT;
         }
         if (search_for_aaa_proteins_) {
-            if (searchApprox_(func, indexAAA, pep_DB, 1, aaa_max_,0) != CHECKPOINT_OK){
-                return UNEXPECTED_RESULT;
-            };
+            if (searchApprox_(func, indexAAA, pep_DB, mismatches_max_, max_aaa,1) != CHECKPOINT_OK) return UNEXPECTED_RESULT;
         }
-    }*/
+    }
 
     // write out some stats
     LOG_INFO << "Peptide hits passing enzyme filter: " << func.filter_passed << "\n"
@@ -1306,8 +1329,9 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::run(String &index,
     }
 
     // set search options
-    search_for_aaa_proteins_ = !indexAAA.empty();
     search_for_normal_proteins_ = !index.empty();
+    // set to true first. if not possible to load Index set to false
+    search_for_aaa_proteins_ = true;
 
     // Error checking
     ExitCodes exCheck = checkUserInput_(prot_ids, pep_ids);
