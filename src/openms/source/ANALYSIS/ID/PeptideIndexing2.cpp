@@ -1209,7 +1209,7 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(TIndex index,
                 // set search_for_aaa_proteins_ to false
                 search_for_aaa_proteins_ = false;
             }
-    } else { // pathAAA explicit set. so throw ERROR if not able to load
+    } else if (!pathAAA.empty()) { // pathAAA explicit set. so throw ERROR if not able to load
         if (!seqan2::open(indexAAA, pathAAA.c_str())) {
             writeLog_(String("ERROR: Could not open Index for ambiguous amino acid!"));
             return INPUT_ERROR;
