@@ -169,7 +169,7 @@ namespace OpenMS {
         bool search_for_normal_proteins_;
         bool suffix_array_;
         bool FM_index_;
-//        bool deletion_insertion_search_;
+        bool disable_auto_load_;
         bool unmatched_approx_search_;
 
         /// function to build peptide DB for suffix array

@@ -505,8 +505,8 @@ PeptideIndexing2::PeptideIndexing2() :
     defaults_.setValue("FM_index", "false", "Use a FM-Index to search peptides in");
     defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
 
-//    defaults_.setValue("deletion_insertion_search", "false", "If set, PeptideIndexer will also look for insertion or deletions in Protein database.");
-//    defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
+    defaults_.setValue("disable_auto_load", "false", "If set, PeptideIndexer will not automatically  load index for AAA Proteins.");
+    defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
 
     defaults_.setValue("unmatched_approx_search",  "false", "Search after first search approximate for still unmatched peptides. Disables approximate option for first search. Combine with -mismatches_max to set number of allowed mismatches.");
     defaults_.setValidStrings("FM_index", ListUtils::create<String>("true,false"));
@@ -553,7 +553,7 @@ void PeptideIndexing2::updateMembers_() {
 
     suffix_array_ = param_.getValue("suffix_array").toBool();
     FM_index_ = param_.getValue("FM_index").toBool();
-//    deletion_insertion_search_ = param_.getValue("deletion_insertion_search").toBool();
+    disable_auto_load_ = param_.getValue("disable_auto_load").toBool();
     unmatched_approx_search_ = param_.getValue("unmatched_approx_search").toBool();
 
     log_file_ = param_.getValue("log");
@@ -1202,14 +1202,14 @@ PeptideIndexing2::ExitCodes PeptideIndexing2::processMap_(TIndex index,
         }
     }
     // try to load AAA index
-    if (pathAAA.empty()){
-        pathAAA = path + "_AAA";
-        if (!seqan2::open(indexAAA, pathAAA.c_str())) {
-            writeLog_(String("INFO: No index for ambiguous amino acid Proteins found!"));
-            // set search_for_aaa_proteins_ to false
-            search_for_aaa_proteins_ = false;
-        }
-    } else { // pathAAA explicit set. so throw ERROR
+    if (pathAAA.empty() && !disable_auto_load_){
+            pathAAA = path + "_AAA";
+            if (!seqan2::open(indexAAA, pathAAA.c_str())) {
+                writeLog_(String("INFO: No index for ambiguous amino acid Proteins found!"));
+                // set search_for_aaa_proteins_ to false
+                search_for_aaa_proteins_ = false;
+            }
+    } else { // pathAAA explicit set. so throw ERROR if not able to load
         if (!seqan2::open(indexAAA, pathAAA.c_str())) {
             writeLog_(String("ERROR: Could not open Index for ambiguous amino acid!"));
             return INPUT_ERROR;

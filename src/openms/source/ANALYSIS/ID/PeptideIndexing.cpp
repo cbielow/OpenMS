@@ -655,7 +655,7 @@ PeptideIndexing::ExitCodes PeptideIndexing::run(vector<FASTAFile::FASTAEntry>& p
 
         /// now, search using a suffix array -- allows approximate matching:
         /// check if every peptide was found:
-        if ((func.pep_to_prot.size() != length(pep_DB)) &&
+        if (0 && (func.pep_to_prot.size() != length(pep_DB)) &&
             ((aaa_max_> 0) || (mismatches_max_ > 0)))
         {
             // search using SA, which supports mismatches (introduced by resolving ambiguous AA's by e.g. Mascot) -- expensive!
