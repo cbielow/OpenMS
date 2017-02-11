@@ -28,12 +28,11 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // --------------------------------------------------------------------------
-// $Maintainer: Chris Bielow $
-// $Authors: Andreas Bertsch, Chris Bielow, Knut Reinert $
+// $Maintainer: Jan Philipp Albrecht $
+// $Authors: Jan Philipp Albrecht, Andreas Bertsch, Chris Bielow, Knut Reinert $
 // --------------------------------------------------------------------------
 
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
-
 #include <OpenMS/ANALYSIS/ID/PeptideIndexing2.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
 #include <OpenMS/CHEMISTRY/EnzymesDB.h>
@@ -127,7 +126,6 @@ protected:
         String index = getStringOption_("index");
         String indexAAA = getStringOption_("indexAAA");
         String out = getStringOption_("out");
- //       String indexAAA = getStringOption_("indexAAA");
 
         PeptideIndexing2 indexer;
         Param param = getParam_().copy("", true);
@@ -135,33 +133,9 @@ protected:
         param_pi.update(param, false, Log_debug); // suppress param. update message
         indexer.setParameters(param_pi);
 
-//        String db_name = getStringOption_("fasta");
-//        if (!File::readable(db_name)) {
-//            String full_db_name;
-//            try {
-//                full_db_name = File::findDatabase(db_name);
-//            }
-//            catch (...) {
-//                printUsage_();
-//                return ILLEGAL_PARAMETERS;
-//            }
-//            db_name = full_db_name;
-//        }
-
-
         //-------------------------------------------------------------
         // reading input
         //-------------------------------------------------------------
-
-        // read Index
-
-
-        // we stream the Fasta file
-//        std::vector<FASTAFile::FASTAEntry> proteins;
-//        FASTAFile().load(db_name, proteins);
-
-        // load Index
-        // this should be here but with old seqan its not possible...
 
         // idXML
         std::vector<ProteinIdentification> prot_ids;
@@ -209,7 +183,6 @@ protected:
     }
 
 };
-
 
 int main(int argc, const char **argv) {
     TOPPPeptideIndexer tool;

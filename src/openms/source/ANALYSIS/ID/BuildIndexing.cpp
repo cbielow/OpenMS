@@ -1,7 +1,40 @@
+// --------------------------------------------------------------------------
+//                   OpenMS -- Open-Source Mass Spectrometry
+// --------------------------------------------------------------------------
+// Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
+// ETH Zurich, and Freie Universitaet Berlin 2002-2016.
+//
+// This software is released under a three-clause BSD license:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//  * Neither the name of any author or any participating institution
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+// For a full list of authors, refer to the file AUTHORS.
+// --------------------------------------------------------------------------
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL ANY OF THE AUTHORS OR THE CONTRIBUTING
+// INSTITUTIONS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// --------------------------------------------------------------------------
+// $Maintainer: Jan Philipp Albrecht $
+// $Authors: Jan Philipp Albrecht, Andreas Bertsch, Chris Bielow, Knut Reinert $
+// --------------------------------------------------------------------------
+
 #include <OpenMS/ANALYSIS/ID/BuildIndexing.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
-//#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <OpenMS/METADATA/ProteinIdentification.h>
 #include <OpenMS/SYSTEM/StopWatch.h>
 #include <OpenMS/METADATA/PeptideEvidence.h>
@@ -18,7 +51,6 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
-
 #include <OpenMS/FORMAT/FASTAFile.h>
 
 using namespace OpenMS;
@@ -33,14 +65,6 @@ struct FMind {
 struct SAind {
     SAind() { }
 };
-
-//namespace seqan2 {
-//    template<>
-//    struct SAValue<StringSet<Peptide> > {
-//    // anzahl strings - laenge strings
-//        typedef Pair<unsigned, unsigned> Type;
-//    };
-//}
 
 BuildIndexing::BuildIndexing() :
         DefaultParamHandler("BuildIndexing") {
@@ -69,23 +93,22 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(const Map<String, Size> &acc
                                                     const std::vector<FASTAFile::FASTAEntry>& proteins,
                                                     const std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
                                                     const String &out){
-    // save them on disk
-    // jede accession nummer wird die Position in dem Suffix-Array gespeichert
-    // Eintrag: CAQ30518;1383
-    // accession Nummern sind alphabetisch geordet
+    // save accession;positionOfFasta
     std::ofstream acc_to_prot_out((out + "_acc_to_prot").c_str());
     for (map<OpenMS::String, unsigned long>::const_iterator i = acc_to_prot.begin(); i != acc_to_prot.end(); i++){
+        // normal Proteins
         acc_to_prot_out << (*i).first << ";" << (*i).second << "\n";
     }
     acc_to_prot_out.close();
 
     std::ofstream acc_to_AAAprot_out((out + "_AAA_acc_to_prot").c_str());
     for (map<OpenMS::String, unsigned long>::const_iterator i = acc_to_AAAprot.begin(); i != acc_to_AAAprot.end(); i++){
+        // AAA proteins
         acc_to_AAAprot_out << (*i).first << ";" << (*i).second << "\n";
     }
     acc_to_AAAprot_out.close();
 
-    // speichert quasi die Fasta erneut.
+    // save FASTA in different format because need to store position of Protein in Fasta
     std::ofstream proteins_out((out + "_proteins").c_str());
     for (vector<OpenMS::FASTAFile::FASTAEntry>::const_iterator i = proteins.begin(); i != proteins.end(); i++){
         proteins_out << (*i).identifier << ";" << (*i).sequence << ";" << (*i).description << "\n";
@@ -99,7 +122,6 @@ BuildIndexing::ExitCodes BuildIndexing::saveOutput_(const Map<String, Size> &acc
     proteinsAAA_out.close();
 
     return CHECKPOINT_OK;
-
 }
 
 void BuildIndexing::writeLog_(const String &text) const {
@@ -147,6 +169,7 @@ BuildIndexing::ExitCodes BuildIndexing::run(const String &in, const String &out)
     seqan2::StringSet<seqan2::Peptide> prot_DB_AAA;
     vector<String> duplicate_accessions;
     // check for duplicated accessions & build prot DB
+    // we need to store order of Proteins cause we maybe through out some
     if (buildProtDB_(in,proteins, proteinsAAA, ids, seqs, acc_to_prot, prot_DB, acc_to_AAAprot, prot_DB_AAA, duplicate_accessions) != CHECKPOINT_OK ) {
         return DATABASE_CONTAINS_MULTIPLES;
     }
@@ -167,7 +190,6 @@ BuildIndexing::ExitCodes BuildIndexing::run(const String &in, const String &out)
 
     writeLog_(String("saving protein database index..."));
     saveOutput_(acc_to_prot,acc_to_AAAprot, proteins, proteinsAAA, out);
-
 
     return EXECUTION_OK;
 }
@@ -201,7 +223,6 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(const String &in,
 
     String::size_type position = String::npos;
     for (unsigned i = 0; i < seqan2::length(ids); ++i) {
-        // new FASTA entry
         FASTAFile::FASTAEntry newEntry;
         // get ID
         String id = seqan2::toCString(ids[i]);
@@ -223,7 +244,7 @@ BuildIndexing::ExitCodes BuildIndexing::buildProtDB_(const String &in,
         }
         seqan2::CharString castedSeq(seqs[i]);
         newEntry.sequence = seqan2::toCString(castedSeq);
-        // add to newEntry to proteins and add sequence to ProteinDB separated normal and AAA
+        // add to newEntry to proteins and add sequence to ProteinDB separated for normal and AAA proteins
         if (has_aaa_(newEntry.sequence)) { // case AAA Protein
             // check if already added
             if (!check_duplicate_(newEntry.sequence, duplicate_accessions, acc_to_AAAprot, newEntry.identifier, prot_DB_AAA)) {
@@ -265,8 +286,7 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(const seqan2::StringSet<seq
     }
     if (!seqan2::empty(prot_DB)){
         seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > index(prot_DB);
-        //seqan2::Iter<seqan2::StringSet<seqan2::Peptide>, seqan2::IndexSa<> > iter(index);
-        seqan2::indexRequire(index, seqan2::FibreSA());
+         seqan2::indexRequire(index, seqan2::FibreSA());
         if (!seqan2::save(index, out.c_str() )) {
             LOG_ERROR << "Error: Could not save output to disk. Check for correct name, available space and privileges..." << std::endl;
             return OUTPUT_ERROR;
@@ -279,9 +299,7 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan2::StringSet<seqan2::P
                                                      seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
                                                      const String out,
                                                      FMind /**/){
-    //typedef seqan2::FastFMIndexConfig<void,std::uint32_t,2,1> TFastFMConfig;
     if (!seqan2::empty(prot_DB_AAA)){
-        //seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<void, TFastFMConfig> > indexAAA(prot_DB_AAA);
         seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > indexAAA(prot_DB_AAA);
         seqan2::indexRequire(indexAAA, seqan2::FibreSALF());
         if (!seqan2::save(indexAAA, (out + "_AAA").c_str() )) {
@@ -290,7 +308,6 @@ BuildIndexing::ExitCodes BuildIndexing::build_index_(seqan2::StringSet<seqan2::P
         }
     }
     if (!seqan2::empty(prot_DB)){
-        //seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<void, TFastFMConfig> > index(prot_DB);
         seqan2::Index<seqan2::StringSet<seqan2::Peptide>, seqan2::FMIndex<> > index(prot_DB);
         seqan2::indexRequire(index, seqan2::FibreSALF());
         if (!seqan2::save(index, out.c_str() )) {
@@ -324,6 +341,7 @@ bool BuildIndexing::check_duplicate_(const String seq,
 }
 
 bool BuildIndexing::has_aaa_(const String seq){
+    // check for AAA
     for (Size j = 0; j < seq.length(); ++j) {
         if ((seq[j] == 'B') || (seq[j] == 'X') ||
             (seq[j] == 'Z')) {

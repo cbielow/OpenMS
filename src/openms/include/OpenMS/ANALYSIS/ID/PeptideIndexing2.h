@@ -28,8 +28,8 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // --------------------------------------------------------------------------
-// $Maintainer: Chris Bielow $
-// $Authors: Andreas Bertsch, Chris Bielow, Knut Reinert $
+// $Maintainer: Jan Philipp Albrecht $
+// $Authors: Jan Philipp Albrecht, Andreas Bertsch, Chris Bielow, Knut Reinert $
 // --------------------------------------------------------------------------
 
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
@@ -37,7 +37,6 @@
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
-//#include <OpenMS/DATASTRUCTURES/SeqanIncludeWrapper.h>
 #include <fstream>
 #include <seqan2/index.h>
 #include <seqan2/find.h>
