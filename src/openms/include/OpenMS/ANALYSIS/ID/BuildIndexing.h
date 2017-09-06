@@ -36,16 +36,19 @@
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
-#include <seqan2/index.h>
-#include <seqan2/find.h>
-#include <seqan2/basic.h>
-#include <seqan2/sequence.h>
-#include <seqan2/stream.h>
+#include <seqan/index.h>
+#include <seqan/find.h>
+#include <seqan/basic.h>
+#include <seqan/sequence.h>
+#include <seqan/stream.h>
 #include <fstream>
 
+#include <seqan/sequence.h> 
 
 struct FMind;
 struct SAind;
+
+typedef seqan::StringSet<seqan::Peptide, seqan::Owner<seqan::ConcatDirect<> > > StringSetConcat;
 
 namespace OpenMS {
 
@@ -97,12 +100,12 @@ namespace OpenMS {
         ExitCodes buildProtDB_(const String &in,
                 std::vector<FASTAFile::FASTAEntry>& proteins,
                                std::vector<FASTAFile::FASTAEntry>& proteinsAAA,
-                               seqan2::StringSet<seqan2::CharString>& ids,
-                                seqan2::StringSet<seqan2::Peptide>& seqs,
+                               seqan::StringSet<seqan::CharString>& ids,
+                                StringSetConcat& seqs,
                                Map<String, Size> &acc_to_prot,
-                               seqan2::StringSet<seqan2::Peptide> &prot_DB,
+                               StringSetConcat &prot_DB,
                                Map<String, Size> &acc_to_AAAprot,
-                               seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
+                               StringSetConcat &prot_DB_AAA,
                                std::vector<String> &duplicate_accessions);
 
         /// function to check for duplicate fasta entrys
@@ -110,7 +113,7 @@ namespace OpenMS {
                            std::vector<String> &duplicate_accessions,
                            const Map<String, Size> &acc_to_prot,
                            const String &acc,
-                           const seqan2::StringSet<seqan2::Peptide> &prot_DB);
+                           const StringSetConcat &prot_DB);
 
         /// function to safe additional information on disk
         ExitCodes saveOutput_(const Map<String, Size> &acc_to_prot,
@@ -120,14 +123,14 @@ namespace OpenMS {
                               const String &out);
 
         /// function to build suffix array index
-        ExitCodes build_index_(const seqan2::StringSet<seqan2::Peptide> &prot_DB,
-                               const seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
+        ExitCodes build_index_(const StringSetConcat &prot_DB,
+                               const StringSetConcat &prot_DB_AAA,
                                const String out,
                                SAind /**/);
 
         /// function to build FM index
-        ExitCodes build_index_(seqan2::StringSet<seqan2::Peptide> &prot_DB,
-                               seqan2::StringSet<seqan2::Peptide> &prot_DB_AAA,
+        ExitCodes build_index_(StringSetConcat &prot_DB,
+                               StringSetConcat &prot_DB_AAA,
                                const String out,
                                FMind /**/);
 

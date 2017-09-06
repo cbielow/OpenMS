@@ -42,9 +42,10 @@
 #include <iostream>
 #include <seqan/basic.h>
 #include <seqan/stream.h>
-#include <seqan/seq_io/guess_stream_format.h>
-#include <seqan/seq_io/read_fasta_fastq.h>
+#include <seqan/stream/file_stream.h>
+#include <seqan/stream/guess_format.h>
 #include <seqan/sequence.h>
+#include <seqan/seq_io.h>
 
 /*#include <seqan2/basic.h>
 #include <seqan2/stream.h>
@@ -125,23 +126,20 @@ namespace OpenMS
 
 
 
-    std::fstream in(filename.c_str(), std::ios::binary | std::ios::in);
-    seqan::RecordReader<std::fstream, seqan::SinglePass<> > reader(in);
+    //std::fstream in(filename.c_str(), std::ios::binary | std::ios::in);
+    //seqan::RecordReader<std::fstream, seqan::SinglePass<> > reader(in);
+    seqan::SeqFileIn seqFileIn(filename.c_str());
 
     String id, seq;
     String::size_type position = String::npos;
     Size size_read(0);
 
-    while (!atEnd(reader))
+    while (!atEnd(seqFileIn))
     {
-      if (readRecord(id, seq, reader, seqan::Fasta()) != 0)
-      {
-        String msg;
-        if (data.empty()) msg = "The first entry could not be read!";
-        else msg = "The last successful FASTA record was: '>" + data.back().identifier + "'. The record after failed.";
-        throw Exception::ParseError(__FILE__, __LINE__, __PRETTY_FUNCTION__, "", "Error while parsing FASTA file '" + filename + "'! " + msg +  " Please check the file!");
-      }
-
+      seqan::CharString id2, seq2;
+      seqan::readRecord(id2, seq2, seqFileIn, seqan::Fasta());
+      id = seqan::toCString(id2);
+      seq = seqan::toCString(seq2);
       FASTAEntry newEntry;
       newEntry.sequence = seq;
       newEntry.sequence.removeWhitespaces();
@@ -165,7 +163,6 @@ namespace OpenMS
       size_read += newEntry.sequence.length();
     }
 
-    in.close();
     // seqan2::CharString out = "/home/phil/Dokumente/Bachelorarbeit/data/pfeuffer/Index/saind/iPRG2016_cRAP_revAAA_small.inx_XXXXX";
     // seqan2::save(data,seqan2::toCString(out));
 

@@ -38,14 +38,17 @@
 #include <OpenMS/FORMAT/FASTAFile.h>
 #include <OpenMS/CHEMISTRY/EnzymaticDigestion.h>
 #include <fstream>
-#include <seqan2/index.h>
-#include <seqan2/find.h>
-#include <seqan2/basic.h>
-#include <seqan2/sequence.h>
-#include <seqan2/stream.h>
+#include <seqan/index.h>
+#include <seqan/find.h>
+#include <seqan/basic.h>
+#include <seqan/sequence.h>
+#include <seqan/stream.h>
 
 
-namespace seqan2 {
+typedef seqan::StringSet<seqan::Peptide, seqan::Owner<seqan::ConcatDirect<> > > StringSetConcat;
+
+
+namespace seqan {
     struct PeptideProteinMatchInformation;
     struct FMind;
     struct SAind;
@@ -172,11 +175,11 @@ namespace OpenMS {
         bool unmatched_approx_search_;
 
         /// function to build peptide DB for suffix array
-        PeptideIndexing2::ExitCodes buildPepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,
+        PeptideIndexing2::ExitCodes buildPepDB_(StringSetConcat &pep_DB,
                                                 std::vector<PeptideIdentification> &pep_ids);
 
         /// function to build peptide DB for FM index
-        PeptideIndexing2::ExitCodes buildReversePepDB_(seqan2::StringSet<seqan2::Peptide> &pep_DB,
+        PeptideIndexing2::ExitCodes buildReversePepDB_(StringSetConcat &pep_DB,
                                                        std::vector<PeptideIdentification> &pep_ids);
 
         /// function to check input options
@@ -192,7 +195,7 @@ namespace OpenMS {
                                                       Map<Size, std::set<Size> > &runidx_to_protidx,
                                                       Map<Size, std::set<Size> > &runidx_to_protidxAAA,
                                                       Size &stats_unmatched,
-                                                      seqan2::FoundProteinFunctor &func);
+                                                      seqan::FoundProteinFunctor &func);
 
         /// function to update idXML input file
         PeptideIndexing2::ExitCodes updateProtHit_(std::vector<FASTAFile::FASTAEntry> &proteins,
@@ -207,18 +210,18 @@ namespace OpenMS {
 
         /// wrapper function to start search
         template<typename TIndex>
-        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
                             TIndex &prot_Index,
-                            seqan2::StringSet<seqan2::Peptide> &pep_DB,
+                            StringSetConcat &pep_DB,
                             int mm,
                             int max_aaa,
                             bool indexType);
 
         /// wrapper function to start search for unmatched
         template<typename TIndex>
-        void searchWrapper_(seqan2::FoundProteinFunctor &func_SA,
+        void searchWrapper_(seqan::FoundProteinFunctor &func_SA,
                             TIndex &prot_Index,
-                            seqan2::StringSet<seqan2::Peptide> &pep_DB,
+                            StringSetConcat &pep_DB,
                             OpenMS::Map<OpenMS::Size, OpenMS::Size > pep_to_pepUnmatched,
                             int mm,
                             int max_aaa,
@@ -226,9 +229,9 @@ namespace OpenMS {
 
         /// wrapper function to start search approximative
         template<typename TIndex>
-        ExitCodes searchApprox_(seqan2::FoundProteinFunctor &func_SA,
+        ExitCodes searchApprox_(seqan::FoundProteinFunctor &func_SA,
                                 TIndex &prot_Index,
-                                seqan2::StringSet<seqan2::Peptide> pep_DB,
+                                StringSetConcat pep_DB,
                                 int mm,
                                 int max_aaa,
                                 bool indexType);
@@ -257,7 +260,7 @@ namespace OpenMS {
                                      String pathAAA,
                                      std::vector<ProteinIdentification> &prot_ids,
                                      std::vector<PeptideIdentification> &pep_ids,
-                                     seqan2::SAind /**/);
+                                     seqan::SAind /**/);
 
         /// wrapper function to call processMap_
         ExitCodes processMapWrapper_(EnzymaticDigestion enzyme,
@@ -265,7 +268,7 @@ namespace OpenMS {
                                      String pathAAA,
                                      std::vector<ProteinIdentification> &prot_ids,
                                      std::vector<PeptideIdentification> &pep_ids,
-                                     seqan2::FMind /**/);
+                                     seqan::FMind /**/);
 
         /// function to read accsession-to-protein information
         ExitCodes readAcc_to_prot_(Map <String, Size> &acc_to_prot,
@@ -283,7 +286,7 @@ namespace OpenMS {
 
         /// function to set information for a PeptideHit
         ExitCodes setPeptideEvidence_(std::vector<PeptideHit>::iterator it2,
-                                      std::set<seqan2::PeptideProteinMatchInformation>::const_iterator it_i,
+                                      std::set<seqan::PeptideProteinMatchInformation>::const_iterator it_i,
                                       std::vector<FASTAFile::FASTAEntry> &proteins,
                                       Map<Size, std::set<Size> > &runidx_to_protidx,
                                       Map<String, bool> &protein_is_decoy,

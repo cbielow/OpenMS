@@ -42,14 +42,14 @@
 #include <OpenMS/FORMAT/FileHandler.h>
 #include <OpenMS/METADATA/ProteinIdentification.h>
 #include <OpenMS/SYSTEM/File.h>
-#include <seqan2/seq_io.h>
-#include <seqan2/index.h>
-#include <seqan2/seeds.h>
-#include <seqan2/arg_parse.h>
-#include <seqan2/bam_io.h>
-#include <seqan2/find.h>
-#include <seqan2/basic.h>
-#include <seqan2/stream.h>
+#include <seqan/seq_io.h>
+#include <seqan/index.h>
+#include <seqan/seeds.h>
+#include <seqan/arg_parse.h>
+#include <seqan/bam_io.h>
+#include <seqan/find.h>
+#include <seqan/basic.h>
+#include <seqan/stream.h>
 
 using namespace OpenMS;
 

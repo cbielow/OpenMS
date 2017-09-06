@@ -49,7 +49,8 @@ if (CMAKE_COMPILER_IS_GNUCXX)
     -Wno-long-long 
     -Wno-unknown-pragmas
     -Wno-unused-function
-    -Wno-variadic-macros)
+    -Wno-variadic-macros
+    -std=c++14)
 
   option(ENABLE_GCC_WERROR "Enable -WError on gcc compilers" OFF)
   if (ENABLE_GCC_WERROR)
