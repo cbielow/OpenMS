@@ -40,7 +40,7 @@
 #include <fstream>
 #include <seqan/index.h>
 #include <seqan/find.h>
-#include <seqan/basic.h>
+//#include <seqan/basic.h>
 #include <seqan/sequence.h>
 #include <seqan/stream.h>
 

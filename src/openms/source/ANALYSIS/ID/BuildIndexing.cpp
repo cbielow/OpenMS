@@ -31,6 +31,7 @@
 // $Maintainer: Jan Philipp Albrecht $
 // $Authors: Jan Philipp Albrecht, Andreas Bertsch, Chris Bielow, Knut Reinert $
 // --------------------------------------------------------------------------
+#define NOMINMAX
 
 #include <OpenMS/ANALYSIS/ID/BuildIndexing.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
@@ -40,20 +41,21 @@
 #include <OpenMS/METADATA/PeptideEvidence.h>
 #include <OpenMS/CHEMISTRY/EnzymesDB.h>
 #include <OpenMS/DATASTRUCTURES/ListUtils.h>
-#include <seqan/seq_io.h>
-#include <seqan/index.h>
-#include <seqan/seeds.h>
-#include <seqan/arg_parse.h>
-#include <seqan/bam_io.h>
-#include <seqan/find.h>
-#include <seqan/basic.h>
-#include <seqan/stream.h>
+#include <OpenMS/FORMAT/FASTAFile.h>
+
 #include <fstream>
 #include <iostream>
 #include <algorithm>
-#include <OpenMS/FORMAT/FASTAFile.h>
-#include <seqan/sequence.h> 
 
+//#include <seqan/sequence.h> 
+#include <seqan/seq_io.h>
+#include <seqan/index.h>
+//#include <seqan/seeds.h>
+//#include <seqan/arg_parse.h>
+//#include <seqan/bam_io.h>
+//#include <seqan/find.h>
+//#include <seqan/basic.h>
+#include <seqan/stream.h>
 using namespace OpenMS;
 using namespace std;
 

@@ -44,11 +44,6 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
-#include <seqan/index.h>
-#include <seqan/find.h>
-#include <seqan/basic.h>
-#include <seqan/sequence.h>
-#include <seqan/stream.h>
 
 using namespace OpenMS;
 using namespace std;
@@ -150,12 +145,15 @@ namespace seqan {
                 match.AAAfter = (position + seq_pep.length() >= protein.size()) ? PeptideEvidence::C_TERMINAL_AA
                                                                                 : protein[position + seq_pep.length()];
                 match.indexType = indexType;
-                pep_to_prot[idx_pep].insert(match);
-
-                ++filter_passed;
+                #pragma omp critical
+                {
+                  pep_to_prot[idx_pep].insert(match);
+                  ++filter_passed;
+                }
             }
             else {
-                   ++filter_rejected;
+                #pragma omp atomic
+                ++filter_rejected;
             }
         }
 
@@ -214,7 +212,7 @@ namespace seqan {
                 }
         }
          // case with Ambigous Amino Acid using errors as counting for AAA
-        else if (searchAAA && errors < max_aaa ) {
+        else if (searchAAA && errors <= max_aaa ) {
             if (atEnd(needleIt, needle)) {
                 delegate(indexIt, errors);
             } else {

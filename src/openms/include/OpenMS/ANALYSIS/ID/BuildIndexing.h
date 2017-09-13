@@ -36,11 +36,11 @@
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
-#include <seqan/index.h>
-#include <seqan/find.h>
+//#include <seqan/index.h>
+//#include <seqan/find.h>
 #include <seqan/basic.h>
-#include <seqan/sequence.h>
-#include <seqan/stream.h>
+//#include <seqan/sequence.h>
+//#include <seqan/stream.h>
 #include <fstream>
 
 #include <seqan/sequence.h> 

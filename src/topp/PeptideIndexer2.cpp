@@ -31,6 +31,8 @@
 // $Maintainer: Jan Philipp Albrecht $
 // $Authors: Jan Philipp Albrecht, Andreas Bertsch, Chris Bielow, Knut Reinert $
 // --------------------------------------------------------------------------
+#define NOMINMAX
+
 
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
 #include <OpenMS/ANALYSIS/ID/PeptideIndexing2.h>
