@@ -363,7 +363,7 @@ Fill MSChromatogram with chromatographic peaks, sorted according to retention ti
 Since much of the functionality is shared between MSChromatogram and MSSpectrum, further examples can be gathered from the MSSpectrum subsection.
 
 @subsection tutorial_library_kernelclasses_precursor  Precursor
-The precursor data stored along with MS/MS spectra contains invaluable information for MS/MS analysis (e.g, m/z, charge, activation mode, collision energy). This information is stored in Precursor objects that can be retrieved from each spectrum. For a complete list of functions please see the Precursor class documentation.
+The precursor data stored along with MS/MS spectra contains invaluable information for MS/MS analysis (e.g. m/z, charge, activation mode, collision energy). This information is stored in Precursor objects that can be retrieved from each spectrum. For a complete list of functions please see the Precursor class documentation.
 <br><br>
 <b>Example: Tutorial_Precursor</b>
 <br>
