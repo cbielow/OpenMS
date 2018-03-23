@@ -61,7 +61,7 @@
 		Each view of TOPPView supports several datasets, called layers. In the @a layer @a manager
 		(dock window in the upper right corner), layers can be hidden and shown using the check box in front of each layer name.
 
-		By clicking on a layer, this layer is selected, which is indicated by a blue background.
+		By clicking on a layer, this layer is selected, which is indicated by blue background.
 		The selected layer can be manipulated using the @a Tools menu.
 
 		Layers can be copied by dragging them to the tab bar. If the layer is dropped on a tab, it is added
@@ -84,7 +84,7 @@
 
 		TOPPView allows filtering of the displayed peak data and feature data.
 		Peak data can be filtered according to intensity and meta data. Meta data
-		is arbitrary data the peak is annotated with.
+		is arbitrary data a peak is annotated with.
 		Feature data can be filtered according to intensity, charge, quality and
 		meta data.
 
