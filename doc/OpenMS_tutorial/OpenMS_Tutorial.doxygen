@@ -666,7 +666,7 @@ file formats, data reduction functionality and all other analysis algorithms.
   first cache the data to disk using the OpenMS::CachedmzML class.
 
 \htmlonly
-  In summary, here is a short table when to use which File access mode:
+  In summary, here is a short table when to use which file access mode:
 
 <table border="1">
   <tr>
