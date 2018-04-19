@@ -17,7 +17,6 @@ LogStream.h
 Macros.h
 PrecisionWrapper.h
 ProgressLogger.h
-QCCollector.h
 SingletonRegistry.h
 StreamHandler.h
 Types.h
