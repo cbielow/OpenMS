@@ -224,6 +224,7 @@ namespace OpenMS
     //util_map["PeakPickerRapid"] = Internal::ToolDescription("PeakPickerRapid", "Signal processing and preprocessing");
     util_map["PSMFeatureExtractor"] = Internal::ToolDescription("PSMFeatureExtractor", util_category);
     util_map["QCCalculator"] = Internal::ToolDescription("QCCalculator", util_category);
+    util_map["QCCollector"] = Internal::ToolDescription("QCCollector" , util_category);
     util_map["QCEmbedder"] = Internal::ToolDescription("QCEmbedder", util_category);
     util_map["QCExtractor"] = Internal::ToolDescription("QCExtractor", util_category);
     util_map["QCExporter"] = Internal::ToolDescription("QCExporter", util_category);
