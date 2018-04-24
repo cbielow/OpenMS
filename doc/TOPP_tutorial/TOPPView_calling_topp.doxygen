@@ -52,7 +52,7 @@
 	@image latex TOPPView_tools_baseline.png "" width=14cm
 
 	The following image shows a part of the spectrum after baseline filtering as green line,
-	The original raw data is shown by the blue line.
+	the original raw data is shown by the blue line.
 	
 	@image html TOPPView_tools_baseline_filtered.png
 	@image latex TOPPView_tools_baseline_filtered.png "" width=14cm
