@@ -12,6 +12,9 @@ LogConfigHandler.cpp
 LogStream.cpp
 PrecisionWrapper.cpp
 ProgressLogger.cpp
+QCProteinAndPeptideCount.cpp
+QCMetricMap.cpp
+QCMetrics.cpp
 SingletonRegistry.cpp
 StreamHandler.cpp
 TypeAsString.cpp
