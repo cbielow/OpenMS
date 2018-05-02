@@ -65,7 +65,6 @@ MzTab mzTabOutput;
 QCProteinAndPeptideCount ProtAndPepObj(CFiles_);
 bool papc = ProtAndPepObj.ProtAndPepCount( mzTabOutput);
 QCMS2IdentificationRate MS2IDRate(Idxml_);
-cout<< "->-> Vor Der MS2ID Funktion"<<endl;
 bool mid = MS2IDRate.MS2IDRateidentifier( mzTabOutput);
 QCContaminants ContaminantsObj(faFile_);
 bool contam = ContaminantsObj.QCContaminantCalculator(mzTabOutput, papc);
