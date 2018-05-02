@@ -160,8 +160,9 @@ protected:
     {
       if (getStringOption_("protein") == "true")
       {
+        //cout<<"proteinhits davor :"<<prot_ids[0].getHits().size()<<endl;
         fdr.apply(prot_ids);
-
+        //cout<<"proteinhits danach :"<<prot_ids[0].getHits().size()<<endl;
         if (protein_fdr < 1)
         {
           LOG_INFO << "FDR control: Filtering proteins..." << endl;
@@ -171,8 +172,9 @@ protected:
 
       if (getStringOption_("PSM") == "true")
       {
+        //cout<<"pephits davor :"<<pep_ids[0].getHits().size()<<endl;
         fdr.apply(pep_ids);
-
+        //cout<<"pephits danach :"<<pep_ids[0].getHits().size()<<endl;
         if (psm_fdr < 1)
         {      
           LOG_INFO << "FDR control: Filtering PSMs..." << endl;
@@ -189,10 +191,12 @@ protected:
     for (vector<ProteinIdentification>::iterator it = prot_ids.begin(); it != prot_ids.end(); ++it)
     {
       it->assignRanks();
+        //cout<<"proteinhits nach assignRamls :"<<prot_ids[0].getHits().size()<<endl;
     }
     for (vector<PeptideIdentification>::iterator it = pep_ids.begin(); it != pep_ids.end(); ++it)
     {
       it->assignRanks();
+        //cout<<"pephits nach assignRanks :"<<pep_ids[0].getHits().size()<<endl;
     }
 
     IdXMLFile().store(out, prot_ids, pep_ids);

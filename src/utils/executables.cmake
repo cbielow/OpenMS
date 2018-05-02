@@ -36,6 +36,7 @@ OpenPepXLLF
 PeakPickerIterative
 PSMFeatureExtractor
 QCCalculator
+QCCollector
 QCEmbedder
 QCExporter
 QCExtractor

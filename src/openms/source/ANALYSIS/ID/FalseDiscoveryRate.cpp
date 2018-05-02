@@ -83,7 +83,7 @@ namespace OpenMS
     set<String> identifiers;
     set<SignedSize> charge_variants;
     for (vector<PeptideIdentification>::iterator it = ids.begin(); it != ids.end(); ++it)
-    {
+    {  
       identifiers.insert(it->getIdentifier());
       it->sort();
 
@@ -97,7 +97,6 @@ namespace OpenMS
         charge_variants.insert(pit->getCharge());
       }
     }
-
 #ifdef FALSE_DISCOVERY_RATE_DEBUG
     cerr << "#id-runs: " << identifiers.size() << " ";
     for (set<String>::const_iterator it = identifiers.begin(); it != identifiers.end(); ++it)

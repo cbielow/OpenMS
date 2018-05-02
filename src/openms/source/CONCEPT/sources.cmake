@@ -12,6 +12,11 @@ LogConfigHandler.cpp
 LogStream.cpp
 PrecisionWrapper.cpp
 ProgressLogger.cpp
+QCProteinAndPeptideCount.cpp
+QCMBRalignment.cpp
+QCMetrics.cpp
+QCMS2IdentificationRate.cpp
+QCProteinAndPeptideCount.cpp
 SingletonRegistry.cpp
 StreamHandler.cpp
 TypeAsString.cpp
@@ -33,4 +38,3 @@ set(OpenMS_sources ${OpenMS_sources} ${sources})
 
 ### source group definition
 source_group("Source Files\\CONCEPT" FILES ${sources})
-

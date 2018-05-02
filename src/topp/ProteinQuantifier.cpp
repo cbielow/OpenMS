@@ -341,6 +341,7 @@ protected:
   ProteinIdentification proteins_; // protein inference results (proteins)
   vector<PeptideIdentification> peptides_; // protein inference res. (peptides)
   ConsensusMap::FileDescriptions files_; // information about files involved
+  vector<String> rawfiles_;
   bool spectral_counting_; // quantification based on spectral counting?
 
   void registerOptionsAndFlags_()
@@ -562,8 +563,9 @@ protected:
   }
 
   /// Write comment lines before a peptide/protein table.
-  void writeComments_(SVOutStream& out, const bool proteins = true)
+  void writeComments_(SVOutStream& out, const bool proteins = true)//, vector<String> rawfiles)
   {
+    cout<<rawfiles_.size()<<endl;
     String what = (proteins ? "Protein" : "Peptide");
     bool old = out.modifyStrings(false);
     out << "# " + what + " abundances computed from file '" +
@@ -595,7 +597,12 @@ protected:
     if (params.empty()) params = "(none)";
     else params.resize(params.size() - 2); // remove trailing ", "
     out << "# Parameters (relevant only): " + params << endl;
-
+    string rawfiles;
+    for(vector<String>::const_iterator it=rawfiles_.begin();it!=rawfiles_.end();++it)
+    {
+      rawfiles+=*it+" ";
+    }
+    out << "Rawfiles: " + rawfiles<<endl;
     if (files_.size() > 1)
     {
       String desc = "# Files/samples associated with abundance values below: ";
@@ -671,7 +678,7 @@ protected:
     {
       vector<ProteinIdentification> proteins;
       IdXMLFile().load(protein_groups, proteins, peptides_);
-      if (proteins.empty() || 
+      if (proteins.empty() ||
           proteins[0].getIndistinguishableProteins().empty())
       {
         throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No information on indistinguishable protein groups found in file '" + protein_groups + "'");
@@ -688,10 +695,13 @@ protected:
 
     FileTypes::Type in_type = FileHandler::getType(in);
 
+
+
     if (in_type == FileTypes::FEATUREXML)
     {
       FeatureMap features;
       FeatureXMLFile().load(in, features);
+      rawfiles_.push_back(features.getMetaValue("spectra_data"));
       files_[0].filename = in;
       // protein inference results in the featureXML?
       if (protein_groups.empty() &&
@@ -713,7 +723,7 @@ protected:
         files_[i].filename = proteins[i].getIdentifier();
       }
       // protein inference results in the idXML?
-      if (protein_groups.empty() && (proteins.size() == 1) && 
+      if (protein_groups.empty() && (proteins.size() == 1) &&
           (!proteins[0].getHits().empty()))
       {
         proteins_ = proteins[0];
@@ -724,6 +734,7 @@ protected:
     {
       ConsensusMap consensus;
       ConsensusXMLFile().load(in, consensus);
+      rawfiles_.push_back(consensus.getMetaValue("spectra_data"));
       files_ = consensus.getFileDescriptions();
       // protein inference results in the consensusXML?
       if (protein_groups.empty() &&
@@ -755,7 +766,7 @@ protected:
     {
       ofstream outstr(peptide_out.c_str());
       SVOutStream output(outstr, separator, replacement, quoting_method);
-      writeComments_(output, false);
+      writeComments_(output, false);//, rawfiles);
       writePeptideTable_(output, quantifier.getPeptideResults());
       outstr.close();
     }
@@ -763,7 +774,7 @@ protected:
     {
       ofstream outstr(out.c_str());
       SVOutStream output(outstr, separator, replacement, quoting_method);
-      writeComments_(output);
+      writeComments_(output);//,rawfiles);
       writeProteinTable_(output, quantifier.getProteinResults());
       outstr.close();
     }
