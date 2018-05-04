@@ -101,8 +101,8 @@ namespace OpenMS
       chromatogram_count(0),
       skip_chromatogram_(false),
       skip_spectrum_(false),
-      rt_set_(false),
-      ms_already_set_(false) /* ,
+      rt_set_(false)
+      /*  ,
               validator_(mapping_, cv_) */
     {
       cv_.loadFromOBO("MS", File::find("/CV/psi-ms.obo"));
@@ -671,6 +671,7 @@ namespace OpenMS
       static const XMLCh* s_external_spectrum_id = xercesc::XMLString::transcode("externalSpectrumID");
       static const XMLCh* s_default_source_file_ref = xercesc::XMLString::transcode("defaultSourceFileRef");
       static const XMLCh* s_scan_settings_ref = xercesc::XMLString::transcode("scanSettingsRef");
+      static const int ms_already_set = -1;
       String tag = sm_.convert(qname);
       open_tags_.push_back(tag);
       //determine parent tag
@@ -697,8 +698,8 @@ namespace OpenMS
         }
         static const XMLCh* s_spot_id = xercesc::XMLString::transcode("spotID");
         //number of peaks
-
         spec_ = SpectrumType();
+        spec_.setMSLevel(ms_already_set);
         default_array_length_ = attributeAsInt_(attributes, s_default_array_length);
         //spectrum source file
         String source_file_ref;
@@ -818,7 +819,7 @@ namespace OpenMS
         handleCVParam_(parent_parent_tag, parent_tag, /* attributeAsString_(attributes, s_cvref), */ attributeAsString_(attributes, s_accession), attributeAsString_(attributes, s_name), value, unit_accession);
         if(options_.getSizeOnly())
         {
-        if(ms_already_set_ && spec_.getRT()!=-1 )
+        if(spec_.getMSLevel()!=ms_already_set && spec_.getRT()!=-1 )
         {
           if(options_.hasMSLevels() && options_.containsMSLevel(spec_.getMSLevel()))
           {
@@ -838,7 +839,7 @@ namespace OpenMS
           {
             scan_count_with_options++;
           }
-        ms_already_set_ = false;
+          spec_.setMSLevel(ms_already_set);
         }
       }
       }
@@ -1468,10 +1469,6 @@ namespace OpenMS
           if (!options_.containsMSLevel(spec_.getMSLevel()))
           {
             skip_spectrum_ = true;
-          }
-          else if (options_.containsMSLevel(spec_.getMSLevel()))
-          {
-            ms_already_set_ = true;
           }
         }
         else if (accession == "MS:1000497") //zoom scan

@@ -65,7 +65,7 @@ protected:
     registerInputFileList_("in_ProteinQuantifierProtein","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_IDMapper","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_MapRTTransformer","<files>", StringList(), "Input files",false,false);
-      registerInputFileList_("in_rawfiles_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_rawfiles_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_Post_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_FeatureLinkerUnlabeledQT","<files>", StringList(), "Input files",false,false);
     registerInputFileList_("in_Contaminant_DataBase","<files>",StringList(), "Input files",false,false);
@@ -73,12 +73,12 @@ protected:
 	  setValidFormats_("in_ProteinQuantifierProtein", ListUtils::create<String>("csv"));
 	  setValidFormats_("in_IDMapper", ListUtils::create<String>("FeatureXML"));
 	  setValidFormats_("in_MapRTTransformer", ListUtils::create<String>("FeatureXML"));
-      setValidFormats_("in_rawfiles_FalseDiscoveryRate", ListUtils::create<String>("MzML"));
+    setValidFormats_("in_rawfiles_FalseDiscoveryRate", ListUtils::create<String>("MzML"));
 	  setValidFormats_("in_Post_FalseDiscoveryRate", ListUtils::create<String>("IdXML"));
 	  setValidFormats_("in_FeatureLinkerUnlabeledQT", ListUtils::create<String>("consensusXML"));
     setValidFormats_("in_Contaminant_DataBase", ListUtils::create<String>("Fasta"));
 	  registerOutputFile_("out", "<file>", "", "Output file (mzTab)", true);
-      setValidFormats_("out", ListUtils::create<String>("tsv"));
+    setValidFormats_("out", ListUtils::create<String>("tsv"));
   }
 
   ExitCodes main_(int, const char**)

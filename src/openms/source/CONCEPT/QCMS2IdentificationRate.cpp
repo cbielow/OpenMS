@@ -53,6 +53,7 @@ QCMS2IdentificationRate::~QCMS2IdentificationRate(){
 
 bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
 {
+  bool outbool = false;
   vector<pair<String,String>> idXMLFiles;
   boost::regex idxml("[A-Za-z0-9]+[.]idXML");
   boost::regex mzml("[A-Za-z0-9]+[.]mzML");
@@ -63,7 +64,6 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
       idXMLFiles.push_back(it->second);
     }
   }
-  int filecounter = 1;
   for(vector<pair<String,String>>::const_iterator it=idXMLFiles.begin();it!=idXMLFiles.end();++it){
     boost::smatch matchmzml;
     boost::smatch matchidxml;
@@ -86,20 +86,21 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
     Size scount;
     Size ccount;
     mzmlfile.loadSize(it->first,scount,ccount);
-    std::cout<<"chromatogram count ist "<<ccount<<std::endl;
     double identification_rate = (double)pep_ids.size()/scount;
     //////////////////////////////////////////////////////////
-    MzTabParameter theRate;
-    String idRateString(to_string(identification_rate));
-    theRate.setValue(idRateString);
-    MzTabMSRunMetaData rawAndIDS;
-    MzTabString mzRawF(rawfiles);
-    rawAndIDS.location = mzRawF;
-    rawAndIDS.id_format = theRate;
+    MzTabParameter MetaRawAndId;
+    String theRate(to_string(identification_rate));
+    MetaRawAndId.setCVLabel("RawFile:");
+    MetaRawAndId.setAccession(rawfiles);
+    MetaRawAndId.setName("IdentificationRate:");
+    MetaRawAndId.setValue(theRate);
     MzTabMetaData mzmeta = mztab.getMetaData();
-    mzmeta.ms_run[filecounter] = rawAndIDS;
-    filecounter++;
+    map<Size,MzTabParameter> savedMetaData = mzmeta.custom;
+    savedMetaData[savedMetaData.size()+1]= MetaRawAndId;
+    mzmeta.custom = savedMetaData;
     mztab.setMetaData(mzmeta);
+    outbool = true;
+
   }
-  return filecounter>1 ? true : false;
+  return outbool;
 }
