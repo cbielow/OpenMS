@@ -88,6 +88,8 @@ public:
     */
     void loadSize(const String & filename, Size& scount, Size& ccount);
 
+    void loadTotalSize(const String & filename, Size& scount, Size& ccount);
+
     /**
       @brief Stores a map in an MzML file.
 
@@ -171,4 +173,3 @@ private:
 } // namespace OpenMS
 
 #endif // OPENMS_FORMAT_MZMLFILE_H
-

@@ -1,3 +1,4 @@
+
 #ifndef OPENMS_CONCEPT_QCProteinAndPeptideCount_H
 #define OPENMS_CONCEPT_QCProteinAndPeptideCount_H
 #include <OpenMS/FORMAT/CsvFile.h>
@@ -14,6 +15,6 @@ std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> CFile;
       {
       }
     ~QCProteinAndPeptideCount();
-    int ProtAndPepCount_( OpenMS::MzTabFile&, OpenMS::String );//MetricMap&,MetricMap&) const;
+    bool ProtAndPepCount( OpenMS::MzTab&);//MetricMap&,MetricMap&) const;
 };
 #endif

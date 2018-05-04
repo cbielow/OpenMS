@@ -36,6 +36,7 @@
 
 #include <OpenMS/FORMAT/ControlledVocabulary.h>
 #include <OpenMS/FORMAT/CVMappingFile.h>
+#include <vector>
 
 namespace OpenMS
 {
@@ -56,8 +57,11 @@ namespace OpenMS
       decoder_(),
       logger_(logger),
       consumer_(NULL),
+      total_scan_count(0),
+      total_chromatogram_count(0),
       scan_count(0),
       chromatogram_count(0),
+      scan_count_with_options(0),
       skip_chromatogram_(false),
       skip_spectrum_(false),
       rt_set_(false) /* ,
@@ -97,7 +101,9 @@ namespace OpenMS
       chromatogram_count(0),
       skip_chromatogram_(false),
       skip_spectrum_(false),
-      rt_set_(false) /* ,
+      rt_set_(false),
+      ms_already_set_(false),
+      rt_already_set_(false) /* ,
               validator_(mapping_, cv_) */
     {
       cv_.loadFromOBO("MS", File::find("/CV/psi-ms.obo"));
@@ -233,7 +239,7 @@ namespace OpenMS
       chromatogram_data_.clear();
     }
 
-    void MzMLHandler::addSpectrumMetaData_(const std::vector<MzMLHandlerHelper::BinaryData>& input_data, 
+    void MzMLHandler::addSpectrumMetaData_(const std::vector<MzMLHandlerHelper::BinaryData>& input_data,
                               const Size n, SpectrumType& spectrum) const
       {
 
@@ -401,10 +407,10 @@ namespace OpenMS
 
       // the most common case: no ranges, 64 / 32 precision
       //  -> this saves about 10 % load time
-      if ( mz_precision_64 && !int_precision_64 && 
-           input_data.size() == 2 &&  
-           !peak_file_options.hasMZRange() && 
-           !peak_file_options.hasIntensityRange() 
+      if ( mz_precision_64 && !int_precision_64 &&
+           input_data.size() == 2 &&
+           !peak_file_options.hasMZRange() &&
+           !peak_file_options.hasIntensityRange()
          )
       {
         std::vector< double >::iterator mz_it = input_data[mz_index].floats_64.begin();
@@ -436,7 +442,7 @@ namespace OpenMS
           // Only if there are more than 2 data arrays, we need to check
           // for meta data (as there will always be an m/z and intensity
           // array)
-          if (input_data.size() > 2) 
+          if (input_data.size() > 2)
           {
             addSpectrumMetaData_(input_data, n, spectrum);
           }
@@ -666,10 +672,8 @@ namespace OpenMS
       static const XMLCh* s_external_spectrum_id = xercesc::XMLString::transcode("externalSpectrumID");
       static const XMLCh* s_default_source_file_ref = xercesc::XMLString::transcode("defaultSourceFileRef");
       static const XMLCh* s_scan_settings_ref = xercesc::XMLString::transcode("scanSettingsRef");
-
       String tag = sm_.convert(qname);
       open_tags_.push_back(tag);
-
       //determine parent tag
       String parent_tag;
       if (open_tags_.size() > 1)
@@ -688,9 +692,13 @@ namespace OpenMS
       if (tag == "spectrum")
       {
         // for cppcheck
+        if(options_.getSizeOnly())
+        {
+          skip_spectrum_ = false;
+        }
         static const XMLCh* s_spot_id = xercesc::XMLString::transcode("spotID");
-
         //number of peaks
+
         spec_ = SpectrumType();
         default_array_length_ = attributeAsInt_(attributes, s_default_array_length);
         //spectrum source file
@@ -742,6 +750,10 @@ namespace OpenMS
       }
       else if (tag == "spectrumList")
       {
+        if(options_.getSizeOnly() && (options_.getRTRange()).isEmpty() && (options_.getMZRange()).isEmpty() && (options_.getIntensityRange()).isEmpty() && (options_.getMSLevels()).empty())
+        {
+            total_scan_count = attributeAsInt_(attributes, s_count);
+        }
         //default data processing
         default_processing_ = attributeAsString_(attributes, s_default_data_processing_ref);
 
@@ -753,6 +765,14 @@ namespace OpenMS
         exp_->reserveSpaceSpectra(count);
         logger_.startProgress(0, count, "loading spectra list");
         in_spectrum_list_ = true;
+      }
+      else if (tag == "scanList")
+      {
+        if(options_.getSizeOnly() && (options_.getRTRange()).isEmpty() && (options_.getMZRange()).isEmpty() && (options_.getIntensityRange()).isEmpty() && (options_.getMSLevels()).empty())
+        {
+          total_chromatogram_count = attributeAsInt_(attributes, s_count);
+          throw EndParsingSoftly(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION);
+        }
       }
       else if (tag == "chromatogramList")
       {
@@ -797,6 +817,32 @@ namespace OpenMS
         String unit_accession = "";
         optionalAttributeAsString_(unit_accession, attributes, s_unit_accession);
         handleCVParam_(parent_parent_tag, parent_tag, /* attributeAsString_(attributes, s_cvref), */ attributeAsString_(attributes, s_accession), attributeAsString_(attributes, s_name), value, unit_accession);
+        if(options_.getSizeOnly())
+        {
+        if(ms_already_set_ && rt_already_set_ )
+        {
+          if(options_.hasMSLevels() && options_.containsMSLevel(spec_.getMSLevel()))
+          {
+            if(!options_.hasRTRange())
+            {
+              scan_count_with_options++;
+            }
+            else
+            {
+              if(options_.getRTRange().encloses(DPosition<1>(spec_.getRT())))
+              {
+                scan_count_with_options++;
+              }
+            }
+          }
+          else if(options_.hasRTRange() && options_.getRTRange().encloses(DPosition<1>(spec_.getRT())))
+          {
+            scan_count_with_options++;
+          }
+        ms_already_set_ = false;
+        rt_already_set_ = false;
+        }
+      }
       }
       else if (tag == "userParam")
       {
@@ -814,7 +860,7 @@ namespace OpenMS
       {
         current_id_ = attributeAsString_(attributes, s_id);
         // Name of the source file, without reference to location (either URI or local path). e.g. "control.mzML"
-        String name_of_file = attributeAsString_(attributes, s_name); 
+        String name_of_file = attributeAsString_(attributes, s_name);
 
         //URI-formatted location where the file was retrieved.
         String path_to_file = attributeAsString_(attributes, s_location);
@@ -1108,7 +1154,6 @@ namespace OpenMS
       static const XMLCh* s_spectrum_list = xercesc::XMLString::transcode("spectrumList");
       static const XMLCh* s_chromatogram_list = xercesc::XMLString::transcode("chromatogramList");
       static const XMLCh* s_mzml = xercesc::XMLString::transcode("mzML");
-
       open_tags_.pop_back();
 
       if (equal_(qname, s_spectrum))
@@ -1127,7 +1172,6 @@ namespace OpenMS
           else                         spec_.getInstrumentSettings().setScanMode(InstrumentSettings::MSNSPECTRUM);
         }
         */
-
         if (!skip_spectrum_)
         {
           spectrum_data_.push_back(SpectrumData());
@@ -1209,8 +1253,8 @@ namespace OpenMS
       // the actual value stored in the CVParam
       // we assume for now that it is a string value, we update the type later on
       DataValue termValue = value;
-
       //Abort on unknown terms
+      if(options_.hasMSLevels())
       if (!cv_.exists(accession))
       {
         //in 'sample' several external CVs are used (Brenda, GO, ...). Do not warn then.
@@ -1424,10 +1468,13 @@ namespace OpenMS
         else if (accession == "MS:1000511") //ms level
         {
           spec_.setMSLevel(value.toInt());
-
           if (options_.hasMSLevels() && !options_.containsMSLevel(spec_.getMSLevel()))
           {
             skip_spectrum_ = true;
+          }
+          else if (options_.hasMSLevels() && options_.containsMSLevel(spec_.getMSLevel()))
+          {
+            ms_already_set_ = true;
           }
         }
         else if (accession == "MS:1000497") //zoom scan
@@ -1928,11 +1975,13 @@ namespace OpenMS
           {
             spec_.setRT(60.0 * value.toDouble());
             rt_set_ = true;
+            rt_already_set_ = true;
           }
           else //seconds
           {
             spec_.setRT(value.toDouble());
             rt_set_ = true;
+            rt_already_set_ = true;
           }
           if (options_.hasRTRange() && !options_.getRTRange().encloses(DPosition<1>(spec_.getRT())))
           {
@@ -3960,7 +4009,7 @@ namespace OpenMS
         {
           for (Size i = 0; i < exp[s].getFloatDataArrays()[m].getDataProcessing().size(); ++i)
           {
-            writeSoftware_(os, String("so_dp_sp_") + s + "_bi_" + m + "_pm_" + i, 
+            writeSoftware_(os, String("so_dp_sp_") + s + "_bi_" + m + "_pm_" + i,
                 exp[s].getFloatDataArrays()[m].getDataProcessing()[i]->getSoftware(), validator);
           }
         }
@@ -4571,7 +4620,7 @@ namespace OpenMS
       {
         for (Size m = 0; m < exp[s].getFloatDataArrays().size(); ++m)
         {
-          writeDataProcessing_(os, String("dp_sp_") + s + "_bi_" + m, 
+          writeDataProcessing_(os, String("dp_sp_") + s + "_bi_" + m,
               exp[s].getFloatDataArrays()[m].getDataProcessing(), validator);
         }
       }

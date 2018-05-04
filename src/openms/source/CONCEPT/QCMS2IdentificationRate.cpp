@@ -1,10 +1,47 @@
+// --------------------------------------------------------------------------
+//                   OpenMS -- Open-Source Mass Spectrometry
+// --------------------------------------------------------------------------
+// Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
+// ETH Zurich, and Freie Universitaet Berlin 2002-2017.
+//
+// This software is released under a three-clause BSD license:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//  * Neither the name of any author or any participating institution
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+// For a full list of authors, refer to the file AUTHORS.
+// --------------------------------------------------------------------------
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL ANY OF THE AUTHORS OR THE CONTRIBUTING
+// INSTITUTIONS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// --------------------------------------------------------------------------
+// $Maintainer: Anton Haberland, Leo Wurth$
+// $Authors: Anton Haberland, Leo Wurth$
+// --------------------------------------------------------------------------
+
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/CONCEPT/QCMS2IdentificationRate.h>
 #include <OpenMS/FORMAT/IdXMLFile.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/FORMAT/FeatureXMLFile.h>
+#include <OpenMS/FORMAT/MzTab.h>
 #include <boost/regex.hpp>
 #include <OpenMS/FORMAT/PercolatorOutfile.h>
+#include <OpenMS/FORMAT/HANDLERS/MzMLHandler.h>
+#include <vector>
 
 
 using namespace OpenMS;
@@ -14,11 +51,9 @@ QCMS2IdentificationRate::~QCMS2IdentificationRate(){
 
 }
 
-int QCMS2IdentificationRate::MS2IDRateidentifier_( MzTabFile& MzTabOutputFile, String out)
+bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
 {
-  MzTab mztab;
   vector<pair<String,String>> idXMLFiles;
-  Size control;
   boost::regex idxml("[A-Za-z0-9]+[.]idXML");
   boost::regex mzml("[A-Za-z0-9]+[.]mzML");
   boost::regex replecment("idXML");
@@ -28,6 +63,7 @@ int QCMS2IdentificationRate::MS2IDRateidentifier_( MzTabFile& MzTabOutputFile, S
       idXMLFiles.push_back(it->second);
     }
   }
+  int filecounter = 1;
   for(vector<pair<String,String>>::const_iterator it=idXMLFiles.begin();it!=idXMLFiles.end();++it){
     boost::smatch matchmzml;
     boost::smatch matchidxml;
@@ -44,10 +80,25 @@ int QCMS2IdentificationRate::MS2IDRateidentifier_( MzTabFile& MzTabOutputFile, S
 		il.load(it->second, prot_ids, pep_ids);
     MzMLFile mzmlfile;
     typedef PeakMap MapType;
+    MapType dummy;
     MapType exp;
     mzmlfile.getOptions().setMSLevels({2});
-    mzmlfile.load(it->first,exp);
-    Size MS2_spectra_count = exp.getSpectra().size();
-    //cout<<"spectra MS: "<<MS2_spectra_count<<endl;
+    Size scount;
+    Size ccount;
+    mzmlfile.loadSize(it->first,scount,ccount);
+    double identification_rate = (double)pep_ids.size()/ccount;
+    //////////////////////////////////////////////////////////
+    MzTabParameter theRate;
+    String idRateString(to_string(identification_rate));
+    theRate.setValue(idRateString);
+    MzTabMSRunMetaData rawAndIDS;
+    MzTabString mzRawF(rawfiles);
+    rawAndIDS.location = mzRawF;
+    rawAndIDS.id_format = theRate;
+    MzTabMetaData mzmeta = mztab.getMetaData();
+    mzmeta.ms_run[filecounter] = rawAndIDS;
+    filecounter++;
+    mztab.setMetaData(mzmeta);
   }
+  return filecounter>1 ? true : false;
 }
