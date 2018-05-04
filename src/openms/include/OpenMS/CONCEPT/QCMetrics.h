@@ -31,6 +31,7 @@
 // $Maintainer: Anton Haberland, Leo Wurth, Mohammad El-Ismail$
 // $Authors: Anton Haberland, Leo Wurth, Mohammad El-Ismail $
 // --------------------------------------------------------------------------
+#pragma once
 #include <vector>
 #include <OpenMS/FORMAT/MzTabFile.h>
 #include <OpenMS/FORMAT/MzTab.h>
@@ -49,7 +50,8 @@
 #include <utility>
 #include <regex>
 
-
+namespace OpenMS
+{
     class OPENMS_DLLAPI Metrics
     {
     //das sind die eingelesenen Daten, sie können von den Metriken gelesen aber nicht umgeschrieben werden//
@@ -57,8 +59,9 @@
     //  gibt an aus welchem TOPPTOOL die Datei kommt.
 
     public:
-        Metrics(const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>>& fvec, const std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>>& ivec, const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>>& cvecs,const std::vector<std::pair<OpenMS::String,OpenMS::ConsensusMap>>& CMapVec, const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>>& fff, const OpenMS::String& out):
+        Metrics(const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>>& fvec, std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> mbravec, const std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>>& ivec, const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>>& cvecs,const std::vector<std::pair<OpenMS::String,OpenMS::ConsensusMap>>& CMapVec, const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>>& fff, const OpenMS::String& out):
         FeatMaps_(fvec),
+        FeatMapsMBR_(mbravec),
         Idxml_(ivec),
         CFiles_(cvecs),
         ConsensusMaps_(CMapVec),
@@ -69,15 +72,12 @@
         ~Metrics();
         void runAllMetrics();
       protected:
-        const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FeatMaps_;			//Alle FeatureXML Datein
+        const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FeatMaps_;
+        const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FeatMapsMBR_;			//Alle FeatureXML Datein
         const std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>> Idxml_;	//Peptide der IDXML's
         const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> CFiles_;	//Proteine der CSVFiles's;
         const std::vector<std::pair<OpenMS::String,OpenMS::ConsensusMap>> ConsensusMaps_;    //Alle ConsensusXMLFiles
         const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>> faFile_;   //Alle FastaFiles
         OpenMS::String out_;
-	//->Hier Metriken deklarieren<-//
 	};
-
-
-
-    	//->Hier die Metriken definieren<-//
+}

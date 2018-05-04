@@ -37,9 +37,11 @@
 #include <OpenMS/FORMAT/IdXMLFile.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/FORMAT/FeatureXMLFile.h>
+#include <OpenMS/FORMAT/MzTab.h>
 #include <boost/regex.hpp>
 #include <OpenMS/FORMAT/PercolatorOutfile.h>
 #include <OpenMS/FORMAT/HANDLERS/MzMLHandler.h>
+#include <vector>
 
 
 using namespace OpenMS;
@@ -51,6 +53,7 @@ QCMS2IdentificationRate::~QCMS2IdentificationRate(){
 
 bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
 {
+  bool outbool = false;
   vector<pair<String,String>> idXMLFiles;
   boost::regex idxml("[A-Za-z0-9]+[.]idXML");
   boost::regex mzml("[A-Za-z0-9]+[.]mzML");
@@ -61,7 +64,6 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
       idXMLFiles.push_back(it->second);
     }
   }
-  MzTabPSMSectionRows psmSecROWS;
   for(vector<pair<String,String>>::const_iterator it=idXMLFiles.begin();it!=idXMLFiles.end();++it){
     boost::smatch matchmzml;
     boost::smatch matchidxml;
@@ -81,32 +83,24 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
     MapType dummy;
     MapType exp;
     mzmlfile.getOptions().setMSLevels({2});
-    mzmlfile.load(it->first,exp);
     Size scount;
     Size ccount;
-    Size MS2_spectra_count = exp.getSpectra().size();
-    cout<<"ms2 spectren "<<MS2_spectra_count<<endl;
-    /*mzmlfile.loadTotalSize(it->first,scount,ccount);
-    cout<<"alle spectren: "<<scount<<" und alle chromatogram: "<<ccount<<endl;
-    double identification_rate = (double)pep_ids.size()/MS2_spectra_count;
-    cout<<"spectra MS: "<<MS2_spectra_count<<endl;
-    cout<<"Peptide Identifications: "<<pep_ids.size()<<endl;
-    cout<<"Identification Rate: "<<identification_rate<<endl;
-    MzTabPSMSectionRow psmSecRow;
-    MzTabString colContent1;
-    MzTabString colContent2;
-    MzTabString colContent3;
-    colContent1.set(it->first);
-    psmSecRow.database = colContent1;
-    String opsString(MS2_spectra_count);
-    colContent2.set(opsString);
-    psmSecRow.pre = colContent2;
-    String oksString(identification_rate);
-    colContent3.set(oksString);
-    psmSecRow.post=colContent3;
-    psmSecROWS.push_back(psmSecRow);
-    */
+    mzmlfile.loadSize(it->first,scount,ccount);
+    double identification_rate = (double)pep_ids.size()/scount;
+    //////////////////////////////////////////////////////////
+    MzTabParameter MetaRawAndId;
+    String theRate(to_string(identification_rate));
+    MetaRawAndId.setCVLabel("RawFile:");
+    MetaRawAndId.setAccession(rawfiles);
+    MetaRawAndId.setName("IdentificationRate:");
+    MetaRawAndId.setValue(theRate);
+    MzTabMetaData mzmeta = mztab.getMetaData();
+    map<Size,MzTabParameter> savedMetaData = mzmeta.custom;
+    savedMetaData[savedMetaData.size()+1]= MetaRawAndId;
+    mzmeta.custom = savedMetaData;
+    mztab.setMetaData(mzmeta);
+    outbool = true;
+
   }
-  //mztab.setPSMSectionRows(psmSecROWS);
-  return true;
+  return outbool;
 }

@@ -69,7 +69,7 @@
   The parameters for the filter type can be adapted (blue rectangle).
 	For the Savitzky-Golay filter you can set the frame length and the order of the polynomial that is fitted.
 	For the Gaussian filter the gaussian width and the ppm tolerance for a flexible gaussian width
-	depending on the m/z value can be adapted. Press Ok to run the selected NoiseFilter.
+	depending on the m/z value can be adapted. Press OK to run the selected NoiseFilter.
 	
 	@image html TOPPView_tools_noisefilter.png 
 	@image latex TOPPView_tools_noisefilter.png "" width=14cm
@@ -98,7 +98,7 @@
 
 	The main parameters are the peak width and the minimal signal to noise ratio for a peak to be
 	picked. If you don't know the approximate fwhm of your peaks you can use the estimation included 
-	in the PeakPickerWavelet. Here you need to set the flag estimate_peak_width to true.After applying
+	in the PeakPickerWavelet. Here you need to set the flag estimate_peak_width to true. After applying
 	the PeakPickerWavelet you can see which peak width was estimated and used for peak picking in the
 	log window.
 

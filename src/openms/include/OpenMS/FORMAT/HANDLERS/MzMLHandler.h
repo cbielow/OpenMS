@@ -175,8 +175,16 @@ public:
       /// Get the spectra and chromatogram counts of a file
       void getCounts(Size& spectra_counts, Size& chromatogram_counts)
       {
-        spectra_counts = scan_count;
-        chromatogram_counts = chromatogram_count;
+        if(options_.getSizeOnly() && (options_.getRTRange()).isEmpty() && (options_.getMZRange()).isEmpty() && (options_.getIntensityRange()).isEmpty() && (options_.getMSLevels()).empty())
+        {
+          spectra_counts = total_scan_count;
+          chromatogram_counts = total_chromatogram_count;
+        }
+        else
+        {
+          spectra_counts = scan_count_with_options;
+          chromatogram_count = chromatogram_count;
+        }
       }
 
       /// Set the IMSDataConsumer consumer which will consume the read data
@@ -223,7 +231,7 @@ protected:
       */
       void populateChromatogramsWithData();
 
-      void addSpectrumMetaData_(const std::vector<MzMLHandlerHelper::BinaryData>& input_data, 
+      void addSpectrumMetaData_(const std::vector<MzMLHandlerHelper::BinaryData>& input_data,
                                 const Size n, SpectrumType& spectrum) const;
 
       /**
@@ -293,6 +301,7 @@ protected:
       /// id of the default data processing (used when no processing is defined)
       String default_processing_;
 
+
       /**
           @brief Data necessary to generate a single spectrum
 
@@ -345,15 +354,19 @@ protected:
       Interfaces::IMSDataConsumer* consumer_;
 
       /// Counting spectra and chromatograms
+      UInt total_scan_count;
+      UInt total_chromatogram_count;
       UInt scan_count;
       UInt chromatogram_count;
+      UInt scan_count_with_options;
 
       /// Flag that indicates whether this spectrum should be skipped (due to options)
       bool skip_chromatogram_;
       bool skip_spectrum_;
-
       // Remember whether the RT of the spectrum was set or not
       bool rt_set_;
+      bool ms_already_set_;
+      bool rt_already_set_;
 
       ///Controlled vocabulary (psi-ms from OpenMS/share/OpenMS/CV/psi-ms.obo)
       ControlledVocabulary cv_;

@@ -117,6 +117,18 @@ namespace OpenMS
     return result;
   }
 
+  void MzMLFile::loadTotalSize(const String& filename, Size& scount, Size& ccount)
+  {
+    PeakMap dummy;
+    PeakFileOptions newoptions;
+    newoptions.setSizeOnly(true);
+    Internal::MzMLHandler handler(dummy, filename, getVersion(), *this);
+    handler.setOptions(newoptions);
+
+    parse_(filename, &handler);
+    handler.getCounts(scount,ccount);
+  }
+
   void MzMLFile::loadSize(const String& filename, Size& scount, Size& ccount)
   {
     PeakMap dummy;
@@ -127,7 +139,6 @@ namespace OpenMS
 
     // TODO catch errors as above ?
     parse_(filename, &handler);
-
     handler.getCounts(scount, ccount);
     options_.setSizeOnly(size_only_before_);
   }

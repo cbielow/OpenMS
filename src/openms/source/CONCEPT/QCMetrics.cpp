@@ -45,6 +45,8 @@
 #include <OpenMS/CONCEPT/QCMetrics.h>
 #include <OpenMS/CONCEPT/QCProteinAndPeptideCount.h>
 #include <OpenMS/CONCEPT/QCMS2IdentificationRate.h>
+#include <OpenMS/CONCEPT/QCMBRalignment.h>
+#include <OpenMS/FORMAT/MzTab.h>
 #include <vector>
 #include <utility>
 
@@ -68,6 +70,13 @@ QCMS2IdentificationRate MS2IDRate(Idxml_);
 bool mid = MS2IDRate.MS2IDRateidentifier( mzTabOutput);
 QCContaminants ContaminantsObj(faFile_);
 bool contam = ContaminantsObj.QCContaminantCalculator(mzTabOutput, papc);
+QCMBRalignment MBRAlign(FeatMapsMBR_);
+int mbra = MBRAlign.MBRAlignment( mzTabOutput);
+if(papc == true){cout<<"ProteinAndPeptideCount Sucssessfull"<<endl;}
+//if(mid == true){cout<<"MS2 identification Rate Sucssessfull"<<endl;}
+if(contam == true){cout<<"Contaminants Sucssessfull"<<endl;}
+if(mbra == 1){cout<<"MBR Alignment Sucssessfull"<<endl;}
+
 mzTabOutputFile.store(out_,mzTabOutput);
 }
 

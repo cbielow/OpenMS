@@ -28,31 +28,25 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // --------------------------------------------------------------------------
-// $Maintainer: Anton Haberland$
-// $Authors: Anton Haberland$
+// $Maintainer: Maria Trofimova $
+// $Authors: Maria Trofimova $
 // --------------------------------------------------------------------------
-#pragma once
-#include<OpenMS/FORMAT/CsvFile.h>
-#include<OpenMS/FORMAT/MzTab.h>
-#include<OpenMS/FORMAT/FASTAFile.h>
-#include<OpenMS/DATASTRUCTURES/String.h>
-#include<utility>
-#include<vector>
 
-namespace OpenMS
+#pragma once
+#include <OpenMS/FORMAT/MzTabFile.h>
+#include <OpenMS/FORMAT/MzTab.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
+#include <vector>
+
+//class FeatureMap;
+class OPENMS_DLLAPI QCMBRalignment
 {
-class OPENMS_DLLAPI QCContaminants
-{
-public:
-      QCContaminants(/*const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>>& c, */const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>>& ff):
-        //cFiles_(c),
-        fFiles_(ff)
-      {}
-      ~QCContaminants();
-      bool QCContaminantCalculator(OpenMS::MzTab&, bool);
-protected:
-      std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> cFiles_ ;
-      std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>> fFiles_ ;
+std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> feat_map_;
+  public:
+    //Constructor
+    QCMBRalignment(std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> files);
+    //Destructor
+    ~QCMBRalignment();
+    int MBRAlignment(OpenMS::MzTab&) const; //std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FeatMaps_
 
 };
-}
