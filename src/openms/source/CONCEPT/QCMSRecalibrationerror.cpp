@@ -28,82 +28,83 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // --------------------------------------------------------------------------
-// $Maintainer: Anton Haberland
-// $Authors: Anton Haberland
+// $Maintainer: Anton Haberland, Leo Wurth$
+// $Authors: Anton Haberland, Leo Wurth$
 // --------------------------------------------------------------------------
-
-#include <OpenMS/CONCEPT/QCContaminants.h>
+#include <OpenMS/CONCEPT/QCMSRecalibrationerror.h>
+#include <OpenMS/FORMAT/CsvFile.h>
 #include <OpenMS/FORMAT/MzTab.h>
-#include <OpenMS/FORMAT/FASTAFile.h>
+#include <boost/regex.hpp>
+#include <vector>
 
-using namespace std;
+
 using namespace OpenMS;
+using namespace std;
 
-QCContaminants::~QCContaminants()
-{
+QCMSRecalibrationerror::~QCMSRecalibrationerror(){
 
 }
 
-bool QCContaminants::QCContaminantCalculator(MzTab& mztab, bool protAndPepCount)
+bool QCMSRecalibrationerror::QCMSRecalerror( MzTab& mztab)
 {
-  typedef vector<vector<FASTAFile::FASTAEntry>> AllEntrys;
-  if(protAndPepCount && fFiles_.size() > 0)
-  {
-    MzTabPeptideSectionRows pepSecROWS;
-    MzTabProteinSectionRows protSecROWS;
-    pepSecROWS = mztab.getPeptideSectionRows();
-    protSecROWS = mztab.getProteinSectionRows();
-    for(MzTabPeptideSectionRows::iterator it =  pepSecROWS.begin(); it != pepSecROWS.end(); it ++)
+    bool outbool = false;
+    for(vector<CsvFile>::const_iterator it=cvec_.begin(); it!=cvec_.end(); ++it)
     {
-      MzTabString finder;
-      finder.set("-");
-      for(AllEntrys::iterator itt = fFiles_.begin(); itt != fFiles_.end(); itt ++)
+      CsvFile fl = *it;
+      Size maxRow = fl.rowCount();
+      Size line = 0;
+      StringList CurrentRow;
+      while(fl.getRow(line,CurrentRow)==false)
       {
-        for(vector<FASTAFile::FASTAEntry>::iterator entryIter = itt->begin(); entryIter != itt->end(); entryIter ++)
-        {
-          if(it->sequence.get() == entryIter->sequence)
-          {
-            finder.set("+");
-            entryIter  = itt->end();
-            break;
-          }
-        }
-        if(finder.get() == "+")
-        {
-          break;
-        }
+        line++;
       }
-      MzTabOptionalColumnEntry col;
-      col=make_pair("opt_isContaminant",finder);
-      it->opt_.push_back(col);
-    }
-      for(MzTabProteinSectionRows::iterator it = protSecROWS.begin(); it != protSecROWS.end(); it ++)
+      Size intensity;
+      Size mzref;
+      Size mzbefore;
+      Size mzafter;
+      Size counter = 0;
+      Internal_Calibration_Data internal_cal_data;
+      bool headfinder = false;
+      while(line<maxRow)
       {
-        MzTabString finder;
-        finder.set("-");
-        String wantedSeq = it->description.get();
-        for(AllEntrys::iterator itt = fFiles_.begin(); itt != fFiles_.end(); itt ++)
+        fl.getRow(line,CurrentRow);
+        if(!headfinder)
         {
-          for(vector<FASTAFile::FASTAEntry>::iterator entryIter = itt->begin(); entryIter != itt->end(); entryIter ++ )
+          for(Size i=0;i<CurrentRow.size();i++)
           {
-            if(wantedSeq == "\""+entryIter-> identifier+"\"" )
+            if(CurrentRow[i]==" intensity")
             {
-              finder.set("+");
-              entryIter  = itt->end();
-              break;
+              intensity = i;
+              counter++;
+            }
+            else if(CurrentRow[i]==" mz ref")
+            {
+              mzref = i;
+              counter++;
+            }
+            else if(CurrentRow[i]==" mz before")
+            {
+              mzbefore = i;
+              counter++;
+            }
+            else if(CurrentRow[i]==" mz after")
+            {
+              mzafter = i;
+              counter++;
             }
           }
-          if(finder.get() == "+")
-          {
-            break;
-          }
+          counter==4?headfinder=true:headfinder=false;
+          line++;
         }
-        MzTabOptionalColumnEntry col;
-        col = make_pair("opt_isContaminant",finder);
-        it->opt_.push_back(col);
+        else
+        {
+          internal_cal_data.intensityvec.push_back(CurrentRow[intensity]);
+          internal_cal_data.mzrefvec.push_back(CurrentRow[mzref]);
+          internal_cal_data.mzbeforevec.push_back(CurrentRow[mzbefore]);
+          internal_cal_data.mzaftervec.push_back(CurrentRow[mzafter]);
+          line++;
+        }
       }
-    mztab.setPeptideSectionRows(pepSecROWS);
-    mztab.setProteinSectionRows(protSecROWS);
-  }
-  return protAndPepCount;
+    }
+    return outbool;
 }

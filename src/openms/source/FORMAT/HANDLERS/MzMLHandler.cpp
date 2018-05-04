@@ -102,8 +102,7 @@ namespace OpenMS
       skip_chromatogram_(false),
       skip_spectrum_(false),
       rt_set_(false),
-      ms_already_set_(false),
-      rt_already_set_(false) /* ,
+      ms_already_set_(false) /* ,
               validator_(mapping_, cv_) */
     {
       cv_.loadFromOBO("MS", File::find("/CV/psi-ms.obo"));
@@ -819,7 +818,7 @@ namespace OpenMS
         handleCVParam_(parent_parent_tag, parent_tag, /* attributeAsString_(attributes, s_cvref), */ attributeAsString_(attributes, s_accession), attributeAsString_(attributes, s_name), value, unit_accession);
         if(options_.getSizeOnly())
         {
-        if(ms_already_set_ && rt_already_set_ )
+        if(ms_already_set_ && spec_.getRT()!=-1 )
         {
           if(options_.hasMSLevels() && options_.containsMSLevel(spec_.getMSLevel()))
           {
@@ -840,7 +839,6 @@ namespace OpenMS
             scan_count_with_options++;
           }
         ms_already_set_ = false;
-        rt_already_set_ = false;
         }
       }
       }
@@ -1197,7 +1195,6 @@ namespace OpenMS
       }
       else if (equal_(qname, s_chromatogram))
       {
-
         if (!skip_chromatogram_)
         {
           chromatogram_data_.push_back(ChromatogramData());
@@ -1468,11 +1465,11 @@ namespace OpenMS
         else if (accession == "MS:1000511") //ms level
         {
           spec_.setMSLevel(value.toInt());
-          if (options_.hasMSLevels() && !options_.containsMSLevel(spec_.getMSLevel()))
+          if (!options_.containsMSLevel(spec_.getMSLevel()))
           {
             skip_spectrum_ = true;
           }
-          else if (options_.hasMSLevels() && options_.containsMSLevel(spec_.getMSLevel()))
+          else if (options_.containsMSLevel(spec_.getMSLevel()))
           {
             ms_already_set_ = true;
           }
@@ -1975,13 +1972,11 @@ namespace OpenMS
           {
             spec_.setRT(60.0 * value.toDouble());
             rt_set_ = true;
-            rt_already_set_ = true;
           }
           else //seconds
           {
             spec_.setRT(value.toDouble());
             rt_set_ = true;
-            rt_already_set_ = true;
           }
           if (options_.hasRTRange() && !options_.getRTRange().encloses(DPosition<1>(spec_.getRT())))
           {

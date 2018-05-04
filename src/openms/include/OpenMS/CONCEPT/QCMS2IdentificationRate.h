@@ -41,10 +41,12 @@
 
 class OPENMS_DLLAPI QCMS2IdentificationRate
 {
-std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>> ivec_;
+std::vector<OpenMS::String> idXMLFiles_;
+std::vector<OpenMS::String> rawvec_;
   public:
-    QCMS2IdentificationRate(std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>> files):
-      ivec_(files)
+    QCMS2IdentificationRate(std::vector<OpenMS::String> files , std::vector<OpenMS::String> rawwfiles):
+      idXMLFiles_(files),
+      rawvec_(rawwfiles)
       {
       }
       ~QCMS2IdentificationRate();

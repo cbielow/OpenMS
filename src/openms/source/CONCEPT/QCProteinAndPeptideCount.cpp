@@ -45,21 +45,8 @@ QCProteinAndPeptideCount::~QCProteinAndPeptideCount(){
 //Code sollte noch kommentiert werden. Bin mir auch nicht sicher ob es funktioniert wenn mehrere CSV's für Peptide oder Proteine eingegeben werden
 bool QCProteinAndPeptideCount::ProtAndPepCount( MzTab& mztab)
 {
-vector<CsvFile> CsvFilesProtein;
-vector<CsvFile> CsvFilesPeptide;
 MzTabPeptideSectionRows PepROWS;
 MzTabProteinSectionRows ProtROWS;
-for(vector<pair<String,CsvFile>>::const_iterator it = CFile.begin();it!=CFile.end();++it)//befüllt 2 Listen mit CsvFiles. Proteine / Peptide
-{
-  if(it->first=="ProteinQuantifier_Peptide")
-  {
-    CsvFilesPeptide.push_back(it->second);
-  }
-  if(it->first=="ProteinQuantifier_Protein")
-  {
-    CsvFilesProtein.push_back(it->second);
-  }
-}
 for(vector<CsvFile>::const_iterator it = CsvFilesPeptide.begin(); it!=CsvFilesPeptide.end();it++)//extrahiert Informationen der Peptide
 {
   StringList MetaList;

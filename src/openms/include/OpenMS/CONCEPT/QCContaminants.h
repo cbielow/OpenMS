@@ -44,15 +44,14 @@ namespace OpenMS
 class OPENMS_DLLAPI QCContaminants
 {
 public:
-      QCContaminants(/*const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>>& c, */const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>>& ff):
+      QCContaminants(const std::vector<std::vector<OpenMS::FASTAFile::FASTAEntry>>& ff):
         //cFiles_(c),
         fFiles_(ff)
       {}
       ~QCContaminants();
       bool QCContaminantCalculator(OpenMS::MzTab&, bool);
 protected:
-      std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> cFiles_ ;
-      std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>> fFiles_ ;
+      std::vector<std::vector<OpenMS::FASTAFile::FASTAEntry>> fFiles_ ;
 
 };
 }

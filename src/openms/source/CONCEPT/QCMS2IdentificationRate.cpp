@@ -54,21 +54,15 @@ QCMS2IdentificationRate::~QCMS2IdentificationRate(){
 bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
 {
   bool outbool = false;
-  vector<pair<String,String>> idXMLFiles;
   boost::regex idxml("[A-Za-z0-9]+[.]idXML");
   boost::regex mzml("[A-Za-z0-9]+[.]mzML");
   boost::regex replecment("idXML");
-  for(vector<pair<String,pair<String,String>>>::const_iterator it = ivec_.begin();it!=ivec_.end();++it)
+  for(Size i=0;i<idXMLFiles_.size();i++)
   {
-    if(it->first=="Post_FalseDiscoveryRate"){
-      idXMLFiles.push_back(it->second);
-    }
-  }
-  for(vector<pair<String,String>>::const_iterator it=idXMLFiles.begin();it!=idXMLFiles.end();++it){
     boost::smatch matchmzml;
     boost::smatch matchidxml;
-    boost::regex_search(it->first,matchmzml,mzml);
-    boost::regex_search(it->second,matchidxml,idxml);
+    boost::regex_search(rawvec_[i],matchmzml,mzml);
+    boost::regex_search(idXMLFiles_[i],matchidxml,idxml);
     String rawfiles = boost::regex_replace(matchidxml[0].str(),replecment,"mzML");
     if(matchmzml[0]!=rawfiles)
     {
@@ -77,7 +71,7 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
     IdXMLFile il;
 		vector<PeptideIdentification> pep_ids;
 		vector<ProteinIdentification> prot_ids;
-		il.load(it->second, prot_ids, pep_ids);
+		il.load(idXMLFiles_[i], prot_ids, pep_ids);
     MzMLFile mzmlfile;
     typedef PeakMap MapType;
     MapType dummy;
@@ -85,9 +79,9 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
     mzmlfile.getOptions().setMSLevels({2});
     Size scount;
     Size ccount;
-    mzmlfile.loadSize(it->first,scount,ccount);
+    mzmlfile.loadSize(rawvec_[i],scount,ccount);
     double identification_rate = (double)pep_ids.size()/scount;
-    //////////////////////////////////////////////////////////
+    //write mztab
     MzTabParameter MetaRawAndId;
     String theRate(to_string(identification_rate));
     MetaRawAndId.setCVLabel("RawFile:");
@@ -100,7 +94,6 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
     mzmeta.custom = savedMetaData;
     mztab.setMetaData(mzmeta);
     outbool = true;
-
   }
   return outbool;
 }

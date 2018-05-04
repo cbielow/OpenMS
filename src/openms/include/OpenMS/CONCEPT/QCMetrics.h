@@ -52,6 +52,38 @@
 
 namespace OpenMS
 {
+    struct OPENMS_DLLAPI QCFeatureMaps
+    {
+      std::vector<OpenMS::FeatureMap> Map_RT;
+      std::vector<OpenMS::FeatureMap> ID_mapper;
+      //std::vector<OpenMS::FeatureMap>
+    };
+
+    struct OPENMS_DLLAPI QCIDXMLFiles
+    {
+      std::vector<OpenMS::String> Post_False_Discovery_Rate_Raw_Files;
+      std::vector<OpenMS::String> Post_False_Discovery_Rate;
+    };
+
+    struct OPENMS_DLLAPI QCCsvFiles
+    {
+      std::vector<OpenMS::CsvFile> ProteinQuantifier_Peptide;
+      std::vector<OpenMS::CsvFile> ProteinQuantifier_Protein;
+      std::vector<OpenMS::CsvFile> Internal_Calibration;
+
+    };
+
+    struct OPENMS_DLLAPI QCConsensusMaps
+    {
+      std::vector<OpenMS::ConsensusMap> Feature_Linker_Unlabled;
+    };
+
+    struct OPENMS_DLLAPI QCFastaFiles
+    {
+      std::vector<std::vector<OpenMS::FASTAFile::FASTAEntry>> Contaminant_Database;
+    };
+
+
     class OPENMS_DLLAPI Metrics
     {
     //das sind die eingelesenen Daten, sie können von den Metriken gelesen aber nicht umgeschrieben werden//
@@ -59,25 +91,23 @@ namespace OpenMS
     //  gibt an aus welchem TOPPTOOL die Datei kommt.
 
     public:
-        Metrics(const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>>& fvec, std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> mbravec, const std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>>& ivec, const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>>& cvecs,const std::vector<std::pair<OpenMS::String,OpenMS::ConsensusMap>>& CMapVec, const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>>& fff, const OpenMS::String& out):
-        FeatMaps_(fvec),
-        FeatMapsMBR_(mbravec),
-        Idxml_(ivec),
-        CFiles_(cvecs),
-        ConsensusMaps_(CMapVec),
-        faFile_(fff),
+        Metrics(const QCCsvFiles& csv, const QCFastaFiles& fas, const QCIDXMLFiles& idx, const QCFeatureMaps& feat, const QCConsensusMaps& cons, const OpenMS::String& out):
+        FeatMaps_(feat),
+        Idxml_(idx),
+        CFiles_(csv),
+        ConsensusMaps_(cons),
+        faFile_(fas),
         out_(out)
         {
         }
         ~Metrics();
         void runAllMetrics();
       protected:
-        const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FeatMaps_;
-        const std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FeatMapsMBR_;			//Alle FeatureXML Datein
-        const std::vector<std::pair<OpenMS::String,std::pair<OpenMS::String,OpenMS::String>>> Idxml_;	//Peptide der IDXML's
-        const std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> CFiles_;	//Proteine der CSVFiles's;
-        const std::vector<std::pair<OpenMS::String,OpenMS::ConsensusMap>> ConsensusMaps_;    //Alle ConsensusXMLFiles
-        const std::vector<std::pair<OpenMS::String,std::vector<OpenMS::FASTAFile::FASTAEntry>>> faFile_;   //Alle FastaFiles
+        const QCFeatureMaps FeatMaps_;
+        const QCIDXMLFiles Idxml_;	//Peptide der IDXML's
+        const QCCsvFiles CFiles_;	//Proteine der CSVFiles's;
+        const QCConsensusMaps ConsensusMaps_;    //Alle ConsensusXMLFiles
+        const QCFastaFiles faFile_;   //Alle FastaFiles
         OpenMS::String out_;
 	};
 }

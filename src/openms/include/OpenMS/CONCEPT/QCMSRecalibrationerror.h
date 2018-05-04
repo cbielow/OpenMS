@@ -28,25 +28,34 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // --------------------------------------------------------------------------
-// $Maintainer: Maria Trofimova $
-// $Authors: Maria Trofimova $
+// $Maintainer: Anton Haberland, Leo Wurth$
+// $Authors: Anton Haberland, Leo Wurth$
 // --------------------------------------------------------------------------
+#ifndef OPENMS_CONCEPT_QCMSRecalibrationerror_H
+#define OPENMS_CONCEPT_QCMSRecalibrationerror_H
 
-#pragma once
+#include <OpenMS/FORMAT/CsvFile.h>
 #include <OpenMS/FORMAT/MzTabFile.h>
 #include <OpenMS/FORMAT/MzTab.h>
-#include <OpenMS/KERNEL/FeatureMap.h>
 #include <vector>
+#include <utility>
 
-//class FeatureMap;
-class OPENMS_DLLAPI QCMBRalignment
+class OPENMS_DLLAPI QCMSRecalibrationerror
 {
-std::vector<OpenMS::FeatureMap> feat_map_;
+std::vector<OpenMS::CsvFile> cvec_;
   public:
-    //Constructor
-    QCMBRalignment(std::vector<OpenMS::FeatureMap> files);
-    //Destructor
-    ~QCMBRalignment();
-    int MBRAlignment(OpenMS::MzTab&) const;
-
+    QCMSRecalibrationerror(std::vector<OpenMS::CsvFile> files):
+      cvec_(files)
+      {
+      }
+      ~QCMSRecalibrationerror();
+      bool QCMSRecalerror(OpenMS::MzTab& mztab);
 };
+struct OPENMS_DLLAPI Internal_Calibration_Data
+{
+  std::vector<OpenMS::String> intensityvec;
+  std::vector<OpenMS::String> mzrefvec;
+  std::vector<OpenMS::String> mzbeforevec;
+  std::vector<OpenMS::String> mzaftervec;
+};
+#endif

@@ -49,7 +49,7 @@ QCMBRalignment::~QCMBRalignment()
 }
 
 //Constructor
-QCMBRalignment::QCMBRalignment(std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> files):
+QCMBRalignment::QCMBRalignment(vector<FeatureMap> files):
   feat_map_(files)
   {
 
@@ -59,16 +59,10 @@ QCMBRalignment::QCMBRalignment(std::vector<std::pair<OpenMS::String,OpenMS::Feat
 int QCMBRalignment::MBRAlignment(MzTab& mztab) const
 {
 
-  vector<FeatureMap> maps;
+  vector<FeatureMap> maps = feat_map_;
   MzTabPeptideSectionRows rows;
   MzTabPeptideSectionRows mztabRows = mztab.getPeptideSectionRows();
   int pepIDCount = 0;
-
-  for(vector<pair<String,FeatureMap>>::const_iterator it = feat_map_.begin();it!=feat_map_.end();++it)
-  {
-    maps.push_back (it->second);
-  }
-
   for (unsigned long m = 0; m < maps.size(); m++)
   {
 

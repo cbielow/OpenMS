@@ -44,6 +44,7 @@
 #include <OpenMS/CONCEPT/QCContaminants.h>
 #include <OpenMS/CONCEPT/QCMetrics.h>
 #include <OpenMS/CONCEPT/QCProteinAndPeptideCount.h>
+#include <OpenMS/CONCEPT/QCMSRecalibrationerror.h>
 #include <OpenMS/CONCEPT/QCMS2IdentificationRate.h>
 #include <OpenMS/CONCEPT/QCMBRalignment.h>
 #include <OpenMS/FORMAT/MzTab.h>
@@ -64,16 +65,18 @@ void Metrics::runAllMetrics()
 ////////////////Metrik1: Protein And Peptide Count /////////////////////////////////
 MzTabFile mzTabOutputFile;
 MzTab mzTabOutput;
-QCProteinAndPeptideCount ProtAndPepObj(CFiles_);
+QCProteinAndPeptideCount ProtAndPepObj(CFiles_.ProteinQuantifier_Peptide, CFiles_.ProteinQuantifier_Protein);
 bool papc = ProtAndPepObj.ProtAndPepCount( mzTabOutput);
-QCMS2IdentificationRate MS2IDRate(Idxml_);
+QCMS2IdentificationRate MS2IDRate(Idxml_.Post_False_Discovery_Rate, Idxml_.Post_False_Discovery_Rate_Raw_Files);
 bool mid = MS2IDRate.MS2IDRateidentifier( mzTabOutput);
-QCContaminants ContaminantsObj(faFile_);
+QCContaminants ContaminantsObj(faFile_.Contaminant_Database);
 bool contam = ContaminantsObj.QCContaminantCalculator(mzTabOutput, papc);
-QCMBRalignment MBRAlign(FeatMapsMBR_);
+QCMBRalignment MBRAlign(FeatMaps_.Map_RT);
 int mbra = MBRAlign.MBRAlignment( mzTabOutput);
+QCMSRecalibrationerror MSCalError(CFiles_.Internal_Calibration);
+bool mscalerr = MSCalError.QCMSRecalerror(mzTabOutput);
 if(papc == true){cout<<"ProteinAndPeptideCount Sucssessfull"<<endl;}
-//if(mid == true){cout<<"MS2 identification Rate Sucssessfull"<<endl;}
+if(mid == true){cout<<"MS2 identification Rate Sucssessfull"<<endl;}
 if(contam == true){cout<<"Contaminants Sucssessfull"<<endl;}
 if(mbra == 1){cout<<"MBR Alignment Sucssessfull"<<endl;}
 

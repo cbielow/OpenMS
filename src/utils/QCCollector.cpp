@@ -65,20 +65,22 @@ protected:
     registerInputFileList_("in_ProteinQuantifierProtein","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_IDMapper","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_MapRTTransformer","<files>", StringList(), "Input files",false,false);
-      registerInputFileList_("in_rawfiles_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_Internal_Calibration","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_rawfiles_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_Post_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_FeatureLinkerUnlabeledQT","<files>", StringList(), "Input files",false,false);
     registerInputFileList_("in_Contaminant_DataBase","<files>",StringList(), "Input files",false,false);
     setValidFormats_("in_ProteinQuantifierPeptide", ListUtils::create<String>("csv"));
+    setValidFormats_("in_Internal_Calibration", ListUtils::create<String>("csv"));
 	  setValidFormats_("in_ProteinQuantifierProtein", ListUtils::create<String>("csv"));
 	  setValidFormats_("in_IDMapper", ListUtils::create<String>("FeatureXML"));
 	  setValidFormats_("in_MapRTTransformer", ListUtils::create<String>("FeatureXML"));
-      setValidFormats_("in_rawfiles_FalseDiscoveryRate", ListUtils::create<String>("MzML"));
+    setValidFormats_("in_rawfiles_FalseDiscoveryRate", ListUtils::create<String>("MzML"));
 	  setValidFormats_("in_Post_FalseDiscoveryRate", ListUtils::create<String>("IdXML"));
 	  setValidFormats_("in_FeatureLinkerUnlabeledQT", ListUtils::create<String>("consensusXML"));
     setValidFormats_("in_Contaminant_DataBase", ListUtils::create<String>("Fasta"));
 	  registerOutputFile_("out", "<file>", "", "Output file (mzTab)", true);
-      setValidFormats_("out", ListUtils::create<String>("tsv"));
+    setValidFormats_("out", ListUtils::create<String>("tsv"));
   }
 
   ExitCodes main_(int, const char**)
@@ -91,19 +93,19 @@ protected:
     StringList ins_Post_FalseDiscoveryRate = getStringList_("in_Post_FalseDiscoveryRate");
     StringList ins_FeatureLinkerUnlabeledQT = getStringList_("in_FeatureLinkerUnlabeledQT");
     StringList ins_Contaminant_DataBase = getStringList_("in_Contaminant_DataBase");
+    StringList ins_Internal_Calibration = getStringList_("in_Internal_Calibration");
     String out = getStringOption_("out");
-    vector<pair<String,FeatureMap>> fvec;
-    vector<pair<String,FeatureMap>> mbravec;
-    vector<pair<String,CsvFile>> cvec;
-    vector <pair<String,ConsensusMap>> CMapVec;
-    vector<pair<String,pair<String,String>>> ivec;
-    vector<pair<String,vector<FASTAFile::FASTAEntry>>> faFiles;
+    QCCsvFiles qc_types_CSV;
+    QCIDXMLFiles qc_types_IDXML;
+    QCConsensusMaps qc_types_CONSENSUS;
+    QCFeatureMaps qc_types_FEATURE;
+    QCFastaFiles qc_types_FASTA;
     if (ins_ProteinQuantifier_Peptide.size()!=0)
 		{
 		  for(StringList::const_iterator it=ins_ProteinQuantifier_Peptide.begin();it!=ins_ProteinQuantifier_Peptide.end();++it)
 			{
 			  CsvFile fl(*it,'	',false,-1);
-				cvec.push_back(make_pair("ProteinQuantifier_Peptide",fl));
+				qc_types_CSV.ProteinQuantifier_Peptide.push_back(fl);
 			}
     }
     if (ins_ProteinQuantifier_Protein.size()!=0)
@@ -111,7 +113,7 @@ protected:
 		  for(StringList::const_iterator it=ins_ProteinQuantifier_Protein.begin();it!=ins_ProteinQuantifier_Protein.end();++it)
 			{
 			  CsvFile fl(*it,'	',false,-1);
-				cvec.push_back(make_pair("ProteinQuantifier_Protein",fl));
+				qc_types_CSV.ProteinQuantifier_Protein.push_back(fl);
 			}
     }
     if (ins_MapRTTransformer.size()!=0)
@@ -121,8 +123,8 @@ protected:
 			{
 			  FeatureMap features;
 			  FeatureXMLFile().load(*it, features);
-        mrawfiles.push_back(features.getMetaValue("spectra_data"));
-        mbravec.push_back(make_pair("MapRTTransformer",features));
+        //mrawfiles.push_back(features.getMetaValue("spectra_data"));
+        qc_types_FEATURE.Map_RT.push_back(features);
 	    }
     }
 		if (ins_IDMapper.size()!=0)
@@ -132,33 +134,28 @@ protected:
 			{
 			  FeatureMap features;
 			  FeatureXMLFile().load(*it, features);
-        frawfiles.push_back(features.getMetaValue("spectra_data"));
-        fvec.push_back(make_pair("IDMapper",features));
+        qc_types_FEATURE.ID_mapper.push_back(features);
 	    }
     }
     if (ins_Post_FalseDiscoveryRate.size()!=0)
 		{
-
       if(ins_rawfiles_FalseDiscoveryRate.size()!=ins_Post_FalseDiscoveryRate.size())
       {
         throw Exception::MissingInformation(__FILE__,__LINE__,OPENMS_PRETTY_FUNCTION,"invalid number of input rawfiles (rawfiles_FalseDiscoveryRate)");
       }
 		  for(Size i=0;i<ins_Post_FalseDiscoveryRate.size();++i)
 			{
-        cout<<"ins Post"<<ins_Post_FalseDiscoveryRate[i]<<endl;
-        cout<<"ins rawfiles"<<ins_rawfiles_FalseDiscoveryRate[i]<<endl;
-			  ivec.push_back(make_pair("Post_FalseDiscoveryRate",make_pair(ins_rawfiles_FalseDiscoveryRate[i],ins_Post_FalseDiscoveryRate[i])));
+        qc_types_IDXML.Post_False_Discovery_Rate.push_back(ins_Post_FalseDiscoveryRate[i]);
+        qc_types_IDXML.Post_False_Discovery_Rate_Raw_Files.push_back(ins_rawfiles_FalseDiscoveryRate[i]);
 		  }
 	  }
     if(ins_FeatureLinkerUnlabeledQT.size()!=0)
 		{
-      vector<String> crawfiles;
 		  for(StringList::const_iterator it=ins_FeatureLinkerUnlabeledQT.begin();it!=ins_FeatureLinkerUnlabeledQT.end();++it)
 			{
 			  ConsensusMap CMap;
 			  ConsensusXMLFile().load(*it,CMap);
-        crawfiles.push_back(CMap.getMetaValue("spectra_data"));
-			  CMapVec.push_back(make_pair("FeatureLinkerUnlabeledQT",CMap));
+        qc_types_CONSENSUS.Feature_Linker_Unlabled.push_back(CMap);
 		  }
 	  }
     if(ins_Contaminant_DataBase.size() != 0)
@@ -167,13 +164,20 @@ protected:
       {
         vector<FASTAFile::FASTAEntry> entryObj;
         FASTAFile().load(*it,entryObj);
-        faFiles.push_back( make_pair("Contaminant_DataBase",entryObj) );
+        qc_types_FASTA.Contaminant_Database.push_back(entryObj);
       }
     }
-		Metrics metricObj(fvec,mbravec,ivec,cvec,CMapVec,faFiles,out);
-
-	    metricObj.runAllMetrics();
-  return EXECUTION_OK;
+    if(ins_Internal_Calibration.size()!=0)
+    {
+      for(StringList::const_iterator it = ins_Internal_Calibration.begin() ; it != ins_Internal_Calibration.end(); ++it)
+      {
+        CsvFile fl(*it,',',false,-1);
+        qc_types_CSV.Internal_Calibration.push_back(fl);
+      }
+    }
+		Metrics metricObj(qc_types_CSV,qc_types_FASTA,qc_types_IDXML,qc_types_FEATURE,qc_types_CONSENSUS,out);
+    metricObj.runAllMetrics();
+    return EXECUTION_OK;
   }
 };
 int main(int argc, const char** argv)
