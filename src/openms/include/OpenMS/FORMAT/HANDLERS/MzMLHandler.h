@@ -183,7 +183,7 @@ public:
         else
         {
           spectra_counts = scan_count_with_options;
-          chromatogram_count = chromatogram_count;
+          chromatogram_counts = chromatogram_count;
         }
       }
 
@@ -366,7 +366,6 @@ protected:
       // Remember whether the RT of the spectrum was set or not
       bool rt_set_;
       bool ms_already_set_;
-      bool rt_already_set_;
 
       ///Controlled vocabulary (psi-ms from OpenMS/share/OpenMS/CV/psi-ms.obo)
       ControlledVocabulary cv_;

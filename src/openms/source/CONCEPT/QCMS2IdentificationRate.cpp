@@ -86,7 +86,8 @@ bool QCMS2IdentificationRate::MS2IDRateidentifier( MzTab& mztab)
     Size scount;
     Size ccount;
     mzmlfile.loadSize(it->first,scount,ccount);
-    double identification_rate = (double)pep_ids.size()/ccount;
+    std::cout<<"chromatogram count ist "<<ccount<<std::endl;
+    double identification_rate = (double)pep_ids.size()/scount;
     //////////////////////////////////////////////////////////
     MzTabParameter theRate;
     String idRateString(to_string(identification_rate));
