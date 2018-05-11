@@ -8,17 +8,18 @@
 
 class OPENMS_DLLAPI QCPeptideIntensity
 {
-  std::vector<OpenMS::CsvFile> CsvFilesPeptide;
+  //std::vector<std::pair<OpenMS::String,OpenMS::FeatureMap>> FFile;
   public:
     QCPeptideIntensity(std::vector<OpenMS::CsvFile> files):
       CsvFilesPeptide_(files)
+      //FFile(Ffiles)
       {
-      };
+      }
     ~QCPeptideIntensity();
     bool PeptideIntensity(OpenMS::MzTab&);
 
   protected:
     std::vector<OpenMS::CsvFile> CsvFilesPeptide_;
-    OpenMS::Size FindPeptideInMzTab_(const OpenMS::String&, const OpenMS::MzTab&);
+    OpenMS::Size FindPeptideInMzTab_(const OpenMS::String&, const std::vector<OpenMS::MzTabPeptideSectionRow>&);
 };
 #endif

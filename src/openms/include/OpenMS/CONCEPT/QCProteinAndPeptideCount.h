@@ -8,13 +8,15 @@
 
 class OPENMS_DLLAPI QCProteinAndPeptideCount
 {
-std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> CFile;
-  public:
-    QCProteinAndPeptideCount(std::vector<std::pair<OpenMS::String,OpenMS::CsvFile>> files):
-      CFile(files)
+std::vector<OpenMS::CsvFile> CsvFilesPeptide;
+std::vector<OpenMS::CsvFile> CsvFilesProtein;
+public:
+QCProteinAndPeptideCount(std::vector<OpenMS::CsvFile> filespep, std::vector<OpenMS::CsvFile> filesprot):
+  CsvFilesPeptide(filespep),
+  CsvFilesProtein(filesprot)
       {
-      }
+      };
     ~QCProteinAndPeptideCount();
-    int ProtAndPepCount( OpenMS::MzTab&);//MetricMap&,MetricMap&) const;
+    bool ProtAndPepCount(OpenMS::MzTab&);
 };
 #endif
