@@ -34,6 +34,7 @@
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
 #include <OpenMS/FILTERING/ID/IDFilter.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
+#include <OpenMS/KERNEL/Feature.h>
 #include <OpenMS/FORMAT/FASTAFile.h>
 #include <OpenMS/FORMAT/IdXMLFile.h>
 #include <OpenMS/FORMAT/FileTypes.h>
@@ -43,6 +44,7 @@
 #include <OpenMS/DATASTRUCTURES/StringListUtils.h>
 #include <OpenMS/FORMAT/CsvFile.h>
 #include <OpenMS/CONCEPT/QCMetrics.h>
+#include <OpenMS/CONCEPT/UniqueIdInterface.h>
 #include <boost/regex.hpp>
 
 using namespace OpenMS;
@@ -61,45 +63,48 @@ public:
 protected:
 	void registerOptionsAndFlags_()
 	{
-	  registerInputFileList_("in_ProteinQuantifierPeptide","<files>", StringList(), "Input files",false,false);
-    registerInputFileList_("in_ProteinQuantifierProtein","<files>", StringList(), "Input files",false,false);
+	  registerInputFileList_("in_protein_quantifier_peptide","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_protein_quantifier_protein","<files>", StringList(), "Input files",false,false);
 	  registerInputFileList_("in_IDMapper","<files>", StringList(), "Input files",false,false);
-	  registerInputFileList_("in_MapRTTransformer","<files>", StringList(), "Input files",false,false);
-    registerInputFileList_("in_Internal_Calibration","<files>", StringList(), "Input files",false,false);
-    registerInputFileList_("in_rawfiles_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
-	  registerInputFileList_("in_Post_FalseDiscoveryRate","<files>", StringList(), "Input files",false,false);
-	  registerInputFileList_("in_FeatureLinkerUnlabeledQT","<files>", StringList(), "Input files",false,false);
-    registerInputFileList_("in_Contaminant_DataBase","<files>",StringList(), "Input files",false,false);
-    setValidFormats_("in_ProteinQuantifierPeptide", ListUtils::create<String>("csv"));
-    setValidFormats_("in_Internal_Calibration", ListUtils::create<String>("csv"));
-	  setValidFormats_("in_ProteinQuantifierProtein", ListUtils::create<String>("csv"));
+	  registerInputFileList_("in_map_RT_transformer","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_internal_calibration","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_rawfiles_false_discovery_rate","<files>", StringList(), "Input files",false,false);
+	  registerInputFileList_("in_post_false_discovery_rate","<files>", StringList(), "Input files",false,false);
+	  registerInputFileList_("in_feature_linker_unlabeledQT","<files>", StringList(), "Input files",false,false);
+    registerInputFileList_("in_contaminant_database","<files>",StringList(), "Input files",false,false);
+    setValidFormats_("in_protein_quantifier_peptide", ListUtils::create<String>("csv"));
+    setValidFormats_("in_internal_calibration", ListUtils::create<String>("csv"));
+	  setValidFormats_("in_protein_quantifier_protein", ListUtils::create<String>("csv"));
 	  setValidFormats_("in_IDMapper", ListUtils::create<String>("FeatureXML"));
-	  setValidFormats_("in_MapRTTransformer", ListUtils::create<String>("FeatureXML"));
-    setValidFormats_("in_rawfiles_FalseDiscoveryRate", ListUtils::create<String>("MzML"));
-	  setValidFormats_("in_Post_FalseDiscoveryRate", ListUtils::create<String>("IdXML"));
-	  setValidFormats_("in_FeatureLinkerUnlabeledQT", ListUtils::create<String>("consensusXML"));
-    setValidFormats_("in_Contaminant_DataBase", ListUtils::create<String>("Fasta"));
+	  setValidFormats_("in_map_RT_transformer", ListUtils::create<String>("FeatureXML"));
+    setValidFormats_("in_rawfiles_false_discovery_rate", ListUtils::create<String>("MzML"));
+	  setValidFormats_("in_post_false_discovery_rate", ListUtils::create<String>("IdXML"));
+	  setValidFormats_("in_feature_linker_unlabeledQT", ListUtils::create<String>("consensusXML"));
+    setValidFormats_("in_contaminant_database", ListUtils::create<String>("Fasta"));
 	  registerOutputFile_("out", "<file>", "", "Output file (mzTab)", true);
     setValidFormats_("out", ListUtils::create<String>("tsv"));
   }
 
   ExitCodes main_(int, const char**)
   {
-    StringList ins_ProteinQuantifier_Peptide = getStringList_("in_ProteinQuantifierPeptide");
-    StringList ins_ProteinQuantifier_Protein = getStringList_("in_ProteinQuantifierProtein");
+    StringList ins_ProteinQuantifier_Peptide = getStringList_("in_protein_quantifier_peptide");
+    StringList ins_ProteinQuantifier_Protein = getStringList_("in_protein_quantifier_protein");
     StringList ins_IDMapper = getStringList_("in_IDMapper");
-    StringList ins_MapRTTransformer = getStringList_("in_MapRTTransformer");
-    StringList ins_rawfiles_FalseDiscoveryRate = getStringList_("in_rawfiles_FalseDiscoveryRate");
-    StringList ins_Post_FalseDiscoveryRate = getStringList_("in_Post_FalseDiscoveryRate");
-    StringList ins_FeatureLinkerUnlabeledQT = getStringList_("in_FeatureLinkerUnlabeledQT");
-    StringList ins_Contaminant_DataBase = getStringList_("in_Contaminant_DataBase");
-    StringList ins_Internal_Calibration = getStringList_("in_Internal_Calibration");
+    StringList ins_MapRTTransformer = getStringList_("in_map_RT_transformer");
+    StringList ins_rawfiles_FalseDiscoveryRate = getStringList_("in_rawfiles_false_discovery_rate");
+    StringList ins_Post_FalseDiscoveryRate = getStringList_("in_post_false_discovery_rate");
+    StringList ins_FeatureLinkerUnlabeledQT = getStringList_("in_feature_linker_unlabeledQT");
+    StringList ins_Contaminant_DataBase = getStringList_("in_contaminant_database");
+    StringList ins_Internal_Calibration = getStringList_("in_internal_calibration");
     String out = getStringOption_("out");
     QCCsvFiles qc_types_CSV;
     QCIDXMLFiles qc_types_IDXML;
     QCConsensusMaps qc_types_CONSENSUS;
     QCFeatureMaps qc_types_FEATURE;
     QCFastaFiles qc_types_FASTA;
+
+    //Data is preprocessed for the upcoming runAllMetrics
+
     if (ins_ProteinQuantifier_Peptide.size()!=0)
 		{
 		  for(StringList::const_iterator it=ins_ProteinQuantifier_Peptide.begin();it!=ins_ProteinQuantifier_Peptide.end();++it)
@@ -123,6 +128,10 @@ protected:
 			{
 			  FeatureMap features;
 			  FeatureXMLFile().load(*it, features);
+        for(Size i = 0; i< features.size();i++)
+        {
+           features[i].applyMemberFunction(&UniqueIdInterface::ensureUniqueId);
+        }
         //mrawfiles.push_back(features.getMetaValue("spectra_data"));
         qc_types_FEATURE.Map_RT.push_back(features);
 	    }
@@ -134,6 +143,10 @@ protected:
 			{
 			  FeatureMap features;
 			  FeatureXMLFile().load(*it, features);
+        for(Size i = 0; i< features.size();i++)
+        {
+           features[i].applyMemberFunction(&UniqueIdInterface::ensureUniqueId);
+        }
         qc_types_FEATURE.ID_mapper.push_back(features);
 	    }
     }
@@ -175,7 +188,9 @@ protected:
         qc_types_CSV.Internal_Calibration.push_back(fl);
       }
     }
-		Metrics metricObj(qc_types_CSV,qc_types_FASTA,qc_types_IDXML,qc_types_FEATURE,qc_types_CONSENSUS,out);
+
+    //Within class
+		QCMetrics metricObj(qc_types_CSV,qc_types_FASTA,qc_types_IDXML,qc_types_FEATURE,qc_types_CONSENSUS,out);
     metricObj.runAllMetrics();
     return EXECUTION_OK;
   }

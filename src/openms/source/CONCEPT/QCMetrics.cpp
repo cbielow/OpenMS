@@ -44,6 +44,7 @@
 #include <OpenMS/CONCEPT/QCContaminants.h>
 #include <OpenMS/CONCEPT/QCMetrics.h>
 #include <OpenMS/CONCEPT/QCProteinAndPeptideCount.h>
+#include <OpenMS/CONCEPT/QCPeptideIntensity.h>
 #include <OpenMS/CONCEPT/QCMSRecalibrationerror.h>
 #include <OpenMS/CONCEPT/QCMS2IdentificationRate.h>
 #include <OpenMS/CONCEPT/QCMBRalignment.h>
@@ -54,36 +55,41 @@
 using namespace OpenMS;
 using namespace std;
 
-Metrics::~Metrics()
+QCMetrics::~QCMetrics()
  {
 
  }
-//Wenn ihr die Metriken schreibt lasst euch bitte ein Int ausgeben 1 wenn erfolgreich, 0  wenn nicht
-//Die Daten die ihr erhaltet am besten als MetricMap, die wichtigen Funktionen dafür stehen oben
-void Metrics::runAllMetrics()
+
+
+void QCMetrics::runAllMetrics()
 {
-////////////////Metrik1: Protein And Peptide Count /////////////////////////////////
+
 MzTabFile mzTabOutputFile;
 MzTab mzTabOutput;
+
 QCProteinAndPeptideCount ProtAndPepObj(CFiles_.ProteinQuantifier_Peptide, CFiles_.ProteinQuantifier_Protein);
 bool papc = ProtAndPepObj.ProtAndPepCount( mzTabOutput);
+
 QCMS2IdentificationRate MS2IDRate(Idxml_.Post_False_Discovery_Rate, Idxml_.Post_False_Discovery_Rate_Raw_Files);
 bool mid = MS2IDRate.MS2IDRateidentifier( mzTabOutput);
-QCContaminants ContaminantsObj(faFile_.Contaminant_Database);
+
+QCContaminants ContaminantsObj(Fasta_File_.Contaminant_Database);
 bool contam = ContaminantsObj.QCContaminantCalculator(mzTabOutput, papc);
-QCMBRalignment MBRAlign(FeatMaps_.Map_RT);
+
+QCMBRalignment MBRAlign(Feat_Maps_.Map_RT);
 int mbra = MBRAlign.MBRAlignment( mzTabOutput);
+
 QCMSRecalibrationerror MSCalError(CFiles_.Internal_Calibration);
 bool mscalerr = MSCalError.QCMSRecalerror(mzTabOutput);
+
+QCPeptideIntensity qcPepint(CFiles_.ProteinQuantifier_Peptide);
+bool pepInt = qcPepint.PeptideIntensity(mzTabOutput);
+
 if(papc == true){cout<<"ProteinAndPeptideCount Sucssessfull"<<endl;}
 if(mid == true){cout<<"MS2 identification Rate Sucssessfull"<<endl;}
 if(contam == true){cout<<"Contaminants Sucssessfull"<<endl;}
 if(mbra == 1){cout<<"MBR Alignment Sucssessfull"<<endl;}
+if(pepInt == true){cout<<"Peptide Intensity Sucsessfull"<<endl;}
 
 mzTabOutputFile.store(out_,mzTabOutput);
 }
-
-////////////////Metrik2: ....................../////////////////////////////////////
-////////////////Metrik3: ....................../////////////////////////////////////
-////////////////Metrik4: ....................../////////////////////////////////////
-////////////////Metrik5: ....................../////////////////////////////////////

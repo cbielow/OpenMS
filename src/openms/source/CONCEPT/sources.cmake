@@ -17,6 +17,7 @@ QCMBRalignment.cpp
 QCMetrics.cpp
 QCMS2IdentificationRate.cpp
 QCMSRecalibrationerror.cpp
+QCPeptideIntensity.cpp
 QCProteinAndPeptideCount.cpp
 SingletonRegistry.cpp
 StreamHandler.cpp

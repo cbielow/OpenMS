@@ -32,8 +32,10 @@
 // $Authors: Anton Haberland, Leo Wurth$
 // --------------------------------------------------------------------------
 #include <OpenMS/CONCEPT/QCMSRecalibrationerror.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 #include <OpenMS/FORMAT/CsvFile.h>
 #include <OpenMS/FORMAT/MzTab.h>
+#include <OpenMS/ANALYSIS/ID/IDMapper.h>
 #include <boost/regex.hpp>
 #include <vector>
 
@@ -105,6 +107,11 @@ bool QCMSRecalibrationerror::QCMSRecalerror( MzTab& mztab)
           line++;
         }
       }
+      IDMapper idm;
+      FeatureMap feat;
+      vector<PeptideIdentification> pepID;
+      vector<ProteinIdentification> protID;
+      idm.annotate(feat,pepID,protID,true,false);
     }
     return outbool;
 }

@@ -52,20 +52,20 @@
 
 namespace OpenMS
 {
-    struct OPENMS_DLLAPI QCFeatureMaps
+    struct QCFeatureMaps
     {
       std::vector<OpenMS::FeatureMap> Map_RT;
       std::vector<OpenMS::FeatureMap> ID_mapper;
       //std::vector<OpenMS::FeatureMap>
     };
 
-    struct OPENMS_DLLAPI QCIDXMLFiles
+    struct QCIDXMLFiles
     {
       std::vector<OpenMS::String> Post_False_Discovery_Rate_Raw_Files;
       std::vector<OpenMS::String> Post_False_Discovery_Rate;
     };
 
-    struct OPENMS_DLLAPI QCCsvFiles
+    struct QCCsvFiles
     {
       std::vector<OpenMS::CsvFile> ProteinQuantifier_Peptide;
       std::vector<OpenMS::CsvFile> ProteinQuantifier_Protein;
@@ -73,41 +73,39 @@ namespace OpenMS
 
     };
 
-    struct OPENMS_DLLAPI QCConsensusMaps
+    struct QCConsensusMaps
     {
       std::vector<OpenMS::ConsensusMap> Feature_Linker_Unlabled;
     };
 
-    struct OPENMS_DLLAPI QCFastaFiles
+    struct QCFastaFiles
     {
       std::vector<std::vector<OpenMS::FASTAFile::FASTAEntry>> Contaminant_Database;
     };
 
 
-    class OPENMS_DLLAPI Metrics
+    class OPENMS_DLLAPI QCMetrics
     {
-    //das sind die eingelesenen Daten, sie können von den Metriken gelesen aber nicht umgeschrieben werden//
-    //  die Vectoren enthalten alle eingelesenen Datein in den entsperechenden Formaten. Der erste Wert in jedem Paar
-    //  gibt an aus welchem TOPPTOOL die Datei kommt.
+
 
     public:
-        Metrics(const QCCsvFiles& csv, const QCFastaFiles& fas, const QCIDXMLFiles& idx, const QCFeatureMaps& feat, const QCConsensusMaps& cons, const OpenMS::String& out):
-        FeatMaps_(feat),
+        QCMetrics(const QCCsvFiles& csv, const QCFastaFiles& fas, const QCIDXMLFiles& idx, const QCFeatureMaps& feat, const QCConsensusMaps& cons, const OpenMS::String& out):
+        Feat_Maps_(feat),
         Idxml_(idx),
         CFiles_(csv),
-        ConsensusMaps_(cons),
-        faFile_(fas),
+        Consensus_Maps_(cons),
+        Fasta_File_(fas),
         out_(out)
         {
         }
-        ~Metrics();
+        ~QCMetrics();
         void runAllMetrics();
       protected:
-        const QCFeatureMaps FeatMaps_;
+        const QCFeatureMaps Feat_Maps_;
         const QCIDXMLFiles Idxml_;	//Peptide der IDXML's
         const QCCsvFiles CFiles_;	//Proteine der CSVFiles's;
-        const QCConsensusMaps ConsensusMaps_;    //Alle ConsensusXMLFiles
-        const QCFastaFiles faFile_;   //Alle FastaFiles
+        const QCConsensusMaps Consensus_Maps_;    //Alle ConsensusXMLFiles
+        const QCFastaFiles Fasta_File_;   //Alle FastaFiles
         OpenMS::String out_;
 	};
 }
