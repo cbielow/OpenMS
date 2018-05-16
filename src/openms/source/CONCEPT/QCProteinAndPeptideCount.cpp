@@ -42,9 +42,10 @@
 using namespace OpenMS;
 using namespace std;
 
-QCProteinAndPeptideCount::~QCProteinAndPeptideCount(){
-
+QCProteinAndPeptideCount::~QCProteinAndPeptideCount()
+{
 }
+
 bool QCProteinAndPeptideCount::ProtAndPepCount( MzTab& mztab)
 {
 MzTabPeptideSectionRows PepROWS;
@@ -104,11 +105,9 @@ for(vector<CsvFile>::const_iterator it = CsvFilesPeptide.begin(); it!=CsvFilesPe
 //extract the protein informations from the input csvFile
 for(vector<CsvFile>::const_iterator it = CsvFilesProtein.begin(); it!=CsvFilesProtein.end();it++)
 {
-  StringList DataList;
-  bool headfinder = false;
   CsvFile fl = *it;
-  Size line = 0;
   StringList CurrentRow;
+  Size line = 0;
   Size maxRow = fl.rowCount();
 
   //extract the metadata rawfiles from the csvFile and puts the rawfiles into the vector rawsdelimiter
@@ -139,39 +138,58 @@ for(vector<CsvFile>::const_iterator it = CsvFilesProtein.begin(); it!=CsvFilesPr
   }
 
   //goes through the file and if the header = protein then write all the protein sequences into the StringList DataList
+  Size protein;
+  vector<Size> abundance_list;
+  Size counter= 0;
+  bool headfinder = false;
+  //goes through the file and extract the peptide sequences and the abundances from it.
   while(line<maxRow)
   {
     fl.getRow(line,CurrentRow);
-    if(CurrentRow[0] == "\"protein\"")
-    {
-      headfinder = true;
-    }
-    else if(headfinder==true)
-    {
-      DataList.push_back(CurrentRow[0]);
-    }
     if(!headfinder)
     {
-      line = maxRow;
+     for(Size j=0;j<CurrentRow.size();j++)
+     {
+       boost::regex rgx("abundance");
+       boost::smatch match;
+       if(CurrentRow[j]== "\"protein\"")
+       {
+         protein = j;
+         counter++;
+       }
+       else if(regex_search(CurrentRow[j],match,rgx))
+       {
+         abundance_list.push_back(j);
+         counter++;
+       }
+     }
+     counter>1?headfinder=true:headfinder=false;
+     line++;
+     fl.getRow(line,CurrentRow);
     }
-    line++;
-  }
 
-  //writes the protein informations (protein sequence and match_time_difference) into MzTab
-  for(StringList::const_iterator it=DataList.begin(); it != DataList.end(); ++it)
-  {
-    MzTabProteinSectionRow ProtROW;
-    MzTabString ProtSeq;
-    MzTabString MTDiff;
-    MzTabOptionalColumnEntry mTOCE = make_pair("opt_Match_Time_Difference",MTDiff);
-    vector<MzTabOptionalColumnEntry> optionals;
-    optionals.push_back(mTOCE);
-    ProtROW.opt_= optionals;
-    ProtSeq.set(*it);
-    ProtROW.description = ProtSeq;
-    ProtROWS.push_back(ProtROW);
+    //writes the protein informations (protein sequence and match_time_difference) into MzTab
+    for(Size v = 0; v<abundance_list.size();v++)
+    {
+      if(CurrentRow[abundance_list[v]]!="0")
+      {
+       MzTabProteinSectionRow ProtROW;
+       MzTabString ProtSeq;
+       ProtSeq.set(CurrentRow[protein]);
+       ProtROW.description = ProtSeq;
+       MzTabString mzAbu(CurrentRow[abundance_list[v]]);
+       MzTabString MTDiff;
+       MzTabString mzRaw(rawfilesdelimiter[v]);
+       MzTabOptionalColumnEntry mTOCE = make_pair("opt_Match_Time_Difference",MTDiff);
+       MzTabOptionalColumnEntry raw = make_pair("opt_rawfiles",mzRaw);
+       ProtROW.opt_.push_back(mTOCE);
+       ProtROW.opt_.push_back(raw);
+       ProtROWS.push_back(ProtROW);
+      }
+    }
+  line ++;
   }
-  mztab.setProteinSectionRows(ProtROWS);
+ mztab.setProteinSectionRows(ProtROWS);
 }
 return ProtROWS.size()==0 && PepROWS.size()== 0 ? false : true ;
 }
