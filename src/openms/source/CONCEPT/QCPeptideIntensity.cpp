@@ -61,6 +61,10 @@ Size QCPeptideIntensity::FindPeptideInMzTab_(const String& peptide, const vector
 bool QCPeptideIntensity::PeptideIntensity(MzTab& mztab)
 {
   bool outbool = false;
+  string rawfiles;
+  vector<String> rawfilesdelimiter;
+
+  //extract the peptide informations from input csvfile
   for(vector<CsvFile>::const_iterator it = CsvFilesPeptide_.begin(); it!=CsvFilesPeptide_.end();it++)
   {
    CsvFile fl = *it;
@@ -69,10 +73,33 @@ bool QCPeptideIntensity::PeptideIntensity(MzTab& mztab)
    Size maxRow = fl.rowCount();
    MzTabPeptideSectionRows PepROWS = mztab.getPeptideSectionRows();
 
+   //extract the metadata rawfiles from the csvFile and puts the rawfiles into the vector rawsdelimiter
    while(fl.getRow(line,CurrentRow)==false)
    {
+     boost::regex rgx("Rawfiles");
+     boost::smatch match;
+     bool found = boost::regex_search(CurrentRow[0],match,rgx);
+     boost::regex rgx2("# Rawfiles: [[]");
+     boost::regex rgx3("[]]");
+     if(found)
+     {
+       String result2 = regex_replace(CurrentRow[0],rgx2,"");
+       result2 = regex_replace(result2,rgx3,"");
+       rawfiles = result2;
+       if(rawfilesdelimiter.empty())
+       {
+         stringstream ss(rawfiles);
+         while(ss.good())
+         {
+           String substr;
+           getline(ss, substr,',');
+           rawfilesdelimiter.push_back(substr);
+         }
+       }
+     }
      line++;
    }
+
    MzTabPeptideSectionRow PepROW;
    Size peptide;
    Size protein;
@@ -120,9 +147,12 @@ bool QCPeptideIntensity::PeptideIntensity(MzTab& mztab)
             MzTabPeptideSectionRow PepROW = referencePepRow;
             MzTabString mzAbu(CurrentRow[abundance_list[v]]);
             MzTabString mzProt(CurrentRow[protein]);
+             MzTabString mzRaw(rawfilesdelimiter[v]);
             MzTabOptionalColumnEntry protname= make_pair("opt_ProteinName", mzProt);
             MzTabOptionalColumnEntry abu1 = make_pair("opt_intensity",mzAbu);
+            MzTabOptionalColumnEntry raw = make_pair("opt_rawfiles",mzRaw);
             PepROW.opt_.push_back(protname);
+            PepROW.opt_.push_back(raw);
             PepROW.opt_.push_back(abu1);
             outbool = true;
             if(pos == 0)
