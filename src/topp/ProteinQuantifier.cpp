@@ -602,7 +602,7 @@ protected:
     {
       rawfiles+=*it+" ";
     }
-    out << "Rawfiles: " + rawfiles<<endl;
+    out << "# Rawfiles: " + rawfiles<<endl;
     if (files_.size() > 1)
     {
       String desc = "# Files/samples associated with abundance values below: ";
