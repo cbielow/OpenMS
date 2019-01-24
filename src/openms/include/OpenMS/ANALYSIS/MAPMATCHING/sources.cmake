@@ -28,6 +28,7 @@ PoseClusteringAffineSuperimposer.h
 PoseClusteringShiftSuperimposer.h
 QTClusterFinder.h
 SimplePairFinder.h
+SpanningGraph.h
 StablePairFinder.h
 TransformationDescription.h
 TransformationModel.h
