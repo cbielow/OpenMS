@@ -48,7 +48,7 @@ bool SpanningGraph::containsCycle()
   {
     if (!visited[v])
     {
-      if (DFS(v, visited, -1))
+      if (DFS(v, -1, visited))
       {
         return true;
       }
@@ -66,10 +66,9 @@ bool SpanningGraph::DFS(int v, int source, vector<bool>& visited)
     {
       if (!visited[adj[v][i]])
       {
-        if (DFS(adj[v][i], visited, v)) {return true;}
+        if (DFS(adj[v][i], v, visited)) {return true;}
       }
       else if (adj[v][i] != source) {return true;}
     }
     return false;
 }
-
