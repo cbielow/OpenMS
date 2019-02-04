@@ -18,7 +18,7 @@
 
 using namespace OpenMS;
 using namespace std;
-
+typedef pair<pair<int, int>, float> pairofpairs;
 
 class MapAlignerTreeBased:
   public TOPPMapAlignerBase
@@ -41,6 +41,7 @@ private:
          registerSubsection_("model", "Options to control the modeling of retention time transformations from data");
          registerFlag_("keep_subelements", "For consensusXML input only: If set, the sub-features of the inputs are transferred to the output.");
       } 
+
   
   ExitCodes main_(int, const char**)
   {
@@ -99,7 +100,7 @@ private:
     }
     
     computeMetric(M,maps);   
-    vector<pair<pair<int,int>,float>> queue;
+    vector<pairofpairs> queue;
     computeSpanningTree(M,queue); 
     alignSpanningTree(queue,maps,input_files,out); 
     
@@ -246,10 +247,10 @@ pair<double,double> closestMatch(DoubleList a, DoubleList b) const
 
 //compute MST for the tree-based alignment
 void computeSpanningTree(vector<vector<double>> matrix, 
-                         vector<pair<pair<int,int>,float>>& queue)
+                         vector<pairofpairs>& queue)
                          
 { 
-  vector<pair<pair<int,int>,float>> sortedEdges;
+  vector<pairofpairs> sortedEdges;
   for (unsigned int i = 0; i < matrix.size()-1; i++)
   {
     for (unsigned int j = i+1; j < matrix.size(); j++)
@@ -289,7 +290,7 @@ void computeSpanningTree(vector<vector<double>> matrix,
 }
 
 //sorting function for queue
-static bool sortByScore(const pair<pair<int,int>,float> &lhs, const pair<pair<int,int>,float> &rhs) { return lhs.second < rhs.second; }
+static bool sortByScore(const pairofpairs &lhs, const pairofpairs &rhs) { return lhs.second < rhs.second; }
 
 //alignment util
 void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& transformations)
@@ -322,7 +323,7 @@ void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& tr
 }
 
 //Main alignment function
-void alignSpanningTree(vector<pair<pair<int,int>,float>>& queue, vector<ConsensusMap>& maps,
+void alignSpanningTree(vector<pairofpairs>& queue, vector<ConsensusMap>& maps,
                        StringList input_files, ConsensusMap& out_map)
 {  
  
