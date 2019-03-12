@@ -19,6 +19,8 @@
 using namespace OpenMS;
 using namespace std;
 typedef pair<pair<int, int>, float> pairofpairs;
+typedef map<pair<AASequence, int>, DoubleList> mappair;
+
 
 class MapAlignerTreeBased:
   public TOPPMapAlignerBase
@@ -40,7 +42,7 @@ private:
          registerSubsection_("algorithm", "Algorithm parameters section");
          registerSubsection_("model", "Options to control the modeling of retention time transformations from data");
          registerFlag_("keep_subelements", "For consensusXML input only: If set, the sub-features of the inputs are transferred to the output.");
-      } 
+	} 
 
   
   ExitCodes main_(int, const char**)
@@ -55,14 +57,13 @@ private:
     {
 	  for(unsigned int  i = 0; i < input_files.size(); i++)
 	  {
-	    FeatureMap f;
+		FeatureMap f;
 	    ConsensusMap c;
-           FeatureXMLFile().load(input_files[i],f);
-           //fmaps.push_back(f);
+		FeatureXMLFile().load(input_files[i],f);
 	    MapConversion::convert(0, f, c, -1);
 	    c.getColumnHeaders()[0].filename = input_files[i]; //get filenames
-           c.applyMemberFunction(&UniqueIdInterface::setUniqueId);
-           c.getColumnHeaders()[0].size = c.size();
+		c.applyMemberFunction(&UniqueIdInterface::setUniqueId);
+		c.getColumnHeaders()[0].size = c.size();
 	    maps.push_back(c);   
 	  }
     }
@@ -98,7 +99,8 @@ private:
       }
       M.push_back(row);
     }
-    
+	LOG_INFO << "TEST FRANZI 2" << endl;
+
     computeMetric(M,maps);   
     vector<pairofpairs> queue;
     computeSpanningTree(M,queue); 
@@ -116,12 +118,12 @@ private:
   {
     if (section == "algorithm")
     {
-      MapAlignmentAlgorithmIdentification algo;
-      return algo.getParameters();
+		MapAlignmentAlgorithmIdentification algo;
+		return algo.getParameters();
     }
     if (section == "model")
     {
-      return TOPPMapAlignerBase::getModelDefaults("b_spline");
+		return TOPPMapAlignerBase::getModelDefaults("b_spline");
     }
 
     return Param(); 
@@ -129,30 +131,31 @@ private:
   
   
 
-  //Fill in matrix
+  //Fill in distance matrix
   void computeMetric(vector<vector<double>>& matrix, vector<ConsensusMap>& maps) const
   { 
-  
-  vector<map<pair<AASequence,int>,DoubleList>> all_seq;
+  //map of a the pair of sequence and charge as key (first) and a list of retention times (second
+  vector<mappair> all_seq;
   
   for (Size m = 0; m < maps.size(); m++) 
   {
   
-    map<pair<AASequence,int>,DoubleList> seq_rts;
+    mappair seq_rts;
+	//for Identifications without assigned feature?
     vector<PeptideIdentification> un_pep = maps[m].getUnassignedPeptideIdentifications();
     for (vector<PeptideIdentification>::iterator pep_it = un_pep.begin(); pep_it!=un_pep.end();pep_it++)
     {
-    
-      pair<AASequence,int> seq_ch = make_pair(pep_it->getHits()[0].getSequence(),pep_it->getHits()[0].getCharge());
-      seq_rts[seq_ch].push_back(pep_it->getRT());
+		pair<AASequence,int> seq_ch = make_pair(pep_it->getHits()[0].getSequence(),pep_it->getHits()[0].getCharge());
+		seq_rts[seq_ch].push_back(pep_it->getRT());
     }
     
+	//all maps
     for (vector<ConsensusFeature>::iterator c_it = maps[m].begin(); c_it!=maps[m].end();c_it++) 
     {
       
       if (!c_it->getPeptideIdentifications().empty())
       { 
-        
+        //all Identifications with assigned feature
         for (vector<PeptideIdentification>::iterator p_it = 
              c_it->getPeptideIdentifications().begin(); 
              p_it!=c_it->getPeptideIdentifications().end();++p_it)
@@ -168,24 +171,41 @@ private:
           }
        }
     }
-    all_seq.push_back(seq_rts);
-  
+
+
+	//vector of all key, retention time pairs
+    all_seq.push_back(seq_rts); //why is this assignment needed?
+
   }
-  
+  //TEST
+  int count_a_rts = 0;
+  int count_a_all = 0;
+  //TEST END
+
   for(unsigned int i = 0; i < all_seq.size()-1; i++)
   {
     for(unsigned int j = i; j < all_seq.size(); j++) 
     {
       vector<float> map1;
       vector<float> map2;
-      
-      for (map<pair<AASequence,int>,DoubleList>::iterator a_it = all_seq[i].begin(); a_it != all_seq[i].end(); ++a_it)
+
+      for (mappair::iterator a_it = all_seq[i].begin(); a_it != all_seq[i].end(); ++a_it)
       {
-        for (map<pair<AASequence,int>,DoubleList>::iterator b_it = all_seq[j].begin(); b_it != all_seq[j].end(); ++b_it)
+		//TEST
+		count_a_all++;
+		if ((a_it->second).size() > 1)
+		{	
+			  LOG_INFO << "More than one RT for iteration " << i << endl;
+			  count_a_rts++;
+		}
+		//TEST END
+        for (mappair::iterator b_it = all_seq[j].begin(); b_it != all_seq[j].end(); ++b_it)
         {
+
+
           if(a_it->first==b_it->first)
           {
-            pair<double,double> min = closestMatch(a_it->second,b_it->second);
+			pair<double,double> min = closestMatch(a_it->second,a_it->second);
             map1.push_back(min.first);
             map2.push_back(min.second);
           }
@@ -196,13 +216,11 @@ private:
         
         double pearson = Math::pearsonCorrelationCoefficient(map1.begin(), map1.end(), map2.begin(), map2.end());
         LOG_INFO << "Found " << map1.size() << " matching peptides for " << i << " and " << j << endl;
-        //Math::computeRank(map1);
-        //Math::computeRank(map2);        
-        //double rpearson = Math::rankCorrelationCoefficient(map1.begin(), map1.end(), map2.begin(), map2.end());
+
         if (!isnan(pearson))
         {
-          matrix[i][j] = 1-abs(pearson); 
-          matrix[j][i] = 1-abs(pearson);
+          matrix[i][j] = 1-fmax(0,pearson); 
+          matrix[j][i] = 1-fmax(0, pearson);
           LOG_INFO << matrix[i][j] << endl;
         }
         else
@@ -221,7 +239,8 @@ private:
     }
   }
   
-  
+  LOG_INFO << "all a: " << count_a_all << " and a with >1 RTs: " << count_a_rts << endl;
+
 }
 
 
