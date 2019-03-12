@@ -19,7 +19,7 @@
 using namespace OpenMS;
 using namespace std;
 typedef pair<pair<int, int>, float> pairofpairs;
-typedef map<pair<AASequence, int>, DoubleList> mappair;
+typedef map<pair<AASequence, int>, double> mappairdouble;
 
 
 class MapAlignerTreeBased:
@@ -99,7 +99,8 @@ private:
       }
       M.push_back(row);
     }
-	LOG_INFO << "TEST FRANZI 2" << endl;
+	// for testing
+	LOG_INFO << "TEST FRANZI 4" << endl;
 
     computeMetric(M,maps);   
     vector<pairofpairs> queue;
@@ -135,18 +136,28 @@ private:
   void computeMetric(vector<vector<double>>& matrix, vector<ConsensusMap>& maps) const
   { 
   //map of a the pair of sequence and charge as key (first) and a list of retention times (second
-  vector<mappair> all_seq;
-  
+  vector<mappairdouble> all_seq;
+
   for (Size m = 0; m < maps.size(); m++) 
   {
-  
-    mappair seq_rts;
+    mappairdouble seq_rts;
 	//for Identifications without assigned feature?
     vector<PeptideIdentification> un_pep = maps[m].getUnassignedPeptideIdentifications();
+	//get only unique ones, save duplicates to erase
+	vector<pair<AASequence, int>> duplicates;
+
     for (vector<PeptideIdentification>::iterator pep_it = un_pep.begin(); pep_it!=un_pep.end();pep_it++)
     {
+
 		pair<AASequence,int> seq_ch = make_pair(pep_it->getHits()[0].getSequence(),pep_it->getHits()[0].getCharge());
-		seq_rts[seq_ch].push_back(pep_it->getRT());
+		if(!seq_rts.empty() && seq_rts.count(seq_ch)>0)
+		{
+			duplicates.push_back(seq_ch);
+		}
+		else
+		{
+			seq_rts[seq_ch] = (pep_it->getRT());
+		}
     }
     
 	//all maps
@@ -155,6 +166,7 @@ private:
       
       if (!c_it->getPeptideIdentifications().empty())
       { 
+		//get only unique ones
         //all Identifications with assigned feature
         for (vector<PeptideIdentification>::iterator p_it = 
              c_it->getPeptideIdentifications().begin(); 
@@ -165,22 +177,39 @@ private:
               //Writes peptide hit with the highest score
               p_it->sort();
               pair<AASequence,int> seq_ch = make_pair(p_it->getHits()[0].getSequence(),p_it->getHits()[0].getCharge());
-              seq_rts[seq_ch].push_back(p_it->getRT());
+			  if (!seq_rts.empty() && seq_rts.count(seq_ch) > 0)
+			  {
+				  duplicates.push_back(seq_ch);
+			  }
+			  else
+			  {
+				  seq_rts[seq_ch] = (p_it->getRT());
+			  }
               
             }
           }
        }
     }
 
+	//eliminate duplicates with duplicate vector
+	for (unsigned int d = 0; d < duplicates.size(); d++)
+	{
+		seq_rts.erase(duplicates[d]);
+	}
 
 	//vector of all key, retention time pairs
-    all_seq.push_back(seq_rts); //why is this assignment needed?
+    all_seq.push_back(seq_rts);
 
   }
-  //TEST
-  int count_a_rts = 0;
-  int count_a_all = 0;
-  //TEST END
+  //for testing
+  LOG_INFO << "ALL SEQ NUMBER OF MAPS 1" << all_seq[0].size() << endl;
+  LOG_INFO << "ALL SEQ NUMBER OF MAPS 2" << all_seq[1].size() << endl;
+  LOG_INFO << "ALL SEQ NUMBER OF MAPS 3" << all_seq[2].size() << endl;
+  LOG_INFO << "ALL SEQ NUMBER OF MAPS 4" << all_seq[3].size() << endl;
+  LOG_INFO << "ALL SEQ NUMBER OF MAPS 5" << all_seq[4].size() << endl;
+  LOG_INFO << "ALL SEQ NUMBER OF MAPS 6" << all_seq[5].size() << endl;
+
+
 
   for(unsigned int i = 0; i < all_seq.size()-1; i++)
   {
@@ -189,27 +218,24 @@ private:
       vector<float> map1;
       vector<float> map2;
 
-      for (mappair::iterator a_it = all_seq[i].begin(); a_it != all_seq[i].end(); ++a_it)
+      for (mappairdouble::iterator a_it = all_seq[i].begin(); a_it != all_seq[i].end(); ++a_it)
       {
-		//TEST
-		count_a_all++;
-		if ((a_it->second).size() > 1)
-		{	
-			  LOG_INFO << "More than one RT for iteration " << i << endl;
-			  count_a_rts++;
+		auto b = all_seq[j].find(a_it->first);
+		if (b!= all_seq[j].end())
+		{
+			map1.push_back(a_it->second);
+			map2.push_back(b->second);
 		}
-		//TEST END
-        for (mappair::iterator b_it = all_seq[j].begin(); b_it != all_seq[j].end(); ++b_it)
-        {
+        //for (mappairdouble::iterator b_it = all_seq[j].begin(); b_it != all_seq[j].end(); ++b_it)
+        //{
 
-
-          if(a_it->first==b_it->first)
-          {
-			pair<double,double> min = closestMatch(a_it->second,a_it->second);
-            map1.push_back(min.first);
-            map2.push_back(min.second);
-          }
-        }
+          //if(a_it->first==b_it->first)
+          //{
+			//pair<double,double> min = make_pair(a_it->second,b_it->second);
+            //map1.push_back(min.first);
+            //map2.push_back(min.second);
+          //}
+        //}
       }
       if (map1.size()>2)
       {
@@ -217,12 +243,15 @@ private:
         double pearson = Math::pearsonCorrelationCoefficient(map1.begin(), map1.end(), map2.begin(), map2.end());
         LOG_INFO << "Found " << map1.size() << " matching peptides for " << i << " and " << j << endl;
 
+		//case 1: correlation coefficient could be calculated
         if (!isnan(pearson))
         {
           matrix[i][j] = 1-fmax(0,pearson); 
           matrix[j][i] = 1-fmax(0, pearson);
           LOG_INFO << matrix[i][j] << endl;
         }
+
+		//case 2: coefficient was not defined
         else
         {
           matrix[i][j] = 1;
@@ -230,6 +259,7 @@ private:
           LOG_INFO << matrix[i][j] << endl;
         }
       }
+	  //case 3: dataset not big enough
       else 
       {
         matrix[i][j] = 2; //no correlation
@@ -239,71 +269,56 @@ private:
     }
   }
   
-  LOG_INFO << "all a: " << count_a_all << " and a with >1 RTs: " << count_a_rts << endl;
-
-}
-
-
-//find closest match of same peptides in maps
-pair<double,double> closestMatch(DoubleList a, DoubleList b) const
-{ 
-  double RT1 = DBL_MAX;
-  double RT2 = DBL_MAX;
-  double min_dist = DBL_MAX;
-  for (DoubleList::iterator a_it = a.begin(); a_it != a.end(); ++a_it )
-  {
-    for(DoubleList::iterator b_it = b.begin(); b_it != b.end(); ++b_it)
-    {
-      double dist = abs(*a_it - *b_it);
-      if(dist<min_dist) {RT1 = *a_it; RT2 = *b_it;}
-    }
-  
-  }
-  return make_pair(RT1,RT2);
-
 }
 
 
 //compute MST for the tree-based alignment
-void computeSpanningTree(vector<vector<double>> matrix, 
-                         vector<pairofpairs>& queue)
-                         
-{ 
-  vector<pairofpairs> sortedEdges;
-  for (unsigned int i = 0; i < matrix.size()-1; i++)
-  {
-    for (unsigned int j = i+1; j < matrix.size(); j++)
-    {
-      sortedEdges.push_back(make_pair(make_pair(i,j),matrix[i][j]));
-    }
-  }
+void computeSpanningTree(vector<vector<double>> matrix,vector<pairofpairs>& queue)                     
+{
+	//pair of indices and edge weight
+	vector<pairofpairs> sortedEdges;
+	//get all edges from distance matrix
+	for (unsigned int i = 0; i < matrix.size()-1; i++)
+	{
+		for (unsigned int j = i+1; j < matrix.size(); j++)
+		{
+			sortedEdges.push_back(make_pair(make_pair(i,j),matrix[i][j]));
+		}
+	}
   
-  std::sort(sortedEdges.begin(), sortedEdges.end(), sortByScore);
+	//sort edges by edge weight
+	std::sort(sortedEdges.begin(), sortedEdges.end(), sortByScore);
  
-  int size = matrix.size();
-  queue.push_back(sortedEdges[0]);
-  sortedEdges.erase(sortedEdges.begin());
+	int size = matrix.size();
+	queue.push_back(sortedEdges[0]);
+	//delete first edge
+	sortedEdges.erase(sortedEdges.begin());
   
-  while(!sortedEdges.empty())
-  {
-    SpanningGraph tree(size);
-    for (unsigned int i = 0; i < queue.size(); i++)
-    {
-      tree.addEdge(queue[i].first.first,queue[i].first.second);
-    }
-    tree.addEdge(sortedEdges[0].first.first,sortedEdges[0].first.second);
-    if (tree.containsCycle()) {}
-    else  {queue.push_back(sortedEdges[0]);}
-    sortedEdges.erase(sortedEdges.begin());
-  }
-  
-  SpanningGraph aligner(size);
-  LOG_INFO << "Minimum spanning graph: " << endl;
-  for (unsigned int i = 0; i < queue.size(); i++)
-  {
-    LOG_INFO << queue[i].first.first << " <-> " << queue[i].first.second << ", weight: " << queue[i].second << endl;
-    aligner.addEdge(queue[i].first.first,queue[i].first.second);
-  }
+	while(!sortedEdges.empty())
+	{
+		SpanningGraph tree(size);
+		//iteratively add edge
+		for (unsigned int i = 0; i < queue.size(); i++)
+		{
+			tree.addEdge(queue[i].first.first,queue[i].first.second);
+		}
+
+		tree.addEdge(sortedEdges[0].first.first,sortedEdges[0].first.second);
+		if (tree.containsCycle()) {}
+		else  
+		{
+			queue.push_back(sortedEdges[0]);
+		}
+		sortedEdges.erase(sortedEdges.begin());
+	}
+	
+	SpanningGraph aligner(size);
+	LOG_INFO << "Minimum spanning graph: " << endl;
+	for (unsigned int i = 0; i < queue.size(); i++)
+	{
+		LOG_INFO << queue[i].first.first << " <-> " << queue[i].first.second << ", weight: " << queue[i].second << endl;
+		aligner.addEdge(queue[i].first.first,queue[i].first.second);
+	}
 
  
 }
