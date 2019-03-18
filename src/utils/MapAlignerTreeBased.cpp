@@ -1,3 +1,37 @@
+// --------------------------------------------------------------------------
+//                   OpenMS -- Open-Source Mass Spectrometry
+// --------------------------------------------------------------------------
+// Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
+// ETH Zurich, and Freie Universitaet Berlin 2002-2018.
+//
+// This software is released under a three-clause BSD license:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//  * Neither the name of any author or any participating institution
+//    may be used to endorse or promote products derived from this software
+//    without specific prior written permission.
+// For a full list of authors, refer to the file AUTHORS.
+// --------------------------------------------------------------------------
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL ANY OF THE AUTHORS OR THE CONTRIBUTING
+// INSTITUTIONS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// --------------------------------------------------------------------------
+// $Maintainer: Chris Bielow $
+// $Authors: Maria Trofimova, Franziska Fritz, Chris Bielow $
+// --------------------------------------------------------------------------
+
 #include <OpenMS/APPLICATIONS/MapAlignerBase.h>
 #include <OpenMS/ANALYSIS/MAPMATCHING/MapAlignmentAlgorithmPoseClustering.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
@@ -18,8 +52,15 @@
 
 using namespace OpenMS;
 using namespace std;
-typedef pair<pair<int, int>, float> pairofpairs;
-typedef map<pair<AASequence, int>, double> mappairdouble;
+typedef pair<pair<int, int>, float> VertexPairWeight; //pair of vertexindices and edge weight
+typedef map<pair<AASequence, int>, double> ChargedAAseqMap; //map of key (sequence + charge) and value (RT)
+
+//struct VertexPairWeight {
+	//int vertex1;
+	//int vertex2;
+	//float weight;
+//};
+
 
 
 class MapAlignerTreeBased:
@@ -50,12 +91,13 @@ private:
     StringList input_files = getStringList_("in");
     String output_file = getStringOption_("out");
     vector<ConsensusMap> maps;
+	maps.reserve(input_files.size());
     vector<FeatureMap> fmaps;
     FileTypes::Type in_type = FileHandler::getType(input_files[0]); 
     
     if (in_type == FileTypes::FEATUREXML)
     {
-	  for(unsigned int  i = 0; i < input_files.size(); i++)
+	  for(size_t i = 0; i < input_files.size(); ++i)
 	  {
 		FeatureMap f;
 	    ConsensusMap c;
@@ -70,7 +112,7 @@ private:
     
     else if (in_type == FileTypes::CONSENSUSXML)
     {
-      int index = 0;
+      size_t index = 0;
       for(StringList::const_iterator it = input_files.begin(); it!=input_files.end(); ++it)
       {
         ConsensusMap c;
@@ -99,11 +141,10 @@ private:
       }
       M.push_back(row);
     }
-	// for testing
-	LOG_INFO << "TEST FRANZI 4" << endl;
+
 
     computeMetric(M,maps);   
-    vector<pairofpairs> queue;
+    vector<VertexPairWeight> queue;
     computeSpanningTree(M,queue); 
     alignSpanningTree(queue,maps,input_files,out); 
     
@@ -136,11 +177,11 @@ private:
   void computeMetric(vector<vector<double>>& matrix, vector<ConsensusMap>& maps) const
   { 
   //map of a the pair of sequence and charge as key (first) and a list of retention times (second
-  vector<mappairdouble> all_seq;
+  vector<ChargedAAseqMap> all_seq;
 
   for (Size m = 0; m < maps.size(); m++) 
   {
-    mappairdouble seq_rts;
+	ChargedAAseqMap seq_rts;
 	//for Identifications without assigned feature?
     vector<PeptideIdentification> un_pep = maps[m].getUnassignedPeptideIdentifications();
 	//get only unique ones, save duplicates to erase
@@ -201,13 +242,6 @@ private:
     all_seq.push_back(seq_rts);
 
   }
-  //for testing
-  LOG_INFO << "ALL SEQ NUMBER OF MAPS 1" << all_seq[0].size() << endl;
-  LOG_INFO << "ALL SEQ NUMBER OF MAPS 2" << all_seq[1].size() << endl;
-  LOG_INFO << "ALL SEQ NUMBER OF MAPS 3" << all_seq[2].size() << endl;
-  LOG_INFO << "ALL SEQ NUMBER OF MAPS 4" << all_seq[3].size() << endl;
-  LOG_INFO << "ALL SEQ NUMBER OF MAPS 5" << all_seq[4].size() << endl;
-  LOG_INFO << "ALL SEQ NUMBER OF MAPS 6" << all_seq[5].size() << endl;
 
 
 
@@ -218,7 +252,7 @@ private:
       vector<float> map1;
       vector<float> map2;
 
-      for (mappairdouble::iterator a_it = all_seq[i].begin(); a_it != all_seq[i].end(); ++a_it)
+      for (ChargedAAseqMap::iterator a_it = all_seq[i].begin(); a_it != all_seq[i].end(); ++a_it)
       {
 		auto b = all_seq[j].find(a_it->first);
 		if (b!= all_seq[j].end())
@@ -226,16 +260,7 @@ private:
 			map1.push_back(a_it->second);
 			map2.push_back(b->second);
 		}
-        //for (mappairdouble::iterator b_it = all_seq[j].begin(); b_it != all_seq[j].end(); ++b_it)
-        //{
 
-          //if(a_it->first==b_it->first)
-          //{
-			//pair<double,double> min = make_pair(a_it->second,b_it->second);
-            //map1.push_back(min.first);
-            //map2.push_back(min.second);
-          //}
-        //}
       }
       if (map1.size()>2)
       {
@@ -273,10 +298,12 @@ private:
 
 
 //compute MST for the tree-based alignment
-void computeSpanningTree(vector<vector<double>> matrix,vector<pairofpairs>& queue)                     
+void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>& queue)
 {
+	int size = matrix.size();
+
 	//pair of indices and edge weight
-	vector<pairofpairs> sortedEdges;
+	vector<VertexPairWeight> sortedEdges;
 	//get all edges from distance matrix
 	for (unsigned int i = 0; i < matrix.size()-1; i++)
 	{
@@ -289,7 +316,6 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<pairofpairs>& queu
 	//sort edges by edge weight
 	std::sort(sortedEdges.begin(), sortedEdges.end(), sortByScore);
  
-	int size = matrix.size();
 	queue.push_back(sortedEdges[0]);
 	//delete first edge
 	sortedEdges.erase(sortedEdges.begin());
@@ -312,19 +338,18 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<pairofpairs>& queu
 		sortedEdges.erase(sortedEdges.begin());
 	}
 	
-	SpanningGraph aligner(size);
-	LOG_INFO << "Minimum spanning graph: " << endl;
+	LOG_INFO << "Minimum spanning tree: " << endl;
 	for (unsigned int i = 0; i < queue.size(); i++)
 	{
 		LOG_INFO << queue[i].first.first << " <-> " << queue[i].first.second << ", weight: " << queue[i].second << endl;
-		aligner.addEdge(queue[i].first.first,queue[i].first.second);
 	}
 
- 
 }
 
+
+
 //sorting function for queue
-static bool sortByScore(const pairofpairs &lhs, const pairofpairs &rhs) { return lhs.second < rhs.second; }
+static bool sortByScore(const VertexPairWeight &lhs, const VertexPairWeight &rhs) { return lhs.second < rhs.second; }
 
 //alignment util
 void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& transformations)
@@ -357,19 +382,21 @@ void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& tr
 }
 
 //Main alignment function
-void alignSpanningTree(vector<pairofpairs>& queue, vector<ConsensusMap>& maps,
+void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& maps,
                        StringList input_files, ConsensusMap& out_map)
 {  
  
+	//go through sorted Edges vector queue
   for (unsigned int i = 0; i < queue.size(); i++)
   {
-    vector<ConsensusMap> to_align;
+	  //in every iteration: two maps which are connected to current edge get aligned
+	vector<ConsensusMap> to_align;
     int A = queue[i].first.first;
     int B = queue[i].first.second;
     to_align.push_back(maps[A]);
     to_align.push_back(maps[B]);
     
-    vector<TransformationDescription> transformations;
+    vector<TransformationDescription> transformations(to_align.size());
     for (unsigned int j = 0; j < to_align.size(); j++)
     {
       TransformationDescription t;
@@ -382,7 +409,7 @@ void alignSpanningTree(vector<pairofpairs>& queue, vector<ConsensusMap>& maps,
     ConsensusMap out;
      
     StringList ms_run_locations;
-    for (Size j = 0; j < to_align.size(); ++j)
+    for (size_t j = 0; j < to_align.size(); ++j)
     {
         to_align[j].updateRanges();
         StringList ms_runs;
@@ -412,7 +439,7 @@ void alignSpanningTree(vector<pairofpairs>& queue, vector<ConsensusMap>& maps,
     
     if (i < queue.size()-1)
     {
-      for (unsigned int q = i+1; q < queue.size(); q++)
+      for (size_t q = i+1; q < queue.size(); ++q)
       {
         if (queue[q].first.first==B) {queue[q].first.first=A;}
         else if (queue[q].first.second==B) {queue[q].first.second=A;}
@@ -424,14 +451,14 @@ void alignSpanningTree(vector<pairofpairs>& queue, vector<ConsensusMap>& maps,
     maps[B] = out;
         
     map<Size, UInt> num_consfeat_of_size;
-    for (ConsensusMap::const_iterator cmit = out.begin();
+    for (auto cmit = out.begin();
          cmit !=out.end(); ++cmit)
     {
       ++num_consfeat_of_size[cmit->size()];
     }
 
     LOG_INFO << "Number of consensus features:" << endl;
-    for (map<Size, UInt>::reverse_iterator i = num_consfeat_of_size.rbegin();
+    for (auto i = num_consfeat_of_size.rbegin();
          i != num_consfeat_of_size.rend(); ++i)
     {
       LOG_INFO << "  of size " << setw(2) << i->first << ": " << setw(6) 
