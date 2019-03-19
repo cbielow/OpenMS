@@ -52,16 +52,25 @@
 
 using namespace OpenMS;
 using namespace std;
-typedef pair<pair<int, int>, float> VertexPairWeight; //pair of vertexindices and edge weight
+//typedef pair<pair<int, int>, float> VertexPairWeight; //pair of vertexindices and edge weight
 typedef map<pair<AASequence, int>, double> ChargedAAseqMap; //map of key (sequence + charge) and value (RT)
 
-//struct VertexPairWeight {
-	//int vertex1;
-	//int vertex2;
-	//float weight;
+
+//two vertex indices and the weight of the edge between those
+struct VertexPairWeight {
+	int vertex1;
+	int vertex2;
+	float edge_weight;
+	VertexPairWeight(int x, int y, float z) : vertex1(x), vertex2(y), edge_weight(z) {};
+
+};
+
+//struct ChargedAAseq {
+//	AASequence seq;
+//	int charge;
+//	double rt;
+//	ChargedAAseq(AASequence x, int y, double z) : seq(x), charge(y), rt(z) {};
 //};
-
-
 
 class MapAlignerTreeBased:
   public TOPPMapAlignerBase
@@ -245,6 +254,7 @@ private:
 
 
 
+
   for(unsigned int i = 0; i < all_seq.size()-1; i++)
   {
     for(unsigned int j = i; j < all_seq.size(); j++) 
@@ -302,6 +312,7 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 {
 	int size = matrix.size();
 
+
 	//pair of indices and edge weight
 	vector<VertexPairWeight> sortedEdges;
 	//get all edges from distance matrix
@@ -309,7 +320,7 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 	{
 		for (unsigned int j = i+1; j < matrix.size(); j++)
 		{
-			sortedEdges.push_back(make_pair(make_pair(i,j),matrix[i][j]));
+			sortedEdges.emplace_back(i,j,matrix[i][j]);
 		}
 	}
   
@@ -326,10 +337,10 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 		//iteratively add edge
 		for (unsigned int i = 0; i < queue.size(); i++)
 		{
-			tree.addEdge(queue[i].first.first,queue[i].first.second);
+			tree.addEdge(queue[i].vertex1,queue[i].vertex2);
 		}
 
-		tree.addEdge(sortedEdges[0].first.first,sortedEdges[0].first.second);
+		tree.addEdge(sortedEdges[0].vertex1,sortedEdges[0].vertex2);
 		if (tree.containsCycle()) {}
 		else  
 		{
@@ -341,7 +352,7 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 	LOG_INFO << "Minimum spanning tree: " << endl;
 	for (unsigned int i = 0; i < queue.size(); i++)
 	{
-		LOG_INFO << queue[i].first.first << " <-> " << queue[i].first.second << ", weight: " << queue[i].second << endl;
+		LOG_INFO << queue[i].vertex1 << " <-> " << queue[i].vertex2 << ", weight: " << queue[i].edge_weight << endl;
 	}
 
 }
@@ -349,7 +360,7 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 
 
 //sorting function for queue
-static bool sortByScore(const VertexPairWeight &lhs, const VertexPairWeight &rhs) { return lhs.second < rhs.second; }
+static bool sortByScore(const VertexPairWeight &lhs, const VertexPairWeight &rhs) { return lhs.edge_weight < rhs.edge_weight; }
 
 //alignment util
 void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& transformations)
@@ -389,10 +400,10 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
 	//go through sorted Edges vector queue
   for (unsigned int i = 0; i < queue.size(); i++)
   {
-	  //in every iteration: two maps which are connected to current edge get aligned
+	//in every iteration: two maps which are connected to current edge get aligned
 	vector<ConsensusMap> to_align;
-    int A = queue[i].first.first;
-    int B = queue[i].first.second;
+    int A = queue[i].vertex1;
+    int B = queue[i].vertex2;
     to_align.push_back(maps[A]);
     to_align.push_back(maps[B]);
     
@@ -402,7 +413,9 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
     //Grouping step
   
     ConsensusMap out;
-     
+    
+	//not needed?????
+	//-->
     StringList ms_run_locations;
     for (size_t j = 0; j < to_align.size(); ++j)
     {
@@ -411,6 +424,7 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
         to_align[j].getPrimaryMSRunPath(ms_runs);
         ms_run_locations.insert(ms_run_locations.end(), ms_runs.begin(), ms_runs.end());
     }
+	//<--
  
     FeatureGroupingAlgorithmQT grouping;
     
@@ -436,8 +450,8 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
     {
       for (size_t q = i+1; q < queue.size(); ++q)
       {
-        if (queue[q].first.first==B) {queue[q].first.first=A;}
-        else if (queue[q].first.second==B) {queue[q].first.second=A;}
+        if (queue[q].vertex1==B) {queue[q].vertex1=A;}
+        else if (queue[q].vertex2==B) {queue[q].vertex2=A;}
       }
     }
      
