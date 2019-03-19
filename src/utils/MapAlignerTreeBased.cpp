@@ -397,11 +397,6 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
     to_align.push_back(maps[B]);
     
     vector<TransformationDescription> transformations(to_align.size());
-    for (unsigned int j = 0; j < to_align.size(); j++)
-    {
-      TransformationDescription t;
-      transformations.push_back(t); 
-    }
     align(to_align,transformations);
   
     //Grouping step
