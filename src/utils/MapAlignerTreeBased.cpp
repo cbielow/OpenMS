@@ -52,25 +52,18 @@
 
 using namespace OpenMS;
 using namespace std;
-//typedef pair<pair<int, int>, float> VertexPairWeight; //pair of vertexindices and edge weight
 typedef map<pair<AASequence, int>, double> ChargedAAseqMap; //map of key (sequence + charge) and value (RT)
 
 
 //two vertex indices and the weight of the edge between those
-struct VertexPairWeight {
+struct VertexPairDist {
 	int vertex1;
 	int vertex2;
-	float edge_weight;
-	VertexPairWeight(int x, int y, float z) : vertex1(x), vertex2(y), edge_weight(z) {};
+	float dist;
+	VertexPairDist(int x, int y, float z) : vertex1(x), vertex2(y), dist(z) {};
 
 };
 
-//struct ChargedAAseq {
-//	AASequence seq;
-//	int charge;
-//	double rt;
-//	ChargedAAseq(AASequence x, int y, double z) : seq(x), charge(y), rt(z) {};
-//};
 
 class MapAlignerTreeBased:
   public TOPPMapAlignerBase
@@ -153,7 +146,7 @@ private:
 
 
     computeMetric(M,maps);   
-    vector<VertexPairWeight> queue;
+    vector<VertexPairDist> queue;
     computeSpanningTree(M,queue); 
     alignSpanningTree(queue,maps,input_files,out); 
     
@@ -308,13 +301,13 @@ private:
 
 
 //compute MST for the tree-based alignment
-void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>& queue)
+void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairDist>& queue)
 {
 	int size = matrix.size();
 
 
 	//pair of indices and edge weight
-	vector<VertexPairWeight> sortedEdges;
+	vector<VertexPairDist> sortedEdges;
 	//get all edges from distance matrix
 	for (unsigned int i = 0; i < matrix.size()-1; i++)
 	{
@@ -352,7 +345,7 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 	LOG_INFO << "Minimum spanning tree: " << endl;
 	for (unsigned int i = 0; i < queue.size(); i++)
 	{
-		LOG_INFO << queue[i].vertex1 << " <-> " << queue[i].vertex2 << ", weight: " << queue[i].edge_weight << endl;
+		LOG_INFO << queue[i].vertex1 << " <-> " << queue[i].vertex2 << ", weight: " << queue[i].dist << endl;
 	}
 
 }
@@ -360,10 +353,12 @@ void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairWeight>&
 
 
 //sorting function for queue
-static bool sortByScore(const VertexPairWeight &lhs, const VertexPairWeight &rhs) { return lhs.edge_weight < rhs.edge_weight; }
+static bool sortByScore(const VertexPairDist &lhs, const VertexPairDist &rhs) { return lhs.dist < rhs.dist; }
 
 //alignment util
-void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& transformations)
+void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& transformations, int reference_index)
+
+//void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& transformations)
 {
   
   MapAlignmentAlgorithmIdentification algorithm;
@@ -371,7 +366,9 @@ void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& tr
   algorithm.setParameters(algo_params);
   algorithm.setLogType(log_type_);
   
-  algorithm.align(to_align,transformations);
+  algorithm.align(to_align,transformations,reference_index); //ADD REFERENCE INDEX
+  //algorithm.align(to_align, transformations); //ADD REFERENCE INDEX
+
   Param model_params = getParam_().copy("model:", true);
   String model_type = model_params.getValue("type");
   if (model_type != "none")
@@ -393,38 +390,46 @@ void align(vector<ConsensusMap>& to_align, vector<TransformationDescription>& tr
 }
 
 //Main alignment function
-void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& maps,
+void alignSpanningTree(vector<VertexPairDist>& queue, vector<ConsensusMap>& maps,
                        StringList input_files, ConsensusMap& out_map)
 {  
  
 	//go through sorted Edges vector queue
+	int test_i = 0;
   for (unsigned int i = 0; i < queue.size(); i++)
   {
 	//in every iteration: two maps which are connected to current edge get aligned
+	test_i++;
+
 	vector<ConsensusMap> to_align;
     int A = queue[i].vertex1;
     int B = queue[i].vertex2;
     to_align.push_back(maps[A]);
     to_align.push_back(maps[B]);
-    
+
     vector<TransformationDescription> transformations(to_align.size());
-    align(to_align,transformations);
+	//Use map with bigger RT range as reference for align() function
+	int ref_index;
+	maps[A].sortByRT();
+	maps[B].sortByRT();
+	double range_A = maps[A][(maps[A].size() - 1)].getRT() - maps[A][0].getRT();
+	double range_B = maps[B][(maps[B].size() - 1)].getRT() - maps[B][0].getRT();
+	
+	//there are always only two maps in align (Indices 0 and 1)
+	if (range_A >= range_B) {
+		ref_index = 0;
+	}
+	else {
+		ref_index = 1;
+	}
+
+    align(to_align,transformations,ref_index);
+
   
     //Grouping step
   
     ConsensusMap out;
     
-	//not needed?????
-	//-->
-    StringList ms_run_locations;
-    for (size_t j = 0; j < to_align.size(); ++j)
-    {
-        to_align[j].updateRanges();
-        StringList ms_runs;
-        to_align[j].getPrimaryMSRunPath(ms_runs);
-        ms_run_locations.insert(ms_run_locations.end(), ms_runs.begin(), ms_runs.end());
-    }
-	//<--
  
     FeatureGroupingAlgorithmQT grouping;
     
@@ -457,7 +462,7 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
      
      
     maps[A] = out;
-    maps[B] = out;
+    maps[B].clear();
         
     map<Size, UInt> num_consfeat_of_size;
     for (auto cmit = out.begin();
@@ -475,7 +480,6 @@ void alignSpanningTree(vector<VertexPairWeight>& queue, vector<ConsensusMap>& ma
     }
     LOG_INFO << "  total:      " << setw(6) << out.size() << endl;
     
-    to_align.clear();
     out_map = out;
     out.clear();
   }
