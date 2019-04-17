@@ -303,43 +303,46 @@ private:
 //compute MST for the tree-based alignment
 void computeSpanningTree(vector<vector<double>> matrix,vector<VertexPairDist>& queue)
 {
-	int size = matrix.size();
+	int V = matrix.size();
+	vector<int> parent; //stores constructed MST 
+	parent.resize(V);
+	vector<int> key; // Key values used to pick minimum weight edge in cut 
+	key.resize(V);
+	vector<bool> mstSet; // To represent set of vertices not yet included in MST 
+	mstSet.resize(V);
 
+	// Initialize all keys as INFINITE 
+	for (int i = 0; i < V; i++)
+		key[i] = INT_MAX, mstSet[i] = false;
 
-	//pair of indices and edge weight
-	vector<VertexPairDist> sortedEdges;
-	//get all edges from distance matrix
-	for (unsigned int i = 0; i < matrix.size()-1; i++)
+	// Always include first 1st vertex in MST. 
+	// Make key 0 so that this vertex is picked as first vertex. 
+	key[0] = 0;
+	parent[0] = -1; // First node is always root of MST  
+
+	// The MST will have V vertices 
+	for (int count = 0; count < V - 1; count++)
 	{
-		for (unsigned int j = i+1; j < matrix.size(); j++)
-		{
-			sortedEdges.emplace_back(i,j,matrix[i][j]);
-		}
+		// Pick the minimum key vertex from the  
+		// set of vertices not yet included in MST 
+		int u = findMin(key, mstSet, V);
+
+		// Add the picked vertex to the MST Set 
+		mstSet[u] = true;
+
+		// Update key value and parent index of  
+		// the adjacent vertices of the picked vertex.  
+		// Consider only those vertices which are not  
+		// yet included in MST 
+		for (int v = 0; v < V; v++)
+
+			if (matrix[u][v] && mstSet[v] == false && matrix[u][v] < key[v])
+				parent[v] = u, key[v] = matrix[u][v];
 	}
-  
-	//sort edges by edge weight
-	std::sort(sortedEdges.begin(), sortedEdges.end(), sortByScore);
- 
-	queue.push_back(sortedEdges[0]);
-	//delete first edge
-	sortedEdges.erase(sortedEdges.begin());
-  
-	while(!sortedEdges.empty())
-	{
-		SpanningGraph tree(size);
-		//iteratively add edge
-		for (unsigned int i = 0; i < queue.size(); i++)
-		{
-			tree.addEdge(queue[i].vertex1,queue[i].vertex2);
-		}
 
-		tree.addEdge(sortedEdges[0].vertex1,sortedEdges[0].vertex2);
-		if (tree.containsCycle()) {}
-		else  
-		{
-			queue.push_back(sortedEdges[0]);
-		}
-		sortedEdges.erase(sortedEdges.begin());
+	// add MST to struct
+	for (int i = 1; i < V; i++) {
+		queue.emplace_back(parent[i], i, matrix[i][parent[i]]);
 	}
 	
 	LOG_INFO << "Minimum spanning tree: " << endl;
