@@ -44,9 +44,7 @@ public:
     int V;   
 	std::vector<std::vector<int>> adj;
     SpanningGraph(int V);   
-    void addEdge(int v, int w);   
-    bool containsCycle();  
-    bool DFS(int v, int source, std::vector<bool>& visited); 
+    int findMin(std::vector<int> key, std::vector<bool> mstSet, int size);
 };
  
 SpanningGraph::SpanningGraph(int V)
@@ -60,46 +58,15 @@ SpanningGraph::SpanningGraph(int V)
     }
     this->adj = adj;
 }
- 
-void SpanningGraph::addEdge(int v, int w)
-{
-    adj[v].push_back(w);
-    adj[w].push_back(v);
-}
 
-bool SpanningGraph::containsCycle()
+int findMin(std::vector<int> key, std::vector<bool> mstSet, int size)
 {
-  std::vector<bool> visited(V);
-  for (int i = 0; i < V; i++)
-  {
-    visited[i] = false;
-  }
-    
-  for (int v = 0; v < V; v++)
-  {
-    if (!visited[v])
-    {
-      if (DFS(v, -1, visited))
-      {
-        return true;
-      }
-    }
-  } 
-  return false;
+	// Initialize min value 
+	int min = INT_MAX, min_index;
 
-}
+	for (int v = 0; v < size; v++)
+		if (mstSet[v] == false && key[v] < min)
+			min = key[v], min_index = v;
 
-//DFS helper
-bool SpanningGraph::DFS(int v, int source, std::vector<bool>& visited)
-{
-    visited[v] = true;
-    for (unsigned int i = 0; i < adj[v].size(); i++)
-    {
-      if (!visited[adj[v][i]])
-      {
-        if (DFS(adj[v][i], v, visited)) {return true;}
-      }
-      else if (adj[v][i] != source) {return true;}
-    }
-    return false;
+	return min_index;
 }
