@@ -42,7 +42,6 @@
 #include <OpenMS/METADATA/PeptideIdentification.h>
 
 #include <OpenMS/SYSTEM/File.h>
-#include <include/OpenMS/FORMAT/ConsensusXMLFile.h>
 
 namespace OpenMS
 {
@@ -741,12 +740,9 @@ OPENMS_THREAD_CRITICAL(oms_log)
 
     // Check for Isobaric Analyzer
     bool iso_analyze = true;
-    auto is_not_elem = [](const OpenMS::DataProcessing& dp)
-    {
-      return (dp.getProcessingActions().count(DataProcessing::QUANTITATION) == 0);
-    };
     auto cm_dp = (*this).getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
-    if (all_of(cm_dp.begin(), cm_dp.end(), is_not_elem))
+    if (all_of(cm_dp.begin(), cm_dp.end(), [](const OpenMS::DataProcessing& dp)
+                                           { return (dp.getProcessingActions().count(DataProcessing::QUANTITATION) == 0); }))
     {
       iso_analyze = false;
     }
@@ -776,7 +772,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
         if (!pep_id.metaValueExists("map_index"))
         {
           throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
-              "File did not undergo isobaric analyzation, but no map index was found at PeptideIdentifications. Check Input!");
+              "File did not undergo IsobaricAnalyzer, but no map index was found at PeptideIdentifications. Check Input!");
         }
         new_feats[pep_id.getMetaValue("map_index")].getPeptideIdentifications().push_back(pep_id);
       }
@@ -819,7 +815,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
       if (!upep_id.metaValueExists("map_index"))
       {
         throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
-                                            "File did not undergo isobaric analyzation, but no map index was found at PeptideIdentifications. Check Input!");
+                                            "File did not undergo IsobaricAnalyzer, but no map index was found at PeptideIdentifications. Check Input!");
       }
       fmaps[upep_id.getMetaValue("map_index")].getUnassignedPeptideIdentifications().push_back(upep_id);
     }
