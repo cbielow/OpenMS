@@ -112,6 +112,13 @@ public:
 
     using privvec::push_back;
 
+    enum class SplitMeta
+    {
+      IGNORE,                 ///< do not copy any meta values
+      COPY_ALL,               ///< copy all meta values to all feature maps
+      COPY_FIRST              ///< copy all meta values to first feature map
+    };
+    
     /// Description of the columns in a consensus map
     struct OPENMS_DLLAPI ColumnHeader :
       public MetaInfoInterface
@@ -371,6 +378,8 @@ public:
 
     */
     bool isMapConsistent(Logger::LogStream* stream = nullptr) const;
+
+    void split(std::vector<FeatureMap>& fmaps, SplitMeta mode) const;
 
 protected:
 

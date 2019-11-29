@@ -34,6 +34,7 @@
 
 #include <OpenMS/KERNEL/ComparatorUtils.h>
 #include <OpenMS/KERNEL/ConsensusMap.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 
 #include <OpenMS/DATASTRUCTURES/Map.h>
 #include <OpenMS/METADATA/DataProcessing.h>
@@ -41,6 +42,7 @@
 #include <OpenMS/METADATA/PeptideIdentification.h>
 
 #include <OpenMS/SYSTEM/File.h>
+#include <include/OpenMS/FORMAT/ConsensusXMLFile.h>
 
 namespace OpenMS
 {
@@ -730,6 +732,73 @@ OPENMS_THREAD_CRITICAL(oms_log)
     return true;
   }
 
+  void ConsensusMap::split(std::vector<FeatureMap>& fmaps, ConsensusMap::SplitMeta mode) const
+  {
+    fmaps.clear();
+    Size numbr_exps = column_description_.size();
+    fmaps.resize(numbr_exps);
+
+    bool iso_analyze = true;
+    auto is_not_elem = [](const OpenMS::DataProcessing& dp)
+    {
+      return (dp.getProcessingActions().count(DataProcessing::QUANTITATION) == 0);
+    };
+    auto cm_dp = (*this).getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
+    if (all_of(cm_dp.begin(), cm_dp.end(), is_not_elem))
+    {
+      iso_analyze = false;
+    }
+
+    for (const auto& cf : *this)
+    {
+      std::vector<BaseFeature> new_feats(numbr_exps);
+      for (const FeatureHandle& fh : cf.getFeatures())
+      {
+        BaseFeature feat(fh);
+        new_feats[fh.getMapIndex()] = feat;
+      }
+
+      for (const PeptideIdentification& pep_id : cf.getPeptideIdentifications())
+      {
+
+        if (iso_analyze)
+        {
+          new_feats[0].getPeptideIdentifications().push_back(pep_id);
+          continue;
+        }
+
+        if (!pep_id.metaValueExists("map_index"))
+        {
+          throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+              "File did not undergo isobaric analyzation, but no map index was found at PeptideIdentifications. Check Input!");
+        }
+        new_feats[pep_id.getMetaValue("map_index")].getPeptideIdentifications().push_back(pep_id);
+      }
+      
+      switch(mode)
+      {
+        case SplitMeta::IGNORE : 
+          break;
+
+        case SplitMeta::COPY_ALL :
+          for (BaseFeature& base : new_feats)
+          {
+            base.MetaInfoInterface::operator=(cf);
+          }
+          break;
+
+        case SplitMeta::COPY_FIRST :
+          new_feats[0].MetaInfoInterface::operator=(cf);
+          break;
+      }
+
+      for (Size i = 0; i < numbr_exps; ++i)
+      {
+        fmaps[i].emplace_back(new_feats[i]);
+      }
+    }
+  }
+
   void ConsensusMap::applyFunctionOnPeptideHits(std::function<void(PeptideHit&)>& f, bool include_unassigned)
   {
     for (auto& feat : *this)
@@ -816,6 +885,5 @@ OPENMS_THREAD_CRITICAL(oms_log)
       }
     }
   }
-
 
 } // namespace OpenMS
