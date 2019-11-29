@@ -734,10 +734,12 @@ OPENMS_THREAD_CRITICAL(oms_log)
 
   void ConsensusMap::split(std::vector<FeatureMap>& fmaps, ConsensusMap::SplitMeta mode) const
   {
+    // Prepare output vector
     fmaps.clear();
     Size numbr_exps = column_description_.size();
     fmaps.resize(numbr_exps);
 
+    // Check for Isobaric Analyzer
     bool iso_analyze = true;
     auto is_not_elem = [](const OpenMS::DataProcessing& dp)
     {
@@ -751,6 +753,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
 
     for (const auto& cf : *this)
     {
+      // Create new Features from FeatureHandles
       std::vector<BaseFeature> new_feats(numbr_exps);
       for (const FeatureHandle& fh : cf.getFeatures())
       {
@@ -758,15 +761,18 @@ OPENMS_THREAD_CRITICAL(oms_log)
         new_feats[fh.getMapIndex()] = feat;
       }
 
+      // Add PeptideIdentifications to ...
       for (const PeptideIdentification& pep_id : cf.getPeptideIdentifications())
       {
 
         if (iso_analyze)
         {
+          // ... the first Feature.
           new_feats[0].getPeptideIdentifications().push_back(pep_id);
           continue;
         }
 
+        // ... the corresponding Feature by map_index.
         if (!pep_id.metaValueExists("map_index"))
         {
           throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
@@ -774,7 +780,8 @@ OPENMS_THREAD_CRITICAL(oms_log)
         }
         new_feats[pep_id.getMetaValue("map_index")].getPeptideIdentifications().push_back(pep_id);
       }
-      
+
+      // Handle MetaValues
       switch(mode)
       {
         case SplitMeta::IGNORE : 
@@ -792,10 +799,29 @@ OPENMS_THREAD_CRITICAL(oms_log)
           break;
       }
 
+      // Add new Features to corresponding FeatureMap.
       for (Size i = 0; i < numbr_exps; ++i)
       {
         fmaps[i].emplace_back(new_feats[i]);
       }
+    }
+
+    // Add unassigned PeptideIdentificaions to ...
+    if (iso_analyze)
+    {
+      // ... the first FeatureMap.
+      fmaps[0].getUnassignedPeptideIdentifications() = this->getUnassignedPeptideIdentifications();
+      return;
+    }
+    for (const PeptideIdentification& upep_id : this->getUnassignedPeptideIdentifications())
+    {
+      // ... the corresponding FeatureMap by map_index.
+      if (!upep_id.metaValueExists("map_index"))
+      {
+        throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+                                            "File did not undergo isobaric analyzation, but no map index was found at PeptideIdentifications. Check Input!");
+      }
+      fmaps[upep_id.getMetaValue("map_index")].getUnassignedPeptideIdentifications().push_back(upep_id);
     }
   }
 

@@ -379,7 +379,20 @@ public:
     */
     bool isMapConsistent(Logger::LogStream* stream = nullptr) const;
 
-    void split(std::vector<FeatureMap>& fmaps, SplitMeta mode) const;
+    /**
+     @brief splits ConsensusMap into its original FeatureMaps
+
+     If the ConsensusMap originated from some number of FeatureMaps, those are reconstructed with the information
+     provided by the map index.
+     If the ConsensusMap originated from the IsobaricAnalyzer, only Features are seperated. All PeptideIdentifications
+     (assigned and unassigned) are added to the first FeatureMap.
+
+     MetaValues of ConsensusFeatures can be copied to all FeatureMaps, just to the first or they can be ignored.
+
+     @param fmaps  : output vector
+     @param mode   : decide what to do with the MetaValues annotated at the ConsensusFeatures.
+    */
+    void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::IGNORE) const;
 
 protected:
 
