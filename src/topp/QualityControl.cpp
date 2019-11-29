@@ -402,12 +402,12 @@ protected:
       //-------------------------------------------------------------
 
       // copy MetaValues of unassigned PepIDs
-      copyPepIDMetaValues_(fmap.getUnassignedPeptideIdentifications(), customID_to_cpepID, mp_f.identifier_to_msrunpath);
+      addPepIDMetaValues_(fmap.getUnassignedPeptideIdentifications(), customID_to_cpepID, mp_f.identifier_to_msrunpath);
 
       // copy MetaValues of assigned PepIDs
       for (Feature& feature : fmap)
       {
-        copyPepIDMetaValues_(feature.getPeptideIdentifications(), customID_to_cpepID, mp_f.identifier_to_msrunpath);
+        addPepIDMetaValues_(feature.getPeptideIdentifications(), customID_to_cpepID, mp_f.identifier_to_msrunpath);
       }
     }
     // mztab writer requires single PIs per CF
@@ -497,7 +497,7 @@ private:
   }
 
 
-  void copyPepIDMetaValues_(const vector<PeptideIdentification>& f_pep_ids,
+  void addPepIDMetaValues_(const vector<PeptideIdentification>& f_pep_ids,
     const multimap<String, PeptideIdentification*>& customID_to_pepID,
     const map<String, StringList>& fidentifier_to_msrunpath) const
   {
@@ -526,10 +526,10 @@ private:
       for (auto it_pep = range.first; it_pep != range.second; ++it_pep) // OMS_CODING_TEST_EXCLUDE
       {
         // copy all MetaValues that are at PepID level
-        copyMetaValues_(f_pep_id, *(it_pep->second));
+        addMetaValues_(f_pep_id, *(it_pep->second));
 
         // copy all MetaValues that are at Hit level
-        copyMetaValues_(f_pep_id.getHits()[0], (it_pep->second)->getHits()[0]);
+        addMetaValues_(f_pep_id.getHits()[0], (it_pep->second)->getHits()[0]);
       }
     }
   }
@@ -538,7 +538,7 @@ private:
   // templated function to copy all meta values from one object to another
   template <class FROM, class TO>
   //TODO get a MetaValue list to copy only those that have been set
-  void copyMetaValues_(const FROM& from, TO& to) const
+  void addMetaValues_(const FROM& from, TO& to) const
   {
     vector<String> keys;
     from.getKeys(keys);
