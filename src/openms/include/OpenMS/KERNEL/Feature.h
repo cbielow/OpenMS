@@ -77,6 +77,8 @@ public:
     /// Default constructor
     Feature();
 
+    explicit Feature(const BaseFeature& base);
+
     /// Copy constructor
     Feature(const Feature& feature);
 
