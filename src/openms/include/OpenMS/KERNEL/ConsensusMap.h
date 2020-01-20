@@ -377,7 +377,7 @@ public:
               - we should restrict the user to first fill the list of maps, before any datapoints can be inserted
 
     */
-    bool isMapConsistent(Logger::LogStream* stream = nullptr) const;
+    OPENMS_DLLAPI bool isMapConsistent(Logger::LogStream* stream = nullptr) const;
 
     /**
      @brief splits ConsensusMap into its original FeatureMaps
@@ -392,7 +392,7 @@ public:
      @param fmaps  : output vector
      @param mode   : decide what to do with the MetaValues annotated at the ConsensusFeatures.
     */
-    void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::IGNORE) const;
+    OPENMS_DLLAPI void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::IGNORE) const;
 
 protected:
 

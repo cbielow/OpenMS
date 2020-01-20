@@ -679,6 +679,116 @@ START_SECTION((template < typename Type > Size applyMemberFunction(Size(Type::*m
 }
 END_SECTION
 
+START_SECTION(void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::IGNORE) const)
+{
+  // prepare test data
+  ConsensusMap cm;
+  map<UInt64, ConsensusMap::ColumnHeader> headers;
+  ConsensusMap::ColumnHeader h;
+  h.filename = "file.FeatureXML";
+  headers[0] = h;
+  h.filename = "file2.FeatureXML";
+  headers[1] = h;
+  cm.setColumnHeaders(headers);
+
+  ConsensusFeature cf1, cf2;
+  FeatureHandle fh;
+  PeptideIdentification id1, id2;
+  PeptideHit hit;
+  fh.setMapIndex(0);
+  fh.setIntensity(100);
+  fh.setRT(10);
+  cf1.insert(fh);
+  fh.setMapIndex(1);
+  fh.setIntensity(200);
+  fh.setRT(10);
+  cf1.insert(fh);
+  id1.setRT(10);
+  hit.setSequence(AASequence::fromString("AAA"));
+  id1.insertHit(hit);
+  id1.setMetaValue("map_index",0);
+  cf1.getPeptideIdentifications().push_back(id1);
+  cf1.setMetaValue("test","some information");
+
+  cm.push_back(cf1);
+
+  fh.setMapIndex(0);
+  fh.setIntensity(300);
+  fh.setRT(20);
+  cf2.insert(fh);
+  fh.setMapIndex(1);
+  fh.setIntensity(400);
+  fh.setRT(20);
+  cf2.insert(fh);
+  id2.setRT(20);
+  hit.setSequence(AASequence::fromString("WWW"));
+  id2.insertHit(hit);
+  id2.setMetaValue("map_index",1);
+  cf2.getPeptideIdentifications().push_back(id2);
+
+  cm.push_back(cf2);
+
+  PeptideIdentification uid1, uid2;
+  hit.setSequence(AASequence::fromString("LLL"));
+  uid1.insertHit(hit);
+  uid1.setMetaValue("map_index",0);
+  hit.setSequence(AASequence::fromString("KKK"));
+  uid2.insertHit(hit);
+  uid2.setMetaValue("map_index",1);
+  cm.getUnassignedPeptideIdentifications().push_back(uid1);
+  cm.getUnassignedPeptideIdentifications().push_back(uid2);
+
+  vector<FeatureMap> fmaps;
+
+  // test with non iso analyze data
+  cm.split(fmaps, ConsensusMap::SplitMeta::IGNORE);
+  ABORT_IF(fmaps.size() != 2);
+  ABORT_IF(fmaps[0].size() != 2);
+  ABORT_IF(fmaps[1].size() != 2);
+  TEST_EQUAL(fmaps[0][0].getRT(),10);
+  TEST_EQUAL(fmaps[0][0].getIntensity(),100);
+  TEST_EQUAL(fmaps[0][0].getPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("AAA"));
+  TEST_EQUAL(fmaps[1][1].getRT(),20);
+  TEST_EQUAL(fmaps[1][1].getIntensity(),400);
+  TEST_EQUAL(fmaps[1][1].getPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("WWW"));
+  TEST_EQUAL(fmaps[0][0].metaValueExists("test"),0);
+  TEST_EQUAL(fmaps[0].getUnassignedPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("LLL"));
+  TEST_EQUAL(fmaps[1].getUnassignedPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("KKK"));
+
+  // test with iso analyze data
+  DataProcessing p;
+  set<DataProcessing::ProcessingAction> actions;
+  actions.insert(DataProcessing::QUANTITATION);
+  p.setProcessingActions(actions);
+  cm.getDataProcessing().push_back(p);
+  cm.split(fmaps, ConsensusMap::SplitMeta::IGNORE);
+  ABORT_IF(fmaps.size() != 2);
+  ABORT_IF(fmaps[0].size() != 2);
+  ABORT_IF(fmaps[1].size() != 2);
+  TEST_EQUAL(fmaps[0][0].getPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("AAA"));
+  TEST_EQUAL(fmaps[0][1].getPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("WWW"));
+  TEST_EQUAL(fmaps[1][1].getPeptideIdentifications().empty(),1);
+  TEST_EQUAL(fmaps[0].getUnassignedPeptideIdentifications()[0].getHits()[0].getSequence(),AASequence::fromString("LLL"));
+  TEST_EQUAL(fmaps[0].getUnassignedPeptideIdentifications()[1].getHits()[0].getSequence(),AASequence::fromString("KKK"));
+
+  // test different all meta value modes
+  cm.split(fmaps, ConsensusMap::SplitMeta::COPY_FIRST);
+  ABORT_IF(fmaps.size() != 2);
+  ABORT_IF(fmaps[0].size() != 2);
+  ABORT_IF(fmaps[1].size() != 2);
+  TEST_EQUAL(fmaps[0][0].metaValueExists("test"),1);
+  TEST_EQUAL(fmaps[0][0].getMetaValue("test"),"some information");
+  
+  cm.split(fmaps, ConsensusMap::SplitMeta::COPY_ALL);
+  ABORT_IF(fmaps.size() != 2);
+  ABORT_IF(fmaps[0].size() != 2);
+  ABORT_IF(fmaps[1].size() != 2);
+  TEST_EQUAL(fmaps[0][0].metaValueExists("test"),1);
+  TEST_EQUAL(fmaps[0][0].getMetaValue("test"),"some information");
+  TEST_EQUAL(fmaps[1][0].metaValueExists("test"),1);
+  TEST_EQUAL(fmaps[1][0].getMetaValue("test"),"some information");
+}
+END_SECTION
 
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////

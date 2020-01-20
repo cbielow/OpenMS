@@ -740,7 +740,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
 
     // Check for Isobaric Analyzer
     bool iso_analyze = true;
-    auto cm_dp = (*this).getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
+    auto cm_dp = this->getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
     if (all_of(cm_dp.begin(), cm_dp.end(), [](const OpenMS::DataProcessing& dp)
                                            { return (dp.getProcessingActions().count(DataProcessing::QUANTITATION) == 0); }))
     {
