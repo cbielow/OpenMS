@@ -749,12 +749,15 @@ OPENMS_THREAD_CRITICAL(oms_log)
 
     for (const auto& cf : *this)
     {
+      UInt64 min_index(INT_MAX);
       // Create new Features from FeatureHandles
       std::vector<BaseFeature> new_feats(numbr_exps);
       for (const FeatureHandle& fh : cf.getFeatures())
       {
         BaseFeature feat(fh);
-        new_feats[fh.getMapIndex()] = feat;
+        UInt64 index = fh.getMapIndex();
+        if (index < min_index) { min_index = index; }
+        new_feats[index] = feat;
       }
 
       // Add PeptideIdentifications to ...
@@ -763,6 +766,11 @@ OPENMS_THREAD_CRITICAL(oms_log)
 
         if (iso_analyze)
         {
+          if (min_index != 0)
+          {
+            throw Exception::ElementNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+                "File seems to have gone through IsobaricAnalyzer, but there was no feature with map index 0 found. Check Input!");
+          }
           // ... the first Feature.
           new_feats[0].getPeptideIdentifications().push_back(pep_id);
           continue;
@@ -780,7 +788,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
       // Handle MetaValues
       switch(mode)
       {
-        case SplitMeta::IGNORE : 
+        case SplitMeta::DISCARD :
           break;
 
         case SplitMeta::COPY_ALL :
@@ -791,6 +799,11 @@ OPENMS_THREAD_CRITICAL(oms_log)
           break;
 
         case SplitMeta::COPY_FIRST :
+          if (min_index != 0)
+          {
+            throw Exception::ElementNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+                "No feature with map index 0 to copy MetaValues to. Check Input or switch mode!");
+          }
           new_feats[0].MetaInfoInterface::operator=(cf);
           break;
       }

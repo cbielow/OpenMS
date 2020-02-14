@@ -114,7 +114,7 @@ public:
 
     enum class SplitMeta
     {
-      IGNORE,                 ///< do not copy any meta values
+      DISCARD,                 ///< do not copy any meta values
       COPY_ALL,               ///< copy all meta values to all feature maps
       COPY_FIRST              ///< copy all meta values to first feature map
     };
