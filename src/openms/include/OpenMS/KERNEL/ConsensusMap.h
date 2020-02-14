@@ -392,7 +392,7 @@ public:
      @param fmaps  : output vector
      @param mode   : decide what to do with the MetaValues annotated at the ConsensusFeatures.
     */
-    OPENMS_DLLAPI void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::IGNORE) const;
+    OPENMS_DLLAPI void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::DISCARD) const;
 
 protected:
 
