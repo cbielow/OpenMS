@@ -679,7 +679,7 @@ START_SECTION((template < typename Type > Size applyMemberFunction(Size(Type::*m
 }
 END_SECTION
 
-START_SECTION(void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::IGNORE) const)
+START_SECTION(void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::DISCARD) const)
 {
   // prepare test data
   ConsensusMap cm;
@@ -741,7 +741,7 @@ START_SECTION(void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitM
   vector<FeatureMap> fmaps;
 
   // test with non iso analyze data
-  cm.split(fmaps, ConsensusMap::SplitMeta::IGNORE);
+  cm.split(fmaps, ConsensusMap::SplitMeta::DISCARD);
   ABORT_IF(fmaps.size() != 2);
   ABORT_IF(fmaps[0].size() != 2);
   ABORT_IF(fmaps[1].size() != 2);
@@ -761,7 +761,7 @@ START_SECTION(void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitM
   actions.insert(DataProcessing::QUANTITATION);
   p.setProcessingActions(actions);
   cm.getDataProcessing().push_back(p);
-  cm.split(fmaps, ConsensusMap::SplitMeta::IGNORE);
+  cm.split(fmaps, ConsensusMap::SplitMeta::DISCARD);
   ABORT_IF(fmaps.size() != 2);
   ABORT_IF(fmaps[0].size() != 2);
   ABORT_IF(fmaps[1].size() != 2);
