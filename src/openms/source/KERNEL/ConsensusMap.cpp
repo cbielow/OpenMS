@@ -751,7 +751,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
     {
       UInt64 min_index(INT_MAX);
       // Create new Features from FeatureHandles
-      std::vector<BaseFeature> new_feats(numbr_exps);
+      std::map<UInt64, BaseFeature> new_feats;
       for (const FeatureHandle& fh : cf.getFeatures())
       {
         BaseFeature feat(fh);
@@ -772,7 +772,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
                 "File seems to have gone through IsobaricAnalyzer, but there was no feature with map index 0 found. Check Input!");
           }
           // ... the first Feature.
-          new_feats[0].getPeptideIdentifications().push_back(pep_id);
+          (*new_feats.begin()).second.getPeptideIdentifications().push_back(pep_id);
           continue;
         }
 
@@ -792,9 +792,9 @@ OPENMS_THREAD_CRITICAL(oms_log)
           break;
 
         case SplitMeta::COPY_ALL :
-          for (BaseFeature& base : new_feats)
+          for (auto it = new_feats.begin(); it != new_feats.end(); ++it)
           {
-            base.MetaInfoInterface::operator=(cf);
+            (it->second).MetaInfoInterface::operator=(cf);
           }
           break;
 
@@ -804,14 +804,14 @@ OPENMS_THREAD_CRITICAL(oms_log)
             throw Exception::ElementNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
                 "No feature with map index 0 to copy MetaValues to. Check Input or switch mode!");
           }
-          new_feats[0].MetaInfoInterface::operator=(cf);
+          (*new_feats.begin()).second.MetaInfoInterface::operator=(cf);
           break;
       }
 
       // Add new Features to corresponding FeatureMap.
-      for (Size i = 0; i < numbr_exps; ++i)
+      for (auto it = new_feats.begin(); it != new_feats.end(); ++it)
       {
-        fmaps[i].emplace_back(new_feats[i]);
+        fmaps[it->first].emplace_back(it->second);
       }
     }
 
