@@ -786,7 +786,7 @@ OPENMS_THREAD_CRITICAL(oms_log)
       }
 
       // Handle MetaValues
-      switch(mode)
+      switch (mode)
       {
         case SplitMeta::DISCARD :
           break;
