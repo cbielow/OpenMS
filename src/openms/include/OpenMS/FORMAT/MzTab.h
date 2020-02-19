@@ -920,8 +920,9 @@ public:
       @param peptide_evidences Vector of PeptideEvidence holding internal data.
       @param row Pre- or unfilled MzTabPSMSectionRow to be filled with the data.
       @param rows Vector of MzTabPSMSectionRow to add the differently updated rows to.
+      @param compact_as_single_row Create non-standard mzTab, by combining evidences of a single PSM into one row (values are separated by ' ')
     */
-    static void addPepEvidenceToRows(const std::vector<PeptideEvidence>& peptide_evidences, MzTabPSMSectionRow& row, MzTabPSMSectionRows& rows);
+    static void addPepEvidenceToRows(const std::vector<PeptideEvidence>& peptide_evidences, MzTabPSMSectionRow& row, MzTabPSMSectionRows& rows, bool compact_as_single_row);
 
     /// Extract opt_ (custom, optional column names)
     std::vector<String> getNucleicAcidOptionalColumnNames() const;
@@ -953,7 +954,8 @@ public:
       * @param[IN] first_run_inference_only Is all protein inference information stored in the first run?
       * @param[OUT] map_run_fileidx_2_msfileidx Mapping from (run index, input file index) to experimental design file index. The experimental design file index is either given, or a simplified version created from the input file index on the fly.
       * @param[OUT] idrun_2_run_index Mapping from protein identification identifier (search engine + date) to run index, i.e. for storing file origins from different runs
-      *
+      * @param export_empty_pep_ids Add PEP rows for unidentified features
+      * @param compact_as_single_row Compact duplicated rows from a single PSM with multiple protein references into a single PSM row
       * @return mzTab object
     */
     static MzTab exportIdentificationsToMzTab(
@@ -963,7 +965,8 @@ public:
         bool first_run_inference_only,
         std::map<std::pair<size_t,size_t>,size_t>& map_run_fileidx_2_msfileidx,
         std::map<String, size_t>& idrun_2_run_index,
-        bool export_empty_pep_ids = false);
+        bool export_empty_pep_ids = false,
+        bool compact_as_single_row = false);
 
     /// Generate MzTab style list of PTMs from AASequence object.
     /// All passed fixed modifications are not reported (as suggested by the standard for the PRT and PEP section).
@@ -978,7 +981,9 @@ public:
 		 * @param export_unidentified_features		Should not identified peptide features be exported?
 		 * @param export_unassigned_ids		Should unassigned identifications be exported?
 		 * @param export_subfeatures		The position of the consensus feature will always be exported. Should the individual subfeatures be exported as well?
-		 *
+     * @param title Title for the MTD section
+     * @param compact_as_single_row Compact duplicated rows from a single PSM with multiple protein references into a single PSM row
+     *
 		 * @return mzTab object
 		 */
     static MzTab exportConsensusMapToMzTab(
@@ -989,7 +994,8 @@ public:
       const bool export_unassigned_ids,
       const bool export_subfeatures,
       const bool export_empty_pep_ids = false,
-      const String& title = "ConsensusMap export from OpenMS");
+      const String& title = "ConsensusMap export from OpenMS",
+      const bool compact_as_single_row = false);
 
 
   protected:

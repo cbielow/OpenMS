@@ -960,7 +960,7 @@ namespace OpenMS
   void MzTabString::setNull(bool b)
   {
     if (b)
-    {
+    { 
       value_.clear();
     }
   }
@@ -1415,76 +1415,96 @@ namespace OpenMS
   {
   }
 
-  void MzTab::addPepEvidenceToRows(const vector<PeptideEvidence>& peptide_evidences, MzTabPSMSectionRow& row, MzTabPSMSectionRows& rows)
+  void MzTab::addPepEvidenceToRows(const vector<PeptideEvidence>& peptide_evidences, MzTabPSMSectionRow& row, MzTabPSMSectionRows& rows, bool compact_as_single_row)
   {
-    if (!peptide_evidences.empty())
-    {
-      for (Size i = 0; i != peptide_evidences.size(); ++i)
-      {
-        // get AABefore and AAAfter as well as start and end for all pep evidences
-
-        // pre/post
-        // from spec: Amino acid preceding the peptide (coming from the PSM) in the protein
-        // sequence. If unknown “null” MUST be used, if the peptide is N-terminal “-“
-        // MUST be used.
-        if (peptide_evidences[i].getAABefore() == PeptideEvidence::UNKNOWN_AA)
-        {
-          row.pre = MzTabString("null");
-        }
-        else if (peptide_evidences[i].getAABefore() == PeptideEvidence::N_TERMINAL_AA)
-        {
-          row.pre = MzTabString("-");
-        }
-        else
-        {
-          row.pre = MzTabString(String(peptide_evidences[i].getAABefore()));
-        }
-
-        if (peptide_evidences[i].getAAAfter() == PeptideEvidence::UNKNOWN_AA)
-        {
-          row.post = MzTabString("null");
-        }
-        else if (peptide_evidences[i].getAAAfter() == PeptideEvidence::C_TERMINAL_AA)
-        {
-          row.post = MzTabString("-");
-        }
-        else
-        {
-          row.post = MzTabString(String(peptide_evidences[i].getAAAfter()));
-        }
-
-        // start/end
-        if (peptide_evidences[i].getStart() == PeptideEvidence::UNKNOWN_POSITION)
-        {
-          row.start = MzTabString("null");
-        }
-        else
-        {
-          row.start = MzTabString(String(peptide_evidences[i].getStart() + 1)); // counting in mzTab starts at 1
-        }
-
-        if (peptide_evidences[i].getEnd() == PeptideEvidence::UNKNOWN_POSITION)
-        {
-          row.end = MzTabString("null");
-        }
-        else
-        {
-          row.end = MzTabString(String(peptide_evidences[i].getEnd() + 1)); // counting in mzTab starts at 1
-        }
-
-        row.accession = MzTabString(peptide_evidences[i].getProteinAccession());
-
-        rows.push_back(row);
-      }
-    }
-    else
+    if (peptide_evidences.empty())
     { // report without pep evidence information
       row.pre = MzTabString("null");
       row.post = MzTabString("null");
       row.start = MzTabString("null");
       row.end = MzTabString("null");
       rows.push_back(row);
+      return;
     }
+
+    StringList pre, post, start, end, accession;
+    for (Size i = 0; i != peptide_evidences.size(); ++i)
+    {
+      // get AABefore and AAAfter as well as start and end for all pep evidences
+
+      // pre/post
+      // from spec: Amino acid preceding the peptide (coming from the PSM) in the protein
+      // sequence. If unknown “null” MUST be used, if the peptide is N-terminal “-“
+      // MUST be used.
+      if (peptide_evidences[i].getAABefore() == PeptideEvidence::UNKNOWN_AA)
+      {
+        pre.push_back("null");
+      }
+      else if (peptide_evidences[i].getAABefore() == PeptideEvidence::N_TERMINAL_AA)
+      {
+        pre.push_back("-");
+      }
+      else
+      {
+        pre.push_back(peptide_evidences[i].getAABefore());
+      }
+
+      if (peptide_evidences[i].getAAAfter() == PeptideEvidence::UNKNOWN_AA)
+      {
+        post.push_back("null");
+      }
+      else if (peptide_evidences[i].getAAAfter() == PeptideEvidence::C_TERMINAL_AA)
+      {
+        post.push_back("-");
+      }
+      else
+      {
+        post.push_back(peptide_evidences[i].getAAAfter());
+      }
+
+      // start/end
+      if (peptide_evidences[i].getStart() == PeptideEvidence::UNKNOWN_POSITION)
+      {
+        start.push_back("null");
+      }
+      else
+      {
+        start.push_back(peptide_evidences[i].getStart() + 1); // counting in mzTab starts at 1
+      }
+
+      if (peptide_evidences[i].getEnd() == PeptideEvidence::UNKNOWN_POSITION)
+      {
+        end.push_back("null");
+      }
+      else
+      {
+        end.push_back(peptide_evidences[i].getEnd() + 1); // counting in mzTab starts at 1
+      }
+      accession.push_back(peptide_evidences[i].getProteinAccession());
+
+    }
+    if (compact_as_single_row)
+    {
+      row.pre = MzTabString(ListUtils::concatenate(pre, " "));
+      row.post = MzTabString(ListUtils::concatenate(post, " "));
+      row.start = MzTabString(ListUtils::concatenate(start, " "));
+      row.end = MzTabString(ListUtils::concatenate(end, " "));
+      row.accession = MzTabString(ListUtils::concatenate(accession, " "));
+      rows.push_back(row);
+    }
+    else
+    {
+      for (size_t i = 0; i < pre.size(); ++i)
+      {
+        row.pre = MzTabString(pre[i]);
+        row.post = MzTabString(post[i]);
+        row.start = MzTabString(start[i]);
+        row.end = MzTabString(end[i]);
+        row.accession = MzTabString(accession[i]);
+        rows.push_back(row);
+      }
+    }
+    rows.push_back(row);
   }
 
   void MzTab::addMetaInfoToOptionalColumns(
@@ -1599,7 +1619,7 @@ namespace OpenMS
       const ProteinIdentification::SearchParameters &sp = prot_ids[0].getSearchParameters();
       var_mods = sp.variable_modifications;
       fixed_mods = sp.fixed_modifications;
-      db = sp.db.empty() ? MzTabString() : MzTabString(sp.db);
+      db = MzTabString(sp.db.empty() ? "" : File::basename(sp.db));
       db_version = sp.db_version.empty() ? MzTabString() : MzTabString(sp.db_version);
     }
 
@@ -1785,7 +1805,8 @@ namespace OpenMS
     bool first_run_inference_only,
     std::map<std::pair<size_t,size_t>,size_t>& map_run_fileidx_2_msfileidx,
     std::map<String, size_t>& idrun_2_run_index,
-    bool export_empty_pep_ids)
+    bool export_empty_pep_ids,
+    bool compact_as_single_row)
   {
     OPENMS_LOG_INFO << "exporting identifications: \"" << filename << "\" to mzTab: " << std::endl;
     vector<PeptideIdentification> pep_ids = peptide_ids;
@@ -1925,9 +1946,9 @@ namespace OpenMS
       fixed_mods.resize(std::distance(fixed_mods.begin(), f_it));
 
       // TODO: check if standard should provide run level info
-      const ProteinIdentification::SearchParameters & sp = prot_ids[0].getSearchParameters();
-      db = sp.db.empty() ? MzTabString() : MzTabString(prot_ids[0].getSearchParameters().db);
-      db_version = sp.db_version.empty() ? MzTabString() : MzTabString(prot_ids[0].getSearchParameters().db_version);
+      const ProteinIdentification::SearchParameters& sp = prot_ids[0].getSearchParameters();
+      db = MzTabString(sp.db.empty() ? "" : File::basename(sp.db));
+      db_version = MzTabString(sp.db_version.empty() ? "" : sp.db_version);
       //The following "rescoring" algorithms will overwrite search engine names and scores but not the settings.
       // Settings and old searchengines should then be stored in the ProteinIDRun in Metavalues (see PercolatorAdapter)
       // They are parsed later as "secondary search engines".
@@ -2580,7 +2601,7 @@ Not sure how to handle these:
       const vector<PeptideEvidence>& peptide_evidences = best_ph.getPeptideEvidences();
 
       // pass common row entries and create rows for all peptide evidences
-      addPepEvidenceToRows(peptide_evidences, row, rows);
+      addPepEvidenceToRows(peptide_evidences, row, rows, compact_as_single_row);
     }
     // remap target/decoy column
     for (auto &row : rows)
@@ -2710,9 +2731,10 @@ Not sure how to handle these:
     const bool export_unassigned_ids,
     const bool export_subfeatures,
     const bool export_empty_pep_ids,
-    const String& title)
+    const String& title,
+    const bool compact_as_single_row)
   {  
-    OPENMS_LOG_INFO << "exporting consensus map: \"" << filename << "\" to mzTab: " << std::endl;
+    OPENMS_LOG_INFO << "Exporting consensus map: \"" << filename << "\" to mzTab: " << std::endl;
     vector<ProteinIdentification> prot_ids = consensus_map.getProteinIdentifications();
 
     // extract mapped IDs (TODO: there should be a helper function)
@@ -2736,9 +2758,13 @@ Not sure how to handle these:
     // In this case, the first run is only for inference, get peptide info from the rest of the runs.
     map<pair<size_t,size_t>,size_t> map_run_fileidx_2_msfileidx;
     map<String, size_t> idrun_2_run_index;
-    MzTab mztab = exportIdentificationsToMzTab(prot_ids, pep_ids, filename, first_run_inference_only,
+    MzTab mztab = exportIdentificationsToMzTab(prot_ids, pep_ids,
+                                               filename,
+                                               first_run_inference_only,
                                                map_run_fileidx_2_msfileidx,
-                                               idrun_2_run_index, export_empty_pep_ids);
+                                               idrun_2_run_index,
+                                               export_empty_pep_ids,
+                                               compact_as_single_row);
 
     // determine number of samples
     ExperimentalDesign ed = ExperimentalDesign::fromConsensusMap(consensus_map);
@@ -2830,7 +2856,7 @@ Not sure how to handle these:
     auto path_label_to_assay = ed.getPathLabelToSampleMapping(false);
 
     // assay meta data
-    for (auto const & c : consensus_map.getColumnHeaders())
+    for (auto const& c : consensus_map.getColumnHeaders())
     {
       Size assay_index{1};
 
@@ -2930,7 +2956,7 @@ Not sure how to handle these:
 	    // Defines how to consume user value keys for the upcoming keys
       const auto addUserValueToRowBy = [&row](function<void(const String &s, MzTabOptionalColumnEntry &entry)> f) -> function<void(const String &key)>
       {
-        return [f,&row](const String &user_value_key)
+        return [f, &row](const String &user_value_key)
           {
             MzTabOptionalColumnEntry opt_entry;
             opt_entry.first = "opt_global_" + user_value_key;
@@ -2958,9 +2984,7 @@ Not sure how to handle these:
 
       row.mass_to_charge = MzTabDouble(c.getMZ());
       MzTabDoubleList rt_list;
-      vector<MzTabDouble> rts;
-      rts.emplace_back(c.getRT());
-      rt_list.set(rts);
+      rt_list.set(vector<MzTabDouble>{ MzTabDouble(c.getRT()) });
       row.retention_time = rt_list;
       MzTabDoubleList rt_window;
       row.retention_time_window = rt_window;
@@ -3106,7 +3130,6 @@ Not sure how to handle these:
             }
           }
 
-          double curr_score = pep.getHits()[0].getScore();
           auto sit = row.search_engine_score_ms_run[1].find(msfile_index);
           if (sit == row.search_engine_score_ms_run[1].end())
           {
@@ -3119,6 +3142,7 @@ Not sure how to handle these:
                                                 "PSM " + ref + " does not map to an MS file registered in the quantitative metadata. "
                                                 "Check your merging and filtering steps and/or report the issue, please.");
           }
+          double curr_score = pep.getHits()[0].getScore();
           sit->second = MzTabDouble(curr_score);
 
           //TODO assumes same scores & score types

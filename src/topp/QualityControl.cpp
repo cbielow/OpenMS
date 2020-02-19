@@ -29,7 +29,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Chris Bielow $
-// $Authors: Tom Waschischeck $
+// $Authors: Chris Bielow, Tom Waschischeck $
 // --------------------------------------------------------------------------
 
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
@@ -52,12 +52,15 @@
 #include <OpenMS/QC/FragmentMassError.h>
 #include <OpenMS/QC/MissedCleavages.h>
 #include <OpenMS/QC/Ms2IdentificationRate.h>
+#include <OpenMS/QC/Ms2SpectrumStats.h>
 #include <OpenMS/QC/MzCalibration.h>
 #include <OpenMS/QC/QCBase.h>
 #include <OpenMS/QC/RTAlignment.h>
 #include <OpenMS/QC/TIC.h>
-#include <OpenMS/QC/Ms2SpectrumStats.h>
 #include <cstdio>
+
+#include <OpenMS/SYSTEM/SysInfo.h>
+
 
 #include <map>
 
@@ -176,6 +179,7 @@ protected:
     setValidFormats_("in_trafo", {"trafoXML"});
     registerTOPPSubsection_("MS2_id_rate", "MS2 ID Rate settings");
     registerFlag_("MS2_id_rate:force_no_fdr", "Forces the metric to run if FDR is missing (accepts all pep_ids as target hits).", false);
+    registerFlag_("no_compact_PSM_rows", "Write standard-compliant mzTab by duplicating PSM rows for each protein evidence (can increase the mzTab file significantly).", true);
     //TODO get ProteinQuantifier output for PRT section
   }
 
@@ -243,9 +247,12 @@ protected:
     StringList in_raw = updateFileStatus_(status, number_exps, "in_raw", QCBase::Requires::RAWMZML);
     StringList in_postFDR = updateFileStatus_(status, number_exps, "in_postFDR", QCBase::Requires::POSTFDRFEAT);
     StringList in_trafo = updateFileStatus_(status, number_exps, "in_trafo", QCBase::Requires::TRAFOALIGN);
+    StringList out_feat = getStringList_("out_feat");
 
     // load databases and other single file inputs
     String in_contaminants = getStringOption_("in_contaminants");
+    bool compact_PSM_rows = !getFlag_("no_compact_PSM_rows");
+
     FASTAFile fasta_file;
     vector<FASTAFile::FASTAEntry> contaminants;
     if (!in_contaminants.empty())
@@ -293,11 +300,15 @@ protected:
     RTAlignment qc_rt_alignment;
     TIC qc_tic;
     Ms2SpectrumStats qc_ms2stats;
+    size_t mem_virtual(0);
+    writeLog_(String("Peak Memory Usage: before ") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
 
     // Loop through file lists
     vector<PeptideIdentification> all_new_upep_ids;
     for (Size i = 0; i < number_exps; ++i)
     {
+      size_t mem_virtual(0);
+      writeLog_(String("Peak Memory Usage: ") + String(i) + String(" iteration: ") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
       //-------------------------------------------------------------
       // reading input
       //-------------------------------------------------------------
@@ -393,7 +404,6 @@ protected:
         all_new_upep_ids.insert(all_new_upep_ids.end(), new_upep_ids.begin(), new_upep_ids.end());
       }
 
-      StringList out_feat = getStringList_("out_feat");
       if (!out_feat.empty())
       {
         FeatureXMLFile().store(out_feat[i], fmap);
@@ -411,9 +421,14 @@ protected:
         copyPepIDMetaValues_(feature.getPeptideIdentifications(), customID_to_cpepID, mp_f.identifier_to_msrunpath);
       }
     }
+
+    writeLog_(String("Peak Memory Usage: after ") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
+
     // mztab writer requires single PIs per CF
     // adds 'feature_id' metavalue to all PIs before moving them to remember the uniqueID of the CF
     IDConflictResolverAlgorithm::resolve(cmap);
+
+    writeLog_(String("Peak Memory Usage: after resolve ") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
 
     // check if all PepIDs of ConsensusMap appeared in a FeatureMap
     bool incomplete_features {false};
@@ -432,6 +447,8 @@ protected:
     // add new PeptideIdentifications (for unidentified MS2 spectra)
     cmap.getUnassignedPeptideIdentifications().insert(cmap.getUnassignedPeptideIdentifications().end(), all_new_upep_ids.begin(), all_new_upep_ids.end());
 
+    writeLog_(String("Peak Memory Usage: after adding") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
+
     //-------------------------------------------------------------
     // writing output
     //-------------------------------------------------------------
@@ -441,10 +458,15 @@ protected:
       ConsensusXMLFile().store(out_cm, cmap);
     }
 
-    MzTab mztab = MzTab::exportConsensusMapToMzTab(cmap, in_cm, true, true, true, true, "QC export from OpenMS");
+    MzTab mztab = MzTab::exportConsensusMapToMzTab(cmap, in_cm, true, true, true, true, "QC export from OpenMS", compact_PSM_rows);
+    writeLog_(String("Peak Memory Usage: after store mzTab") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
+
     MzTabMetaData meta = mztab.getMetaData();
     addMetaDataMetrics_(meta, qc_tic, qc_ms2ir);
     mztab.setMetaData(meta);
+
+    writeLog_(String("Peak Memory Usage: after store meta") + (SysInfo::getProcessPeakMemoryConsumption(mem_virtual) ? String(mem_virtual / 1024) + " MB" : "<unknown>"));
+
 
     MzTabFile mztab_out;
     mztab_out.store(getStringOption_("out"), mztab);
