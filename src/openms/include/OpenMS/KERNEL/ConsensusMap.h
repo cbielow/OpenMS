@@ -389,10 +389,10 @@ public:
 
      MetaValues of ConsensusFeatures can be copied to all FeatureMaps, just to the first or they can be ignored.
 
-     @param fmaps  : output vector
-     @param mode   : decide what to do with the MetaValues annotated at the ConsensusFeatures.
+     @param mode Decide what to do with the MetaValues annotated at the ConsensusFeatures.
+     @return FeatureMaps
     */
-    OPENMS_DLLAPI void split(std::vector<FeatureMap>& fmaps, SplitMeta mode = SplitMeta::DISCARD) const;
+    OPENMS_DLLAPI std::vector<FeatureMap> split(SplitMeta mode = SplitMeta::DISCARD) const;
 
 protected:
 

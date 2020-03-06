@@ -731,25 +731,23 @@ OPENMS_THREAD_CRITICAL(oms_log)
     return true;
   }
 
-  void ConsensusMap::split(std::vector<FeatureMap>& fmaps, ConsensusMap::SplitMeta mode) const
+  std::vector<FeatureMap> ConsensusMap::split(ConsensusMap::SplitMeta mode) const
   {
-    // Prepare output vector
-    fmaps.clear();
     Size numbr_exps = column_description_.size();
-    fmaps.resize(numbr_exps);
+    std::vector<FeatureMap>fmaps(numbr_exps);
 
     // Check for Isobaric Analyzer
     bool iso_analyze = true;
-    auto cm_dp = this->getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
+        auto cm_dp = this->getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
     if (all_of(cm_dp.begin(), cm_dp.end(), [](const OpenMS::DataProcessing& dp)
-                                           { return (dp.getProcessingActions().count(DataProcessing::QUANTITATION) == 0); }))
+                                           { return (dp.getSoftware().getName() != "IsobaricAnalyzer");}))
     {
       iso_analyze = false;
     }
 
     for (const auto& cf : *this)
     {
-      UInt64 min_index(INT_MAX);
+      UInt64 min_index = std::numeric_limits<UInt64>::max();
       // Create new Features from FeatureHandles
       std::map<UInt64, BaseFeature> new_feats;
       for (const FeatureHandle& fh : cf.getFeatures())
@@ -811,17 +809,19 @@ OPENMS_THREAD_CRITICAL(oms_log)
       // Add new Features to corresponding FeatureMap.
       for (auto it = new_feats.begin(); it != new_feats.end(); ++it)
       {
-        fmaps[it->first].emplace_back(it->second);
+        fmaps[it->first].emplace_back(std::move(it->second));
       }
     }
 
-    // Add unassigned PeptideIdentificaions to ...
+    // Add unassigned PeptideIdentifications to ...
     if (iso_analyze)
     {
       // ... the first FeatureMap.
       fmaps[0].getUnassignedPeptideIdentifications() = this->getUnassignedPeptideIdentifications();
-      return;
+      fmaps[0].getProteinIdentifications() = this->getProteinIdentifications(); // wrong! improve: only copy the ProtID which belongs to this FMap!
+      return fmaps;
     }
+
     for (const PeptideIdentification& upep_id : this->getUnassignedPeptideIdentifications())
     {
       // ... the corresponding FeatureMap by map_index.
@@ -832,6 +832,13 @@ OPENMS_THREAD_CRITICAL(oms_log)
       }
       fmaps[upep_id.getMetaValue("map_index")].getUnassignedPeptideIdentifications().push_back(upep_id);
     }
+
+    for (auto& fm : fmaps)
+    {
+      fm.getDataProcessing() = this->getDataProcessing();
+    }
+
+    return fmaps;
   }
 
   void ConsensusMap::applyFunctionOnPeptideHits(std::function<void(PeptideHit&)>& f, bool include_unassigned)

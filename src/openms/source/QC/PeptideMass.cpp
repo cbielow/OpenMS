@@ -1,3 +1,4 @@
+
 // --------------------------------------------------------------------------
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
@@ -29,66 +30,36 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Chris Bielow $
-// $Authors: Swenja Wagner, Patricia Scheil $
+// $Authors: Chris Bielow $
 // --------------------------------------------------------------------------
 
-#include <OpenMS/QC/QCBase.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
-#include <OpenMS/KERNEL/ConsensusMap.h>
+#pragma once
+
+#include <OpenMS/QC/PeptideMass.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 
 namespace OpenMS
 {
-  const std::string QCBase::names_of_requires[] = {"fail", "raw.mzML", "postFDR.featureXML", "preFDR.featureXML", "contaminants.fasta", "trafoAlign.trafoXML"};
-
-  QCBase::SpectraMap::SpectraMap(const MSExperiment& exp)
+  void PeptideMass::compute(FeatureMap& features)
   {
-    calculateMap(exp);
-  }
 
-  void QCBase::SpectraMap::calculateMap(const MSExperiment& exp)
-  {
-    nativeid_to_index_.clear();
-    for (Size i = 0; i < exp.size(); ++i)
+    // add experimental mass to PeptideHit (a bit unrelated)
+    QCBase::iterateFeatureMap(features, [](PeptideIdentification& pi)
     {
-      nativeid_to_index_[exp[i].getNativeID()] = i;
-    }
+      if (pi.getHits().empty()) return;
+      auto& hit = pi.getHits()[0];
+      hit.setMetaValue("mass", (pi.getMZ() - Constants::PROTON_MASS_U) * hit.getCharge());
+    });
   }
 
-  UInt64 QCBase::SpectraMap::at(const String& identifier) const
+  const String& PeptideMass::getName() const
   {
-    const auto& it = nativeid_to_index_.find(identifier);
-    if (it == nativeid_to_index_.end())
-    {
-      throw Exception::ElementNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, String("No spectrum with identifier '") + identifier + "' in MSExperiment!");
-    }
-    return it->second;
+    static const String& name = "PeptideMass";
+    return name;
   }
 
-  void QCBase::SpectraMap::clear()
+  QCBase::Status PeptideMass::requires() const
   {
-    nativeid_to_index_.clear();
+    return QCBase::Status() | QCBase::Requires::POSTFDRFEAT;
   }
-
-  bool QCBase::SpectraMap::empty() const
-  {
-    return nativeid_to_index_.empty();
-  }
-  
-  Size QCBase::SpectraMap::size() const
-  {
-    return nativeid_to_index_.size();
-  }
-
-  bool QCBase::isLabeledExperiment(const ConsensusMap& cm)
-  {
-    bool iso_analyze = true;
-    auto cm_dp = cm.getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
-    if (all_of(cm_dp.begin(), cm_dp.end(), [](const OpenMS::DataProcessing& dp)
-    { return (dp.getSoftware().getName() != "IsobaricAnalyzer"); }))
-    {
-      iso_analyze = false;
-    }
-    return iso_analyze;
-  }
-
-} //namespace OpenMS
+}
