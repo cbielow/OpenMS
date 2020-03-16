@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2018.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -29,66 +29,49 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Chris Bielow $
-// $Authors: Swenja Wagner, Patricia Scheil $
+// $Authors: Chris Bielow $
 // --------------------------------------------------------------------------
 
-#include <OpenMS/QC/QCBase.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
-#include <OpenMS/KERNEL/ConsensusMap.h>
+#pragma once
+
+#include <OpenMS/QC/FWHM.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 
 namespace OpenMS
 {
-  const std::string QCBase::names_of_requires[] = {"fail", "raw.mzML", "postFDR.featureXML", "preFDR.featureXML", "contaminants.fasta", "trafoAlign.trafoXML"};
-
-  QCBase::SpectraMap::SpectraMap(const MSExperiment& exp)
+  void FWHM::compute(FeatureMap& features)
   {
-    calculateMap(exp);
-  }
-
-  void QCBase::SpectraMap::calculateMap(const MSExperiment& exp)
-  {
-    nativeid_to_index_.clear();
-    for (Size i = 0; i < exp.size(); ++i)
+    for (auto& f : features)
     {
-      nativeid_to_index_[exp[i].getNativeID()] = i;
+      if (f.metaValueExists("FWHM")) // from FF-Centroided
+      {
+        for (auto& pi : f.getPeptideIdentifications())
+        {
+          pi.setMetaValue("FWHM", f.getMetaValue("FWHM"));
+        }
+      }
+      else if (f.metaValueExists("model_FWHM")) // from FF-Identification
+      {
+        for (auto& pi : f.getPeptideIdentifications())
+        {
+          pi.setMetaValue("FWHM", f.getMetaValue("model_FWHM")); // use 'FWHM' as target to make the name unique for downstream processing
+        }
+      }
+      else
+      {
+        //throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Metavalue 'FWHM' or 'model_FWHM' is missing for a feature in a FeatureMap. Please check your FeatureFinder reports FWHM using these metavalues or add a new mapping here.");
+      }
     }
   }
 
-  UInt64 QCBase::SpectraMap::at(const String& identifier) const
+  const String& FWHM::getName() const
   {
-    const auto& it = nativeid_to_index_.find(identifier);
-    if (it == nativeid_to_index_.end())
-    {
-      throw Exception::ElementNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, String("No spectrum with identifier '") + identifier + "' in MSExperiment!");
-    }
-    return it->second;
-  }
-
-  void QCBase::SpectraMap::clear()
-  {
-    nativeid_to_index_.clear();
-  }
-
-  bool QCBase::SpectraMap::empty() const
-  {
-    return nativeid_to_index_.empty();
+    static const String& name = "FWHM";
+    return name;
   }
   
-  Size QCBase::SpectraMap::size() const
+  QCBase::Status FWHM::requires() const
   {
-    return nativeid_to_index_.size();
+    return QCBase::Status() | QCBase::Requires::POSTFDRFEAT;
   }
-
-  bool QCBase::isLabeledExperiment(const ConsensusMap& cm)
-  {
-    bool iso_analyze = true;
-    auto cm_dp = cm.getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
-    if (all_of(cm_dp.begin(), cm_dp.end(), [](const OpenMS::DataProcessing& dp)
-    { return (dp.getSoftware().getName() != "IsobaricAnalyzer"); }))
-    {
-      iso_analyze = false;
-    }
-    return iso_analyze;
-  }
-
-} //namespace OpenMS
+}

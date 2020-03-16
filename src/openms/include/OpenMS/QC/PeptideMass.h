@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2018.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -29,66 +29,43 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Chris Bielow $
-// $Authors: Swenja Wagner, Patricia Scheil $
+// $Authors: Chris Bielow $
 // --------------------------------------------------------------------------
 
+#pragma once
+
 #include <OpenMS/QC/QCBase.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
-#include <OpenMS/KERNEL/ConsensusMap.h>
 
 namespace OpenMS
 {
-  const std::string QCBase::names_of_requires[] = {"fail", "raw.mzML", "postFDR.featureXML", "preFDR.featureXML", "contaminants.fasta", "trafoAlign.trafoXML"};
+  class FeatureMap;
 
-  QCBase::SpectraMap::SpectraMap(const MSExperiment& exp)
-  {
-    calculateMap(exp);
-  }
+  /**
+    @brief QC metric calculating theoretical mass of a peptide sequence
 
-  void QCBase::SpectraMap::calculateMap(const MSExperiment& exp)
-  {
-    nativeid_to_index_.clear();
-    for (Size i = 0; i < exp.size(); ++i)
-    {
-      nativeid_to_index_[exp[i].getNativeID()] = i;
-    }
-  }
+    Each PeptideHit in the FeatureMap will be annotated with its theoretical mass as metavalue 'mass'
 
-  UInt64 QCBase::SpectraMap::at(const String& identifier) const
+    **/
+  class OPENMS_DLLAPI PeptideMass : public QCBase
   {
-    const auto& it = nativeid_to_index_.find(identifier);
-    if (it == nativeid_to_index_.end())
-    {
-      throw Exception::ElementNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, String("No spectrum with identifier '") + identifier + "' in MSExperiment!");
-    }
-    return it->second;
-  }
+  public:
+    /// Constructor
+    PeptideMass() = default;
 
-  void QCBase::SpectraMap::clear()
-  {
-    nativeid_to_index_.clear();
-  }
+    /// Destructor
+    virtual ~PeptideMass() = default;
 
-  bool QCBase::SpectraMap::empty() const
-  {
-    return nativeid_to_index_.empty();
-  }
-  
-  Size QCBase::SpectraMap::size() const
-  {
-    return nativeid_to_index_.size();
-  }
+    /**
+    @brief Sets the 'mass' metavalue to all PeptideHits by computing the theoretical mass
 
-  bool QCBase::isLabeledExperiment(const ConsensusMap& cm)
-  {
-    bool iso_analyze = true;
-    auto cm_dp = cm.getDataProcessing(); // get a copy to avoid calling .begin() and .end() on two different temporaries
-    if (all_of(cm_dp.begin(), cm_dp.end(), [](const OpenMS::DataProcessing& dp)
-    { return (dp.getSoftware().getName() != "IsobaricAnalyzer"); }))
-    {
-      iso_analyze = false;
-    }
-    return iso_analyze;
-  }
+    @param features FeatureMap with PeptideHits
+    **/
+    void compute(FeatureMap& features);
 
-} //namespace OpenMS
+
+    const String& getName() const override;
+
+    Status requires() const override;
+  };
+
+} // namespace OpenMS
