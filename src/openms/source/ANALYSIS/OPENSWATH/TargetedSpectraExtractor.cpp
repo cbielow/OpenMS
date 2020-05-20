@@ -325,10 +325,10 @@ namespace OpenMS
       p.setValue("noise_for_empty_window", 2.0);
       p.setValue("min_required_elements", 10);
       sne.setParameters(p);
-      sne.init(annotated_spectra[i].begin(), annotated_spectra[i].end());
+      sne.init(annotated_spectra[i]);
       double avgSNR { 0 };
-      for (MSSpectrum::const_iterator it = annotated_spectra[i].begin();
-           it != annotated_spectra[i].end();
+      for (Size it = 0;
+           it < annotated_spectra[i].size();
            ++it)
       {
         avgSNR += sne.getSignalToNoise(it);
