@@ -48,6 +48,8 @@
 #include <OpenMS/ANALYSIS/OPENSWATH/OpenSwathHelper.h>
 #include <OpenMS/OPENSWATHALGO/DATAACCESS/DataFrameWriter.h>
 
+#include <OpenMS/ANALYSIS/OPENSWATH/DIAScoring.h>
+
 #include <OpenMS/SYSTEM/File.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 
@@ -145,7 +147,7 @@ protected:
       std::cout << ltrans << std::endl;
     }
     // Here we deal with SWATH files (can be multiple files)
-
+    DIAScoring dia;
     for (Size i = 0; i < file_list.size(); ++i)
     {
       MzMLFile swath_file;
@@ -201,7 +203,7 @@ protected:
       //std::cout << "using data frame writer for storing data. Outfile :" << out << std::endl;
       OpenSwath::IDataFrameWriter* dfw = new OpenSwath::CSVWriter(fname);
       OpenMS::DiaPrescore dp;
-      dp.operator()(spectrumAccess, transition_exp_used, dfw);
+      dp.operator()(dia.getCache(),spectrumAccess, transition_exp_used, dfw);
       delete dfw;
       //featureFinder.pickExperiment(chromatogram_ptr, out_featureFile,
       //transition_exp_used, trafo, swath_ptr, transition_group_map);

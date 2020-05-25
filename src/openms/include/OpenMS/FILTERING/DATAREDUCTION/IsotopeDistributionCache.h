@@ -36,27 +36,50 @@
 
 #include <OpenMS/KERNEL/StandardTypes.h>
 #include <OpenMS/TRANSFORMATIONS/FEATUREFINDER/FeatureFinderAlgorithmPickedHelperStructs.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h>
 
 namespace OpenMS
 {
   /**
    * @brief Pre-calculate isotope distributions for interesting mass ranges
    */
-  class OPENMS_DLLAPI IsotopeDistributionCache
+  class OPENMS_DLLAPI IsotopeDistributionCache:
+          public FeatureFinderAlgorithmPickedHelperStructs
   {
 public:
     typedef FeatureFinderAlgorithmPickedHelperStructs::TheoreticalIsotopePattern TheoreticalIsotopePattern;
 
-    IsotopeDistributionCache(double max_mass, double mass_window_width, double intensity_percentage = 0, double intensity_percentage_optional = 0);
+    /// @name Constructors and Destructors
+    //@{
+    /** Default constructor
+     */
+    IsotopeDistributionCache();
+
+    /// Destructor
+    ~IsotopeDistributionCache() = default;
+    //@}
+
+
+    void calculateisotopeDistribution(Size num_begin);
+
+    void renormalize( TheoreticalIsotopePattern& isotopes, IsotopeDistribution& isotope_dist);
 
     /// Returns the isotope distribution for a certain mass window
-    const TheoreticalIsotopePattern & getIsotopeDistribution(double mass) const;
+    const TheoreticalIsotopePattern& getIsotopeDistribution(double mass) ;
+
+    const IsotopeDistribution& getIntensity(double mass);
 
 private:
     /// Vector of pre-calculated isotope distributions for several mass windows
     std::vector<TheoreticalIsotopePattern> isotope_distributions_;
 
+    std::vector<IsotopeDistribution> intensity_;
+
     double mass_window_width_;
+
+    double intensity_percentage_ ;
+
+    double intensity_percentage_optional_;
   };
-}
+}//namespace OpenMS
 

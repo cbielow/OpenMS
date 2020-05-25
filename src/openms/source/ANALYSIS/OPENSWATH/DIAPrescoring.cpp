@@ -72,7 +72,8 @@ namespace OpenMS
     }
   }
 
-  void DiaPrescore::operator()(OpenSwath::SpectrumAccessPtr swath_ptr,
+  void DiaPrescore::operator()(IsotopeDistributionCache& iso,
+                               OpenSwath::SpectrumAccessPtr swath_ptr,
                                OpenSwath::LightTargetedExperiment& transition_exp_used,
                                OpenSwath::IDataFrameWriter* ivw)
   {
@@ -114,7 +115,7 @@ namespace OpenMS
         double score1;
         double score2;
         //OpenSwath::LightPeptide pep;
-        score(spec, beg->second, score1, score2);
+        score(iso,spec, beg->second, score1, score2);
 
         score1v.push_back(score1);
         score2v.push_back(score2);
@@ -127,7 +128,8 @@ namespace OpenMS
     } //end of forloop over spectra
   }
 
-  void DiaPrescore::score(OpenSwath::SpectrumPtr spec,
+  void DiaPrescore::score( IsotopeDistributionCache& iso,
+                          OpenSwath::SpectrumPtr spec,
                           const std::vector<OpenSwath::LightTransition>& lt,
                           double& dotprod,
                           double& manhattan)
@@ -137,7 +139,7 @@ namespace OpenMS
     std::vector<double> firstIstotope, theomasses;
     DIAHelpers::extractFirst(res, firstIstotope);
     std::vector<std::pair<double, double> > spectrum, spectrum2;
-    DIAHelpers::addIsotopes2Spec(res, spectrum, nr_charges_);
+    DIAHelpers::addIsotopes2Spec(iso,res,spectrum, nr_charges_);
     spectrum2.resize(spectrum.size());
     std::copy(spectrum.begin(), spectrum.end(), spectrum2.begin());
     //std::cout << spectrum.size() << std::endl;
@@ -204,7 +206,7 @@ namespace OpenMS
   {
   }
 
-  DiaPrescore::DiaPrescore() :
+  DiaPrescore::DiaPrescore():
     DefaultParamHandler("DIAPrescore")
   {
     defineDefaults();

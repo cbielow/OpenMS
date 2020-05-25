@@ -45,6 +45,8 @@
 
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
 
+#include <OpenMS/ANALYSIS/OPENSWATH/DIAScoring.h>
+
 namespace OpenMS
 {
   /**
@@ -60,7 +62,6 @@ namespace OpenMS
     and compute manhattan distance and dotprod score between spectrum intensities
     and simulated spectrum.
   */
-
   class OPENMS_DLLAPI DiaPrescore :
     public DefaultParamHandler
   {
@@ -84,7 +85,8 @@ public:
       and compute manhattan distance and dotprod score between spectrum intensities
       and simulated spectrum.
     */
-    void score(OpenSwath::SpectrumPtr spec,
+    void score(IsotopeDistributionCache& iso,
+               OpenSwath::SpectrumPtr spec,
                const std::vector<OpenSwath::LightTransition>& lt,
                double& dotprod,
                double& manhattan);
@@ -93,9 +95,11 @@ public:
       @brief Compute manhattan and dotprod score for all spectra which can be accessed by
       the SpectrumAccessPtr for all transitions groups in the LightTargetedExperiment.
     */
-    void operator()(OpenSwath::SpectrumAccessPtr swath_ptr,
+    void operator()(IsotopeDistributionCache& iso,
+                    OpenSwath::SpectrumAccessPtr swath_ptr,
                     OpenSwath::LightTargetedExperiment& transition_exp_used,
                     OpenSwath::IDataFrameWriter* ivw);
+
   };
 
 

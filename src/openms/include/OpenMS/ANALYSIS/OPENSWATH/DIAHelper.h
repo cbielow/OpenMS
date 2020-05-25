@@ -36,6 +36,7 @@
 
 #include <OpenMS/CHEMISTRY/AASequence.h>
 #include <OpenMS/OPENSWATHALGO/DATAACCESS/DataStructures.h>
+#include <OpenMS/FILTERING/DATAREDUCTION/IsotopeDistributionCache.h>
 
 #include <vector>
 
@@ -44,7 +45,6 @@ namespace OpenMS
   class TheoreticalSpectrumGenerator;
   namespace DIAHelpers
   {
-
     /**
       @brief Helper functions for the DIA scoring of OpenSWATH
     */
@@ -110,14 +110,16 @@ namespace OpenMS
                                       UInt charge = 1u);
 
     /// get averagine distribution given mass
-    OPENMS_DLLAPI void getAveragineIsotopeDistribution(const double product_mz,
+    OPENMS_DLLAPI void getAveragineIsotopeDistribution( IsotopeDistributionCache& iso,
+                                         const double product_mz,
                                          std::vector<std::pair<double, double> >& isotopesSpec,
                                          const double charge = 1.,
                                          const int nr_isotopes = 4,
                                          const double mannmass = 1.00048);
 
     /// simulate spectrum from AASequence
-    OPENMS_DLLAPI void simulateSpectrumFromAASequence(const AASequence& aa,
+    OPENMS_DLLAPI void simulateSpectrumFromAASequence(IsotopeDistributionCache& iso,
+                                        const AASequence& aa,
                                         std::vector<double>& firstIsotopeMasses, //[out]
                                         std::vector<std::pair<double, double> >& isotopeMasses, //[out]
                                         TheoreticalSpectrumGenerator const * g,
@@ -137,7 +139,7 @@ namespace OpenMS
                               double charge = 1.);
 
     /// given an experimental spectrum add isotope pattern.
-    OPENMS_DLLAPI void addIsotopes2Spec(const std::vector<std::pair<double, double> >& spec,
+    OPENMS_DLLAPI void addIsotopes2Spec( IsotopeDistributionCache& iso, const std::vector<std::pair<double, double> >& spec,
                           std::vector<std::pair<double, double> >& isotopeMasses, //[out]
                           double charge = 1.);
 
@@ -147,7 +149,7 @@ namespace OpenMS
     OPENMS_DLLAPI void extractFirst(const std::vector<std::pair<double, double> >& peaks, std::vector<double>& mass);
     /// extract second from vector of pairs
     OPENMS_DLLAPI void extractSecond(const std::vector<std::pair<double, double> >& peaks, std::vector<double>& mass);
-    
+
     ///}@
   }
 }

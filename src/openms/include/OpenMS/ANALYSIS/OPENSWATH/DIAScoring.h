@@ -42,6 +42,7 @@
 #include <OpenMS/OPENSWATHALGO/DATAACCESS/DataStructures.h>
 #include <OpenMS/OPENSWATHALGO/DATAACCESS/ITransition.h>
 #include <OpenMS/OPENSWATHALGO/DATAACCESS/TransitionExperiment.h>
+#include <OpenMS/FILTERING/DATAREDUCTION/IsotopeDistributionCache.h>
 
 namespace OpenMS
 {
@@ -92,7 +93,6 @@ namespace OpenMS
     //@}
 
 public:
-
     ///@name Constructors and Destructor
     //@{
     /// Default constructor
@@ -146,9 +146,10 @@ public:
                              const std::vector<TransitionType>& transitions,
                              double& dotprod,
                              double& manhattan);
-    //@}
 
-private:
+    IsotopeDistributionCache& getCache();
+    //@}
+  private:
 
     /// Copy constructor (algorithm class)
     DIAScoring(const DIAScoring& rhs);
@@ -214,6 +215,8 @@ private:
     double peak_before_mono_max_ppm_diff_;
     bool dia_extraction_ppm_;
     bool dia_centroided_;
+
+    IsotopeDistributionCache iso_;
 
     TheoreticalSpectrumGenerator * generator;
   };

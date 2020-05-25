@@ -268,7 +268,12 @@ namespace OpenMS
                                        double& dotprod, double& manhattan)
   {
     OpenMS::DiaPrescore dp(dia_extract_window_, dia_nr_isotopes_, dia_nr_charges_);
-    dp.score(spectrum, transitions, dotprod, manhattan);
+    dp.score(iso_,spectrum, transitions, dotprod, manhattan);
+  }
+
+  IsotopeDistributionCache& DIAScoring::getCache()
+  {
+    return iso_;
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -295,6 +300,7 @@ namespace OpenMS
     std::vector<double> isotopes_int;
     double max_ratio;
     int nr_occurences;
+
     for (Size k = 0; k < transitions.size(); k++)
     {
       isotopes_int.clear();
@@ -394,37 +400,13 @@ namespace OpenMS
       // create the theoretical distribution from the sum formula
       EmpiricalFormula empf(sum_formula);
       isotope_dist = empf.getIsotopeDistribution(CoarseIsotopePatternGenerator(dia_nr_isotopes_));
+      iso_.renormalize(isotopes, isotope_dist);
     }
     else
     {
       // create the theoretical distribution from the peptide weight
-      CoarseIsotopePatternGenerator solver(dia_nr_isotopes_ + 1);
-      isotope_dist = solver.estimateFromPeptideWeight(std::fabs(product_mz * putative_fragment_charge));
+      isotopes = iso_.getIsotopeDistribution(std::fabs(product_mz * putative_fragment_charge));
     }
-
-
-    for (IsotopeDistribution::Iterator it = isotope_dist.begin(); it != isotope_dist.end(); ++it)
-    {
-      isotopes.intensity.push_back(it->getIntensity());
-    }
-    isotopes.optional_begin = 0;
-    isotopes.optional_end = dia_nr_isotopes_;
-
-    // scale the distribution to a maximum of 1
-    double max = 0.0;
-    for (Size i = 0; i < isotopes.intensity.size(); ++i)
-    {
-      if (isotopes.intensity[i] > max)
-      {
-        max = isotopes.intensity[i];
-      }
-    }
-    isotopes.max = max;
-    for (Size i = 0; i < isotopes.intensity.size(); ++i)
-    {
-      isotopes.intensity[i] /= max;
-    }
-    isotopes.trimmed_left = 0;
 
     // score the pattern against a theoretical one
     double int_score = OpenSwath::cor_pearson(isotopes_int.begin(), isotopes_int.end(), isotopes.intensity.begin());
@@ -435,5 +417,6 @@ namespace OpenMS
     return int_score;
 
   } //end of dia_isotope_corr_sub
+
 
 }

@@ -39,11 +39,14 @@
 #include <OpenMS/TRANSFORMATIONS/FEATUREFINDER/FeatureFinderAlgorithmPickedHelperStructs.h>
 #include <OpenMS/TRANSFORMATIONS/FEATUREFINDER/FeatureFinderAlgorithm.h>
 
+#include <OpenMS/FILTERING/DATAREDUCTION/IsotopeDistributionCache.h>
+
 #include <OpenMS/KERNEL/MSSpectrum.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
 
 #include <utility>
 #include <boost/bind.hpp>
+#include <include/OpenMS/ANALYSIS/OPENSWATH/DIAScoring.h>
 
 namespace OpenMS
 {
@@ -252,7 +255,8 @@ namespace OpenMS
       }
     } // end getBYSeries
 
-    void getAveragineIsotopeDistribution(const double product_mz,
+    void getAveragineIsotopeDistribution( IsotopeDistributionCache& iso,
+                                         const double product_mz,
                                          std::vector<std::pair<double, double> >& isotopesSpec,
                                          const double charge,
                                          const int nr_isotopes,
@@ -260,12 +264,13 @@ namespace OpenMS
     {
       typedef OpenMS::FeatureFinderAlgorithmPickedHelperStructs::TheoreticalIsotopePattern TheoreticalIsotopePattern;
       // create the theoretical distribution
-      CoarseIsotopePatternGenerator solver(nr_isotopes);
-      TheoreticalIsotopePattern isotopes;
-      auto d = solver.estimateFromPeptideWeight(product_mz * charge);
+//      CoarseIsotopePatternGenerator solver(nr_isotopes);
+//      TheoreticalIsotopePattern isotopes;
+//      auto d = solver.estimateFromPeptideWeight(product_mz * charge);
+      auto d = iso.getIntensity(product_mz * charge);
 
       double mass = product_mz;
-      for (IsotopeDistribution::Iterator it = d.begin(); it != d.end(); ++it)
+      for (IsotopeDistribution::iterator it = d.begin() ; it != d.end(); ++it)
       {
         isotopesSpec.push_back(std::make_pair(mass, it->getIntensity()));
         mass += mannmass;
@@ -273,7 +278,8 @@ namespace OpenMS
     } //end of dia_isotope_corr_sub
 
     //simulate spectrum from AASequence
-    void simulateSpectrumFromAASequence(const AASequence& aa,
+    void simulateSpectrumFromAASequence(IsotopeDistributionCache& iso,
+                                        const AASequence& aa,
                                         std::vector<double>& firstIsotopeMasses, //[out]
                                         std::vector<std::pair<double, double> >& isotopeMasses, //[out]
                                         TheoreticalSpectrumGenerator const * generator, double charge)
@@ -281,13 +287,12 @@ namespace OpenMS
       getTheorMasses(aa, firstIsotopeMasses, generator, charge);
       for (std::size_t i = 0; i < firstIsotopeMasses.size(); ++i)
       {
-        getAveragineIsotopeDistribution(firstIsotopeMasses[i], isotopeMasses,
-                                        charge);
+        getAveragineIsotopeDistribution(iso, firstIsotopeMasses[i], isotopeMasses,charge);
       }
     }
 
     //given an experimental spectrum add isotope pattern.
-    void addIsotopes2Spec(const std::vector<std::pair<double, double> >& spec,
+    void addIsotopes2Spec( IsotopeDistributionCache& iso, const std::vector<std::pair<double, double> >& spec,
                           std::vector<std::pair<double, double> >& isotopeMasses, //[out]
                           double charge)
     {
@@ -295,7 +300,7 @@ namespace OpenMS
       for (std::size_t i = 0; i < spec.size(); ++i)
       {
         std::vector<std::pair<double, double> > isotopes;
-        getAveragineIsotopeDistribution(spec[i].first, isotopes, charge);
+        getAveragineIsotopeDistribution(iso,spec[i].first, isotopes,charge);
         for (Size j = 0; j < isotopes.size(); ++j)
         {
           isotopes[j].second *= spec[i].second; //multiple isotope intensity by spec intensity
