@@ -77,7 +77,6 @@ public:
     enum IntensityThresholdCalculation {MANUAL = -1, AUTOMAXBYSTDEV = 0, AUTOMAXBYPERCENT = 1};
 
     using SignalToNoiseEstimator<Container>::stn_estimates_;
-    using SignalToNoiseEstimator<Container>::is_result_valid_;
     using SignalToNoiseEstimator<Container>::defaults_;
     using SignalToNoiseEstimator<Container>::param_;
 
@@ -402,7 +401,7 @@ protected:
       stdev_                 = (double)param_.getValue("stdev_mp");
       min_required_elements_ = param_.getValue("min_required_elements");
       noise_for_empty_window_ = (double)param_.getValue("noise_for_empty_window");
-      is_result_valid_ = false;
+      stn_estimates_.clear();
     }
 
     /// maximal intensity considered during binning (values above get discarded)

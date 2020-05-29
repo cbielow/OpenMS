@@ -70,9 +70,7 @@ public:
     /// Constructor
     inline SignalToNoiseEstimator() :
       DefaultParamHandler("SignalToNoiseEstimator"),
-      ProgressLogger(),
-      c(),
-      is_result_valid_(false)
+      ProgressLogger()
     {
     }
 
@@ -80,9 +78,7 @@ public:
     inline SignalToNoiseEstimator(const SignalToNoiseEstimator & source) :
       DefaultParamHandler(source),
       ProgressLogger(source),
-      stn_estimates_(source.stn_estimates_),
-      c(source.c),
-      is_result_valid_(source.is_result_valid_)
+      stn_estimates_(source.stn_estimates_)
     {}
 
     /// Assignment operator
@@ -93,7 +89,6 @@ public:
       DefaultParamHandler::operator=(source);
       ProgressLogger::operator=(source);
       stn_estimates_ = source.stn_estimates_;
-      c = source.c;
       return *this;
     }
 
@@ -105,22 +100,16 @@ public:
     virtual void init(const Container& c)
     {
       computeSTN_(c);
-      is_result_valid_ = true;
     }
 
     ///Return to signal/noise estimate for date point @p index
-    ///@note the first query to this function will taake longer, as
+    ///@note the first query to this function will take longer, as
     ///      all SignalToNoise values are calculated.
     ///@note you will get a warning to stderr if more than 20% of the
     ///      noise estimates used sparse windows
     virtual double getSignalToNoise(const Size index)
     {
-      if (!is_result_valid_)
-      {
-        // recompute ...
-        init(c);
-      }
-
+      OPENMS_POSTCONDITION(condition,message);
       return stn_estimates_[index];
     }
 
@@ -182,10 +171,6 @@ protected:
 
     /// stores the noise estimate for each peak
     std::vector<double> stn_estimates_;
-    /// raw data;
-    Container c;
-    /// flag: set to true if SignalToNoise estimates are calculated and none of the params were changed. otherwise false.
-    mutable bool is_result_valid_;
   };
 
 } // namespace OpenMS
