@@ -103,13 +103,11 @@ public:
     }
 
     ///Return to signal/noise estimate for date point @p index
-    ///@note the first query to this function will take longer, as
-    ///      all SignalToNoise values are calculated.
     ///@note you will get a warning to stderr if more than 20% of the
     ///      noise estimates used sparse windows
     virtual double getSignalToNoise(const Size index)
     {
-      OPENMS_POSTCONDITION(condition,message);
+      OPENMS_POSTCONDITION(index < stn_estimates_.size(),"SignalToNoiseEstimator estimates beyond container size was requested.");
       return stn_estimates_[index];
     }
 
