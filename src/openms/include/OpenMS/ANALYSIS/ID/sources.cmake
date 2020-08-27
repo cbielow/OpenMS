@@ -5,6 +5,7 @@ set(directory include/OpenMS/ANALYSIS/ID)
 set(sources_list_h
 AccurateMassSearchEngine.h
 AhoCorasickAmbiguous.h
+AhoCorasickDA.h
 AScore.h
 BasicProteinInferenceAlgorithm.h
 BayesianProteinInferenceAlgorithm.h

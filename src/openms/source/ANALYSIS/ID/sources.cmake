@@ -5,6 +5,7 @@ set(directory source/ANALYSIS/ID)
 set(sources_list
 AccurateMassSearchEngine.cpp
 AhoCorasickAmbiguous.cpp
+AhoCorasickDA.cpp
 AScore.cpp
 BasicProteinInferenceAlgorithm.cpp
 BayesianProteinInferenceAlgorithm.cpp
