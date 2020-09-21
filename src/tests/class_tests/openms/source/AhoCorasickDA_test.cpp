@@ -66,8 +66,10 @@ START_TEST(AhoCorasickDA, "$Id$")
 
   ac_da.printDA(false);
 
-  std::vector<String> keys = {"VAR", "AAR", "AA", "DVAR", "DKL", "ARK", "ARK"};
-  std::vector<String> keysAmbigious = {"OK", "WITHB"};
+  std::vector<String> keys = {"VARK", "AAR", "AA", "DLAR", "DKL", "ARK", "ARK", "A", "KVAR", "KVAK"};
+  std::vector<String> ambigious_tail = {"WITHB"};
+  std::vector<String> ambigious_bc = {"ABCDE", "ABCFG"};
+
   std::vector<String> empty = {};
   //std::vector<String> large = ...;
 
@@ -75,56 +77,305 @@ START_TEST(AhoCorasickDA, "$Id$")
 
   ac_keys.printDA(true);
 
-
-
-
-
   START_SECTION(bool findNext(Size& pos_in_protein, Size& peptide_index))
   {
 
+
     TEST_EXCEPTION_WITH_MESSAGE(Exception::InvalidParameter, AhoCorasickDA ac_empty(empty), "No sequences given");
-    TEST_EXCEPTION_WITH_MESSAGE(Exception::IllegalArgument, AhoCorasickDA ac_ambigious(keysAmbigious), "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
+    TEST_EXCEPTION_WITH_MESSAGE(Exception::IllegalArgument, AhoCorasickDA ac_ambigious_t(ambigious_tail ), "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
+    TEST_EXCEPTION_WITH_MESSAGE(Exception::IllegalArgument, AhoCorasickDA ac_ambigious_b(ambigious_bc ), "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
     //TEST_EXCEPTION(Exception::InvalidSize, AhoCorasickDA ac_large(large))
 
     Size pos = 0;
     Size idx = 0;
 
-    TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.findNext(pos, idx), "No protein for retrieval. Use function 'setProtein()'");
+    //TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.findNext(pos, idx), "No protein for retrieval. Use function 'setProtein()'");
 
-    ac_keys.setProtein("AARDVARK");
+    std::vector<String> observed{};
 
-    std::vector<Size>position{};
-    std::vector<Size>index{};
+    ac_keys.setProtein("AARDVARK", 0);
     while(ac_keys.findNext(pos, idx))
     {
-      position.push_back(pos);
-      index.push_back(idx);
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      //std::cout << std::endl;
+      //std::cout << std::endl;
     }
 
-    TEST_EQUAL(position[0], 0);
-    TEST_EQUAL(position[1], 0);
-    TEST_EQUAL(position[2], 3);
-    TEST_EQUAL(position[3], 4);
-    TEST_EQUAL(position[4], 5);
-    TEST_EQUAL(position[5], 5);
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
 
-    TEST_EQUAL(index[0], 2);
-    TEST_EQUAL(index[1], 1);
-    TEST_EQUAL(index[2], 3);
-    TEST_EQUAL(index[3], 0);
-    TEST_EQUAL(index[4], 5);
-    TEST_EQUAL(index[5], 6);
+    TEST_EQUAL(observed.size(), 8)
+    TEST_EQUAL(observed[0], "A7 @ 0");
+    TEST_EQUAL(observed[1], "AA2 @ 0");
+    TEST_EQUAL(observed[2], "A7 @ 1")
+    TEST_EQUAL(observed[3], "AAR1 @ 0");
+    TEST_EQUAL(observed[4], "A7 @ 5")
+    TEST_EQUAL(observed[5], "VARK0 @ 4");
+    TEST_EQUAL(observed[6], "ARK6 @ 5");
+    TEST_EQUAL(observed[7], "ARK5 @ 5");
 
 
 
-    ac_keys.setProtein("VAR");
+    ac_keys.setProtein("DKL", 0);
 
     ac_keys.findNext(pos, idx);
 
-    TEST_EQUAL(pos, 0);
-    TEST_EQUAL(idx, 0);
+    TEST_EQUAL(keys[idx] + String(idx) + " @ " + String(pos), "DKL4 @ 0");
 
 
+    ac_keys.setProtein("CBKJ", 3);
+
+    ac_keys.findNext(pos, idx);
+
+    TEST_EQUAL(keys[idx] + String(idx) + " @ " + String(pos), "DKL4 @ 1");
+
+    observed.clear();
+    ac_keys.setProtein("AXX", 3);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      //std::cout << std::endl;
+      //std::cout << std::endl;
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 8)
+    TEST_EQUAL(observed[0], "A7 @ 0");
+    TEST_EQUAL(observed[1], "A7 @ 2");
+    TEST_EQUAL(observed[2], "ARK5 @ 0");
+    TEST_EQUAL(observed[3], "ARK6 @ 0");
+    TEST_EQUAL(observed[4], "AA2 @ 0");
+    TEST_EQUAL(observed[5], "A7 @ 1");
+    TEST_EQUAL(observed[6], "AAR1 @ 0");
+    TEST_EQUAL(observed[7], "AA2 @ 1");
+
+
+
+    observed.clear();
+    ac_keys.setProtein("XXX", 3);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 9)
+    TEST_EQUAL(observed[0], "A7 @ 2");
+    TEST_EQUAL(observed[1], "A7 @ 1");
+    TEST_EQUAL(observed[2], "AA2 @ 1");
+    TEST_EQUAL(observed[3], "DKL4 @ 0");
+    TEST_EQUAL(observed[4], "A7 @ 0");
+    TEST_EQUAL(observed[5], "ARK5 @ 0");
+    TEST_EQUAL(observed[6], "ARK6 @ 0");
+    TEST_EQUAL(observed[7], "AA2 @ 0");
+    TEST_EQUAL(observed[8], "AAR1 @ 0");
+
+    observed.clear();
+    ac_keys.setProtein("XVAXX", 3);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      //std::cout << std::endl;
+      //std::cout << std::endl;
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 12)
+    TEST_EQUAL(observed[0], "A7 @ 2");
+    TEST_EQUAL(observed[1], "A7 @ 4");
+    TEST_EQUAL(observed[2], "VARK0 @ 1");
+    TEST_EQUAL(observed[3], "ARK6 @ 2");
+    TEST_EQUAL(observed[4], "ARK5 @ 2");
+    TEST_EQUAL(observed[5], "AA2 @ 2");
+    TEST_EQUAL(observed[6], "A7 @ 3");
+    TEST_EQUAL(observed[7], "AAR1 @ 2");
+    TEST_EQUAL(observed[8], "AA2 @ 3");
+    TEST_EQUAL(observed[9], "KVAR8 @ 0");
+    TEST_EQUAL(observed[10], "KVAK9 @ 0");
+    TEST_EQUAL(observed[11], "A7 @ 0");
+
+
+    observed.clear();
+    ac_keys.setProtein("VARXKJ", 2);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+    }
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 6)
+    TEST_EQUAL(observed[0], "A7 @ 1");
+    TEST_EQUAL(observed[1], "DKL4 @ 3");
+    TEST_EQUAL(observed[2], "VARK0 @ 0");
+    TEST_EQUAL(observed[3], "ARK6 @ 1");
+    TEST_EQUAL(observed[4], "ARK5 @ 1");
+    TEST_EQUAL(observed[5], "A7 @ 3");
+
+
+    observed.clear();
+    ac_keys.setProtein("XXAX", 3);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 11)
+    TEST_EQUAL(observed[0], "A7 @ 2");
+    TEST_EQUAL(observed[1], "AA2 @ 2");
+    TEST_EQUAL(observed[2], "A7 @ 3");
+    TEST_EQUAL(observed[3], "A7 @ 1");
+    TEST_EQUAL(observed[4], "AA2 @ 1");
+    TEST_EQUAL(observed[5], "AAR1 @ 1");
+    TEST_EQUAL(observed[6], "DLAR3 @ 0");
+    TEST_EQUAL(observed[7], "KVAR8 @ 0");
+    TEST_EQUAL(observed[8], "KVAK9 @ 0");
+    TEST_EQUAL(observed[9], "A7 @ 0");
+    TEST_EQUAL(observed[10], "AA2 @ 0");
+
+
+
+    observed.clear();
+    ac_keys.setProtein("XXXX", 2);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 7)
+    TEST_EQUAL(observed[0], "A7 @ 3");
+    TEST_EQUAL(observed[1], "A7 @ 2");
+    TEST_EQUAL(observed[2], "AA2 @ 2");
+    TEST_EQUAL(observed[3], "A7 @ 1");
+    TEST_EQUAL(observed[4], "AA2 @ 1");
+    TEST_EQUAL(observed[5], "A7 @ 0");
+    TEST_EQUAL(observed[6], "AA2 @ 0");
+
+
+
+
+
+    observed.clear();
+    ac_keys.setProtein("VAXXXXKL", 1);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+
+    }
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 7)
+    TEST_EQUAL(observed[0], "A7 @ 1")
+    TEST_EQUAL(observed[1], "DKL4 @ 5");
+    TEST_EQUAL(observed[2], "A7 @ 5");
+    TEST_EQUAL(observed[3], "A7 @ 4");
+    TEST_EQUAL(observed[4], "A7 @ 3")
+    TEST_EQUAL(observed[5], "AA2 @ 1");
+    TEST_EQUAL(observed[6], "A7 @ 2");
+
+
+    observed.clear();
+    ac_keys.setProtein("DKLBXJX", 1);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      //std::cout << std::endl;
+      //std::cout << std::endl;
+    }
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 3)
+    TEST_EQUAL(observed[0], "DKL4 @ 0");
+    TEST_EQUAL(observed[1], "A7 @ 6")
+    TEST_EQUAL(observed[2], "A7 @ 4");
+
+
+    observed.clear();
+    ac_keys.setProtein("DKLBXJX", 3);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+
+    }
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 4)
+    TEST_EQUAL(observed[0], "DKL4 @ 0");
+    TEST_EQUAL(observed[1], "A7 @ 6")
+    TEST_EQUAL(observed[2], "A7 @ 4");
+    TEST_EQUAL(observed[3], "DKL4 @ 3");
+
+
+    observed.clear();
+    ac_keys.setProtein("aard", 0);
+    while(ac_keys.findNext(pos, idx))
+    {
+      observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      //std::cout << std::endl;
+      //std::cout << std::endl;
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
+    TEST_EQUAL(observed.size(), 4)
+    TEST_EQUAL(observed[0], "A7 @ 0");
+    TEST_EQUAL(observed[1], "AA2 @ 0");
+    TEST_EQUAL(observed[2], "A7 @ 1")
+    TEST_EQUAL(observed[3], "AAR1 @ 0");
   }
   END_SECTION
 
