@@ -66,17 +66,17 @@ namespace OpenMS
     /// Destructor
     ~AhoCorasickDA() = default;
 
+    /// Set new protein sequence. All previous data is forgotten.
+    void setProtein(const String& prot, const uint8_t amb_max = 3);
 
     /**
-     * @brief 
-     * @param pos_in_protein position in the set protein
-     * @param peptide_index index of sequence in given vector
+     * @brief
+     * @param[out] pos_in_protein Position (zero-based) in the protein
+     * @param[out] peptide_index index of sequence in given vector
      * @return  False if end of protein is reached. True if a hit is found.
      */
     bool findNext(Size& pos_in_protein, Size& peptide_index);
 
-    /// Set new protein sequence. All previous data is forgotten.
-    void setProtein(const char* prot, const uint8_t amb_max);
 
     // for debugging
     bool retrievalCDA();
@@ -100,7 +100,7 @@ namespace OpenMS
     };
 
     /// The properties of a node in the BC array
-    struct BC_
+    struct BCNode_
     {
       UInt32 base       :22 ;    ///< base value of DA
       UInt32 lcheck     :8  ;    ///< arc label from parent node. Only code of the aa is stored
@@ -109,9 +109,9 @@ namespace OpenMS
     };
 
     /// The properties of node in Tail
-    struct Tail_
+    struct TailNode_
     {
-      explicit Tail_(const uint8_t code) : label(code), term_flag(0){};
+      explicit TailNode_(const uint8_t code) : label(code), term_flag(0){};
       uint8_t label      :7  ;  ///< code of aa
       uint8_t term_flag  :1  ;  ///< marks the end of a sequence if the sequence is a substring of another sequence
     };
@@ -145,10 +145,10 @@ namespace OpenMS
     std::vector<BuildInformation_> build_info_{};
 
     /// BC array. Contains all nodes which have at least two children.
-    std::vector<BC_> bc_{};
+    std::vector<BCNode_> bc_{};
 
     /// tail
-    std::vector<Tail_> tail_ = {Tail_(0)};
+    std::vector<TailNode_> tail_ = {TailNode_(0)};
 
     /// failure function
     std::vector<SupplyLink_> failure_tail_;
@@ -279,7 +279,7 @@ namespace OpenMS
      * @param tail_str pointer to a given position in Tail
      * @return true if a sequences was found, otherwise failure is called and returned
      */
-    bool compareTail_(const Tail_* tail_str);
+    bool compareTail_(const TailNode_* tail_str);
 
     /**
      * @brief set new node_pos if retrieval fails

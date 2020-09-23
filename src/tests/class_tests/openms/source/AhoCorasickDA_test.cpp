@@ -238,7 +238,7 @@ START_TEST(AhoCorasickDA, "$Id$")
 
 
     observed.clear();
-    ac_keys.setProtein("XXAX", 3);
+    ac_keys.setProtein("XXAX");
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
@@ -376,6 +376,8 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EQUAL(observed[1], "AA2 @ 0");
     TEST_EQUAL(observed[2], "A7 @ 1")
     TEST_EQUAL(observed[3], "AAR1 @ 0");
+
+    TEST_FILE_EQUAL(OPENMS_GET_TEST_DATA_PATH("PeptideIndexerAmbiguous.idXML"), OPENMS_GET_TEST_DATA_PATH("PeptideIndexerDA.idXML"))
   }
   END_SECTION
 

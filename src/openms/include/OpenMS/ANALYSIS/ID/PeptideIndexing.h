@@ -35,7 +35,8 @@
 #pragma once
 
 
-#include <OpenMS/ANALYSIS/ID/AhoCorasickAmbiguous.h>
+//#include <OpenMS/ANALYSIS/ID/AhoCorasickAmbiguous.h>
+#include <OpenMS/ANALYSIS/ID/AhoCorasickDA.h>
 #include <OpenMS/CHEMISTRY/ProteaseDigestion.h>
 #include <OpenMS/CHEMISTRY/ProteaseDB.h>
 #include <OpenMS/CONCEPT/LogStream.h>
@@ -311,7 +312,8 @@ public:
         BUILD Peptide DB
         */
         bool has_illegal_AAs(false);
-        AhoCorasickAmbiguous::PeptideDB pep_DB;
+        //AhoCorasickAmbiguous::PeptideDB pep_DB;
+        std::vector<String> pep_DB;
         for (std::vector<PeptideIdentification>::const_iterator it1 = pep_ids.begin(); it1 != pep_ids.end(); ++it1)
         {
           //String run_id = it1->getIdentifier();
@@ -323,16 +325,18 @@ public:
             // do not skip over peptides here, since the results are iterated in the same way
             //
             String seq = it2->getSequence().toUnmodifiedString().remove('*'); // make a copy, i.e. do NOT change the peptide sequence!
-            if (seqan::isAmbiguous(seqan::AAString(seq.c_str())))
+           /* if (seqan::isAmbiguous(seqan::AAString(seq.c_str())))
             { // do not quit here, to show the user all sequences .. only quit after loop
               OPENMS_LOG_ERROR << "Peptide sequence '" << it2->getSequence() << "' contains one or more ambiguous amino acids (B|J|Z|X).\n";
               has_illegal_AAs = true;
-            }
+            }*/
             if (IL_equivalent_) // convert L to I;
             {
               seq.substitute('L', 'I');
             }
-            appendValue(pep_DB, seq.c_str());
+
+            //appendValue(pep_DB, seq.c_str());
+            pep_DB.push_back(seq);
           }
         }
         if (has_illegal_AAs)
@@ -340,10 +344,10 @@ public:
           OPENMS_LOG_ERROR << "One or more peptides contained illegal amino acids. This is not allowed!"
                     << "\nPlease either remove the peptide or replace it with one of the unambiguous ones (while allowing for ambiguous AA's to match the protein)." << std::endl;;
         }
+//length(pep_DB)
+        OPENMS_LOG_INFO << "Mapping " << pep_DB.size() << " peptides to " << (proteins.size() == PROTEIN_CACHE_SIZE ? "? (unknown number of)" : String(proteins.size()))  << " proteins." << std::endl;
 
-        OPENMS_LOG_INFO << "Mapping " << length(pep_DB) << " peptides to " << (proteins.size() == PROTEIN_CACHE_SIZE ? "? (unknown number of)" : String(proteins.size()))  << " proteins." << std::endl;
-
-        if (length(pep_DB) == 0)
+        if (pep_DB.size() == 0)
         { // Aho-Corasick will crash if given empty needles as input
           OPENMS_LOG_WARN << "Warning: Peptide identifications have no hits inside! Output will be empty as well." << std::endl;
           return PEPTIDE_IDS_EMPTY;
@@ -357,8 +361,12 @@ public:
         OPENMS_LOG_INFO << "Building trie ...";
         StopWatch s;
         s.start();
-        AhoCorasickAmbiguous::FuzzyACPattern pattern;
-        AhoCorasickAmbiguous::initPattern(pep_DB, aaa_max_, mm_max_, pattern);
+
+        //AhoCorasickAmbiguous::FuzzyACPattern pattern;
+        //AhoCorasickAmbiguous::initPattern(pep_DB, aaa_max_, mm_max_, pattern);
+        Size pos = 0;
+        Size idx = 0;
+        AhoCorasickDA fuzzyAC(pep_DB);
         s.stop();
         OPENMS_LOG_INFO << " done (" << int(s.getClockTime()) << "s)" << std::endl;
         s.reset();
@@ -370,12 +378,13 @@ public:
         this->startProgress(0, proteins.size() == PROTEIN_CACHE_SIZE ? std::numeric_limits<SignedSize>::max() : proteins.size(), "Aho-Corasick");
         std::atomic<int> progress_prots(0);
 #ifdef _OPENMP
-#pragma omp parallel
+//#pragma omp parallel
 #endif
         {
           FoundProteinFunctor func_threads(enzyme, xtandem_fix_parameters);
           Map<String, Size> acc_to_prot_thread; // map: accessions --> FASTA protein index
-          AhoCorasickAmbiguous fuzzyAC;
+          //AhoCorasickAmbiguous fuzzyAC;
+
           String prot;
 
           while (true) 
@@ -383,7 +392,7 @@ public:
             #pragma omp barrier // all threads need to be here, since we are about to swap protein data
             #pragma omp single
             {
-              DEBUG_ONLY std::cerr << " activating cache ...\n";
+              //DEBUG_ONLY std::cerr << " activating cache ...\n";
               has_active_data = proteins.activateCache(); // swap in last cache
               protein_accessions.resize(proteins.getChunkOffset() + proteins.chunkSize());
             } // implicit barrier here
@@ -393,7 +402,7 @@ public:
 
             #pragma omp master
             {
-              DEBUG_ONLY std::cerr << "Filling Protein Cache ...";
+              //DEBUG_ONLY std::cerr << "Filling Protein Cache ...";
               proteins.cacheChunk(PROTEIN_CACHE_SIZE);
               protein_is_decoy.resize(proteins.getChunkOffset() + prot_count);
               for (SignedSize i = 0; i < prot_count; ++i)
@@ -401,9 +410,9 @@ public:
                 const String& seq = proteins.chunkAt(i).identifier;
                 protein_is_decoy[i + proteins.getChunkOffset()] = (prefix_ ? seq.hasPrefix(decoy_string_) : seq.hasSuffix(decoy_string_));
               }
-              DEBUG_ONLY std::cerr << " done" << std::endl;
+              //DEBUG_ONLY std::cerr << " done" << std::endl;
             }
-            DEBUG_ONLY std::cerr << " starting for loop \n";
+            //DEBUG_ONLY std::cerr << " starting for loop \n";
             // search all peptides in each protein
             #pragma omp for schedule(dynamic, 100) nowait
             for (SignedSize i = 0; i < prot_count; ++i)
@@ -452,7 +461,7 @@ public:
                 while ((offset = prot.find(jumpX, offset + 1)) != std::string::npos)
                 {
                   //std::cout << "found X..X at " << offset << " in protein " << proteins[i].identifier << "\n";
-                  addHits_(fuzzyAC, pattern, pep_DB, prot.substr(start, offset + jumpX.size() - start), prot, prot_idx, (int)start, func_threads);
+                  addHits_(fuzzyAC, pos, idx, aaa_max_, pep_DB, prot.substr(start, offset + jumpX.size() - start), prot, prot_idx, (int)start, func_threads);
                   // skip ahead while we encounter more X...
                   while (offset + jumpX.size() < prot.size() && prot[offset + jumpX.size()] == 'X') ++offset;
                   start = offset;
@@ -461,12 +470,12 @@ public:
                 // last chunk
                 if (start < prot.size())
                 {
-                  addHits_(fuzzyAC, pattern, pep_DB, prot.substr(start), prot, prot_idx, (int)start, func_threads);
+                  addHits_(fuzzyAC, pos, idx, aaa_max_, pep_DB, prot.substr(start), prot, prot_idx, (int)start, func_threads);
                 }
               }
               else
               {
-                addHits_(fuzzyAC, pattern, pep_DB, prot, prot, prot_idx, 0, func_threads);
+                addHits_(fuzzyAC, pos, idx, aaa_max_, pep_DB, prot, prot, prot_idx, 0, func_threads);
               }
               // was protein found?
               if (hits_total < func_threads.filter_passed + func_threads.filter_rejected)
@@ -477,7 +486,7 @@ public:
             } // end parallel FOR
 
             // join results again
-            DEBUG_ONLY std::cerr << " critical now \n";
+           // DEBUG_ONLY std::cerr << " critical now \n";
             #ifdef _OPENMP
             #pragma omp critical(PeptideIndexer_joinAC)
             #endif
@@ -497,7 +506,7 @@ public:
         mu.after();
         std::cout << mu.delta("Aho-Corasick") << "\n\n";
 
-        OPENMS_LOG_INFO << "\nAho-Corasick done:\n  found " << func.filter_passed << " hits for " << func.pep_to_prot.size() << " of " << length(pep_DB) << " peptides.\n";
+        OPENMS_LOG_INFO << "\nAho-Corasick done:\n  found " << func.filter_passed << " hits for " << func.pep_to_prot.size() << " of " << pep_DB.size() << " peptides.\n";
 
         // write some stats
         OPENMS_LOG_INFO << "Peptide hits passing enzyme filter: " << func.filter_passed << "\n"
@@ -855,13 +864,15 @@ public:
 
     };
 
-    inline void addHits_(AhoCorasickAmbiguous& fuzzyAC, const AhoCorasickAmbiguous::FuzzyACPattern& pattern, const AhoCorasickAmbiguous::PeptideDB& pep_DB, const String& prot, const String& full_prot, SignedSize idx_prot, Int offset, FoundProteinFunctor& func_threads) const
+   //inline void addHits_(AhoCorasickAmbiguous& fuzzyAC, const AhoCorasickAmbiguous::FuzzyACPattern& pattern, const AhoCorasickAmbiguous::PeptideDB& pep_DB, const String& prot, const String& full_prot, SignedSize idx_prot, Int offset, FoundProteinFunctor& func_threads) const
+
+   inline void addHits_(AhoCorasickDA& fuzzyAC, Size& pos_in_protein, Size& peptide_index, const Int amb_max, const std::vector<String>& pep_DB, const String& prot, const String& full_prot, SignedSize idx_prot, Int offset, FoundProteinFunctor& func_threads) const
     {
-      fuzzyAC.setProtein(prot);
-      while (fuzzyAC.findNext(pattern))
+      fuzzyAC.setProtein(prot, amb_max);
+      while (fuzzyAC.findNext(pos_in_protein, peptide_index))
       {
-        const seqan::Peptide& tmp_pep = pep_DB[fuzzyAC.getHitDBIndex()];
-        func_threads.addHit(fuzzyAC.getHitDBIndex(), idx_prot, length(tmp_pep), full_prot, fuzzyAC.getHitProteinPosition() + offset);
+        const String tmp_pep = pep_DB[peptide_index];
+        func_threads.addHit(peptide_index, idx_prot, tmp_pep.length(), full_prot, pos_in_protein + offset);
       }
     }
 

@@ -143,8 +143,8 @@ namespace OpenMS
     UInt32 out = 0;
     for (const String& i: sequences_)
     {
-      const char* c = i.c_str();
-      setProtein(c, 0);
+
+      setProtein(i, 0);
 
       if (retrievalCDA())
       {
@@ -257,9 +257,9 @@ namespace OpenMS
   }
 
 
-  void AhoCorasickDA::setProtein(const char* prot, const uint8_t amb_max)
+  void AhoCorasickDA::setProtein(const String& prot, const uint8_t amb_max)
   {
-    protein_ = prot;
+    protein_ = prot.c_str();
     prot_pos_ = 0;
     node_pos_ = 0;
     amb_max_ = amb_max;
@@ -402,7 +402,7 @@ namespace OpenMS
 
   bool AhoCorasickDA::retrieval_()
   {
-    Tail_ * tail_str;
+    TailNode_ * tail_str;
 
     // node is in BC array
     if (node_pos_ >= 0)
@@ -473,7 +473,7 @@ namespace OpenMS
   //  it makes no difference.
   //-----------------------------------------------------------------------------------------------------------------
 
-  bool AhoCorasickDA::compareTail_(const Tail_* tail_str)
+  bool AhoCorasickDA::compareTail_(const TailNode_* tail_str)
   {
     //as long as the aa are the same, comparing and testing if a substr ends
     while (tail_str->label != 0 && tail_str->label == code_(*protein_))
@@ -741,7 +741,7 @@ namespace OpenMS
   {
     if (getChildNode_(node, label, output_node))
     {
-      output_node = output_node;
+      //output_node = output_node;
       return true;
     }
     Int32 cur_node = node;
@@ -850,7 +850,7 @@ namespace OpenMS
     // set linkage
     for (auto i = old_size; i < new_size; ++i)
     {
-      build_info_.emplace_back(BuildInformation_{i});
+      build_info_.emplace_back(i);
     }
 
 
@@ -1053,9 +1053,9 @@ namespace OpenMS
        {
          throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
        }
-      tail_.emplace_back(Tail_(code_(*str++)));
+      tail_.emplace_back(TailNode_(code_(*str++)));
      }
-     tail_.emplace_back(Tail_(0));
+     tail_.emplace_back(TailNode_(0));
   }
 
   //-----------------------------------------------------------------------------------------------------------------
