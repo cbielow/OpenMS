@@ -57,23 +57,26 @@ namespace OpenMS
 
   public:
 
-    /// constructor support DNA, RNA and Protein sequences (lower and capital letter) except ambiguous aa (B/J/X/Z)
+    /// Constructor support DNA, RNA and Protein sequences (accept lower and capital letter except ambiguous aa (B/J/X/Z))
     explicit AhoCorasickDA(const std::vector<String>& seq) : sequences_(seq)
     {
       construct_();
     }
 
+
     /// Destructor
     ~AhoCorasickDA() = default;
 
+
     /// Set new protein sequence. All previous data is forgotten.
-    void setProtein(const String& prot, const uint8_t amb_max = 3);
+    void setProtein(const char* prot, const uint8_t amb_max = 3);
+
 
     /**
-     * @brief
+     * @brief search for and numerate all occurrences of the peptides in the protein
      * @param[out] pos_in_protein Position (zero-based) in the protein
      * @param[out] peptide_index index of sequence in given vector
-     * @return  False if end of protein is reached. True if a hit is found.
+     * @return False if end of protein is reached. True if a hit is found.
      */
     bool findNext(Size& pos_in_protein, Size& peptide_index);
 
@@ -88,7 +91,7 @@ namespace OpenMS
 
   private:
 
-    /// Needed for the construction of the BC array. Contains informations about used nodes, used base values and empty elements
+    /// Node informations needed for the construction of the BC array. Contains informations about used nodes, used base values and empty elements.
     struct BuildInformation_
     {
       explicit BuildInformation_(const UInt32 index) : next(index+1), used_flag(0), prev(index-1),  base_flag(0), check(0){};
@@ -102,9 +105,9 @@ namespace OpenMS
     /// The properties of a node in the BC array
     struct BCNode_
     {
-      UInt32 base       :22 ;    ///< base value of DA
+      UInt32 base       :22 ;    ///< base value of the node
       UInt32 lcheck     :8  ;    ///< arc label from parent node. Only code of the aa is stored
-      UInt32 leaf_flag  :1  ;    ///< node is leaf
+      UInt32 leaf_flag  :1  ;    ///< marks if a node is a leaf
       UInt32 term_flag  :1  ;    ///< marks the end of a sequence if the sequence is a substring of another sequence
     };
 
@@ -112,82 +115,84 @@ namespace OpenMS
     struct TailNode_
     {
       explicit TailNode_(const uint8_t code) : label(code), term_flag(0){};
-      uint8_t label      :7  ;  ///< code of aa
+      uint8_t label      :7  ;  ///< code of aa, 0 marks the end of a sequence
       uint8_t term_flag  :1  ;  ///< marks the end of a sequence if the sequence is a substring of another sequence
     };
 
-    /// properties of Spawn
+    /// The properties of spawn. A spawn is created when an ambiguous aa is read and the possible aa form a valid transition
     struct Spawn_
     {
-      Int32 node;
-      UInt32 prot_pos;
-      uint8_t counter;
-      uint16_t max_depth_decrease;
+      Int32 node;                   ///< Node after the ambiguous aa transition
+      UInt32 prot_pos;              ///< Protein position after the ambiguous aa
+      uint8_t counter;              ///< Count of all read ambiguous aa
+      uint16_t max_depth_decrease;  ///< Depth of first occurred aa
     };
 
 
+    // TODO: Wäre es nicht sinnvoll diese Dinge im BCNode_ zu speichen? Dann spart man sich die Abfrage nach welchem Failure vector. Man ist ja schon beim Knoten.
     struct SupplyLink_
     {
-      Int32 link      :24 ;   ///< node to which the supply link leads
+      Int32 link      :24 ;   ///< node to which the supply link leads (longest suffix)
       Int32 depth     :8  ;   ///< depth of node
     };
 
-    /// given sequences for trie
+    /// Given peptides for query
     const std::vector<String>& sequences_{};
 
-    /// indices of the sorted sequences
+    /// Indices of the sorted peptides in sequences_
     std::vector<UInt32> sorted_idx_{};
 
-    /// indices of the sorted sequences, duplicate sequences removed
+    /// Indices of the sorted sequences, duplicate sequences are removed
     std::vector<UInt32> unique_idx_{};
 
-    /// stores information needed for the construction
+    /// Stores information needed for the construction
     std::vector<BuildInformation_> build_info_{};
 
     /// BC array. Contains all nodes which have at least two children.
     std::vector<BCNode_> bc_{};
 
-    /// tail
+    /// Tail array. Stores only the suffixes of the sequences, if all following nodes have exactly one child.
     std::vector<TailNode_> tail_ = {TailNode_(0)};
 
-    /// failure function
+    /// failure function // TODO: siehe oben
     std::vector<SupplyLink_> failure_tail_;
     std::vector<SupplyLink_> failure_bc_;
 
-    /// key: node position in DA, value: index of Sequence in sequences_
+    ///Output function: contains all nodes, which are terminal nodes and the index of the Peptid.  Key: node position in Trie, value: original index of peptide in sequences_
     std::unordered_map<Int32, UInt32> output_{};
 
-    /// first empty element in DA
+    /// First empty element in BC array
     UInt32 first_empty_elem_ = 0;
 
-    /// stores all edges from a node
+    /// Stores all edges from a node during trie construction
     std::vector<char> edges_{};
 
-    /// protein sequence
+    /// Protein sequence for query
     const char* protein_ = "";
 
-    /// position in protein
+    /// Current position in protein
     UInt32 prot_pos_ = 0;
 
-    /// largest index of already read amb aa
+    // TODO darüber wollte ich nochmal reden
+    /// Largest index of already read amb aa
     UInt32 pos_max_ = 0;
 
-    /// depth of the first read aa
+    /// Depth of the first read aa
     uint16_t max_depth_decrease_ = 0;
 
-    /// position in DA
+    /// Current position in trie
     Int32 node_pos_= 0;
 
-    /// contains all spawns that have not yet been processed
+    /// Contains all spawns that have not yet been processed
     std::vector<Spawn_> spawns_{};
 
-    /// contains indices of sequences if more than one hit was found at a node
+    /// Contains indices of sequences if more than one hit was found at a node
     std::vector<UInt32> multi_hit_;
 
-    /// Maximum permitted number of amb aa
+    /// Maximum allowed ambiguous characters in the matching protein sequence
     uint8_t amb_max_ = 0;
 
-    /// current count of amb aa
+    /// Current count of amb aa
     uint8_t amb_count_ = 0;
 
 
@@ -228,14 +233,23 @@ namespace OpenMS
     /// Number of non ambiguous aa
     static constexpr const uint8_t AA_COUNT_ = 22;
 
+    /// Marks that supply links of the node leads to a hit
+    static constexpr const UInt32 SUBSTR_IS_HIT = UINT32_MAX;
+
     //-------------------------------------------------------------------------------------------------------------------------------------
     //  CDA - functions
     //-------------------------------------------------------------------------------------------------------------------------------------
 
-    /// returns code of label
+    /// returns code of a aa
     uint8_t code_(const char label);
 
-    /// returns the index of child of the node with base_value with the transition label uses XOR
+    // TODO mache ich bei overloading die erklärung für jede der beiden Funktionen?
+    /**
+     * @brief compute the child node. Uses XOR for computation
+     * @param base_value base value of current node
+     * @param label aa for transition
+     * @return returns the node index of child
+     */
     UInt32 child_(const UInt32 base_value, const char label);
     UInt32 child_(const UInt32 base_value, const uint8_t label);
 
@@ -258,102 +272,103 @@ namespace OpenMS
     //-----------------------------------------------------------------------------------------------------------------
 
     /**
-     * @brief Follows the supply links of a node marked with term_flag to the root and stores all substrings found in multi_seq.
+     * @brief Follows the supply links of a node marked with term_flag to the root and stores the index of all substrings found in multi_seq_.
      */
     void findSubstrOfHit_();
 
     /**
-     * @brief checks if a sequence occurs more than once in the given sequences and stores all indices in multi_seq_
-     * @param pep_idx index of found sequence
+     * @brief Checks if a sequence occurs more than once in the given peptide set and stores all indices in multi_seq_
+     * @param pep_idx Index of found peptide
      */
     void multipleOccurrence_(const Size pep_idx );
 
     /**
-     * @brief
-     * @return returns true if hit was found and false if there is nothing more to found
+     * @brief Do the retrieval of the given protein in BC array. If node is negative it calls compareTail_. If no transition is found it calls failure.
+     * Calls itself with the new node and peptide position given by the failure_ or consumeAmbiguousAA_.
+     * @return Returns true if hit was found and false if there is nothing more to found
      */
     bool retrieval_();
 
     /**
-     * @brief compares the peptide with the end of the sequences stored in Tail
-     * @param tail_str pointer to a given position in Tail
-     * @return true if a sequences was found, otherwise failure is called and returned
+     * @brief Compares the peptide with the end of the sequences stored in Tail. If there is a mismatch failure and retrieval are called
+     * @param tail_str Pointer to a given position in tail
+     * @return True if a sequences was found and false if there is nothing more to found
      */
     bool compareTail_(const TailNode_* tail_str);
 
     /**
-     * @brief set new node_pos if retrieval fails
+     * @brief Set new node_pos if there is no transition in trie
      * @return false if no transition was found with the help of the supply link,
      * if no transition with the next aa was found and no spawn exists.
-     * Otherwise retrieval is called with the new node and peptide position.
+     * Otherwise true
      */
     bool failure_();
 
     /**
-     * @brief returns the supply link if this does not eliminate ambiguous aa. Don't do anything special with 0. Must be considered when calling
-     * @param node node from which the supply link should be taken
-     * @param output_node set to the linked node
-     * @param amb_depth depth of the first ambiguous aa in trie
-     * @return false, if a supply link would cause the first read aa to be dropped. Otherwise true
+     * @brief Returns the supply link if this does not eliminate ambiguous aa. Don't do anything special with 0. Must be considered when calling
+     * @param node Node from which the supply link should be taken
+     * @param[out] output_node Is set to the linked node
+     * @param amb_depth Depth of the first read ambiguous aa
+     * @return False if a supply link would cause the first read aa to be dropped. Otherwise true
      */
     bool followSupplyLink_(Int32 node, Int32& output_node, uint16_t& amb_depth);
 
     /**
-     * @brief processes ambiguous aa
-     * @param aa the ambiguous aa
-     * @return false if no spawn was found and no transition with the next aa was found.
-     * Otherwise retrieval is called and returned
+     * @brief Processes ambiguous aa
+     * @param aa The ambiguous aa
+     * @return False if no spawn was found and no transition with the next aa was found.
+     * Otherwise true
      */
     bool consumeAmbiguousAA_(const char aa);
 
 
     /**
-     * @brief sets to the smallest and largest code value of the given aa
+     * @brief Returns the smallest and largest code value of amino acids that can stand for the given ambiguous aa
      * @param c Character of an ambiguous aa
-     * @param idxFirst given by reference and set to the smallest code value
-     * @param idxLast given by reference and set to the largest code value
+     * @param[out] idxFirst Given by reference and set to the smallest code value
+     * @param[out] idxLast Given by reference and set to the largest code value
      */
     void getSpawnRange_(const char c, uint8_t & idxFirst, uint8_t & idxLast);
 
     /**
-     * @brief if spawns exist, the next spawn is set
-     * @return false if there are no spwans, otherwise retrieval
+     * @brief If spawns exist, the next spawn is set
+     * @return False if there are no spwans, otherwise true
      */
     bool useSpawn_();
 
 
 
-    //TODO macht exakt das gleiche wie 'getNode_' mit true/false.
+    //TODO macht fast exakt das gleiche wie 'getNode_' mit true/false.
     /**
-     * @brief returns the child node for each node depending on whether it is a node in trie, tail or leaf node
-     * @param node current node
-     * @param label code of label
-     * @param output_node child node
-     * @return true if a child node was found
+     * @brief Compute the child node for each node depending on whether it is a node in trie, tail or leaf node
+     * @param node Current node
+     * @param label Code of transition label
+     * @param[out] output_node Child node
+     * @return True if a child node was found else false
      */
     bool getChildNode_(const Int32 node, const uint8_t label,  Int32& output_node);
 
     /**
-     * @brief calls getChildNode_. If false, the supply links are followed to 0 and the transition is tested for each node.
-     * @param node current node
-     * @param label code of label for transition
-     * @param output_node child node if found
-     * @param amb_depth depth of the first ambiguous aa
-     * @return true if child node is found
+     * @brief Calls getChildNode_. If false, the supply links are followed to 0 and the transition is tested for each node.
+     * @param node Current node
+     * @param label Code of label for transition
+     * @param[out] output_node Child node if found
+     * @param amb_depth Depth of the first read ambiguous aa
+     * @return True if child node is found else false
      */
     bool getNextNode_(const Int32 node, const uint8_t label,  Int32& output_node, uint16_t & amb_depth);
 
 
 
     /**
-     * @brief tests if a sequence ends in node
+     * @brief Tests if a Peptide ends in node
      * @param node node to be tested
-     * @return true if hit else false
+     * @return True if node is a hit else false
      */
     bool isHit_(const Int32 node);
 
 
-    /// returns depth of the given node
+    /// Returns depth of the given node
     uint8_t getDepth_(const Int32 node);
 
     //-------------------------------------------------------------------------------------------------------------------------------------
@@ -377,7 +392,7 @@ namespace OpenMS
     /// tests the base value for all labels in edges
     bool checkAllEdges_(const UInt32 base);
 
-    /// deletes a used empty element form linkage
+    /// deletes a used empty element from linkage
     void arrangeEmpty_(const UInt32 node_pos);
 
     /// stores the suffix string in tail as chars
@@ -391,15 +406,15 @@ namespace OpenMS
      * @brief compute child node for failure function. If node is postive and not a leaf node child node is computed with child_ function.
      * if node is a leaf node or negative it returns negative tail index if label is correct
      * @param node node
-     * @param label code of label
-     * @return either the child node or 0 if child doesn't exist
+     * @param label code of transition label
+     * @return Either the child node or 0 if child doesn't exist
      */
     Int32 getNode_(const Int32 node, const uint8_t label);
 
     /**
-     * @brief set the given supply link for node. If node negative in failure_tail, if positiv in failure_bc
-     * @param node the node number in DA if positiv, index in tail if negative
-     * @param sl the computed supply link
+     * @brief Set the given supply link for node. If node negative in failure_tail, if positiv in failure_bc
+     * @param node the node number in bc array if positiv, index in tail if negative
+     * @param sl The computed supply link node
      */
     void setSupplyLink_(const Int32 node, Int32 sl, const uint8_t depth);
 

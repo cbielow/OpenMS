@@ -71,6 +71,9 @@ START_TEST(AhoCorasickDA, "$Id$")
   std::vector<String> ambigious_bc = {"ABCDE", "ABCFG"};
 
   std::vector<String> empty = {};
+    std::vector<String> observed{};
+    Size pos = 0;
+    Size idx = 0;
   //std::vector<String> large = ...;
 
   AhoCorasickDA ac_keys(keys);
@@ -86,20 +89,19 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EXCEPTION_WITH_MESSAGE(Exception::IllegalArgument, AhoCorasickDA ac_ambigious_b(ambigious_bc ), "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
     //TEST_EXCEPTION(Exception::InvalidSize, AhoCorasickDA ac_large(large))
 
-    Size pos = 0;
-    Size idx = 0;
+
 
     //TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.findNext(pos, idx), "No protein for retrieval. Use function 'setProtein()'");
 
-    std::vector<String> observed{};
+
 
     ac_keys.setProtein("AARDVARK", 0);
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      //std::cout << std::endl;
-      //std::cout << std::endl;
+      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      std::cout << std::endl;
+      std::cout << std::endl;
     }
 
     for (auto i: observed)
@@ -190,9 +192,9 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      //std::cout << std::endl;
-      //std::cout << std::endl;
+      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      std::cout << std::endl;
+      std::cout << std::endl;
     }
 
     for (auto i: observed)
@@ -221,6 +223,9 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
+      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      std::cout << std::endl;
+      std::cout << std::endl;
     }
     for (auto i: observed)
     {
@@ -377,7 +382,22 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EQUAL(observed[2], "A7 @ 1")
     TEST_EQUAL(observed[3], "AAR1 @ 0");
 
-    TEST_FILE_EQUAL(OPENMS_GET_TEST_DATA_PATH("PeptideIndexerAmbiguous.idXML"), OPENMS_GET_TEST_DATA_PATH("PeptideIndexerDA.idXML"))
+    observed.clear();
+    ac_da.setProtein("VGSDCTTIHYNYMCNSSCMGGMNXRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQ ", 3);
+    while(ac_da.findNext(pos, idx))
+    {
+      observed.push_back(vec_short[idx] + String(idx) + " @ " + String(pos));
+      std::cout << vec_short[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      std::cout << std::endl;
+      std::cout << std::endl;
+    }
+
+    for (auto i: observed)
+    {
+      std::cout << i << " ,  ";
+    }
+    std::cout << std::endl;
+
   }
   END_SECTION
 

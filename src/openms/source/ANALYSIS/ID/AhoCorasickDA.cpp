@@ -56,6 +56,26 @@ namespace OpenMS
     std::cout << "BC size: " << bc_.size() << std::endl;
     std::cout << "TAIL size: " << tail_.size() << std::endl;
 
+    for (Size i = 0; i < tail_.size(); i++)
+    {
+      if ( i == 189706 || i == 189705|| i == 189704)
+      {
+        std::cout << i << " " << tail_[i].label+0 << " " << failure_tail_[i].depth<< std::endl;
+      }
+
+    }
+
+    for (Size i = 0; i < bc_.size(); i++)
+    {
+      if ( i == 58509 || i == 55151  || i == 59629 || i == 60855)
+      {
+        std::cout << i << " " << bc_[i].lcheck+0  << " " << failure_bc_[i].depth << std::endl;
+      }
+
+    }
+
+
+
     if (arrays)
     {
       String base;
@@ -143,8 +163,9 @@ namespace OpenMS
     UInt32 out = 0;
     for (const String& i: sequences_)
     {
+      const char* c = i.c_str();
 
-      setProtein(i, 0);
+      setProtein(c, 0);
 
       if (retrievalCDA())
       {
@@ -172,6 +193,7 @@ namespace OpenMS
       auto pos = first_empty_elem_ ;
       do
       {
+        //std::cout << pos << std::endl;
         pos = build_info_[pos].next;
         ++num_emps_;
       } while (first_empty_elem_  != pos);
@@ -256,10 +278,10 @@ namespace OpenMS
     return (23 <= code_(aa) && code_(aa) <= 26 );
   }
 
-
-  void AhoCorasickDA::setProtein(const String& prot, const uint8_t amb_max)
+  //void AhoCorasickDA::setProtein(const String& prot, const uint8_t amb_max)
+  void AhoCorasickDA::setProtein(const char* prot, const uint8_t amb_max)
   {
-    protein_ = prot.c_str();
+    protein_ = prot;
     prot_pos_ = 0;
     node_pos_ = 0;
     amb_max_ = amb_max;
@@ -276,7 +298,7 @@ namespace OpenMS
       throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No protein for retrieval. Use function 'setProtein()'");
     }
 
-    // returns hits if more than one hit was found
+    // Returns hits if more than one hit was found at the node position
     if (!multi_hit_.empty())
     {
       peptide_index = multi_hit_.back();
@@ -286,13 +308,11 @@ namespace OpenMS
     }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
-    // TODO:
-    //  A transition must be performed without testing for a hit, because findNext is either called with node_pos_ 0,
-    //  which is never a hit, or is still in state because a hit was found and otherwise always the same hit is
-    //  reported. Still looking for a nice solution. Furthermore, if the supply on the left does not
-    //  find a valid transition, the next spawn is called instead.
-    //-----------------------------------------------------------------------------------------------------------------
+    // A transition must be performed without testing for a hit, because findNext is either called with node_pos_ 0,
+    // which is never a hit, or is still in state because a hit was found and otherwise always the same hit is
+    // reported.
+    // makes only the next valid transition, no test for hit
+
     if (node_pos_ != 0)
     {
       if (isAmbiguous_(*protein_))
@@ -326,13 +346,8 @@ namespace OpenMS
     while (retrieval_())
     {
 
-      //-----------------------------------------------------------------------------------------------------------------
-      // TODO - Question: Is UINT32_MAX also a magic number? Identifies the nodes where not the node itself but a
-      //  supply link leads to the hit
-      //-----------------------------------------------------------------------------------------------------------------
-
       // Node itself is a hit
-      if (output_[node_pos_] != UINT32_MAX)
+      if (output_[node_pos_] != SUBSTR_IS_HIT)
       {
         peptide_index = output_[node_pos_];
         pos_in_protein = prot_pos_ - sequences_[peptide_index].size();
@@ -340,11 +355,12 @@ namespace OpenMS
         findSubstrOfHit_();
       }
 
-      // node itself is not a hit but a supply link leads to a hit
+      // Node itself is not a hit but a supply link leads to a hit
       else
       {
         findSubstrOfHit_();
-        // returns the last hit, all other hits are returned when calling findNext again
+
+        // Returns the last hit, all other hits are returned when calling findNext again
         if (!multi_hit_.empty())
         {
           peptide_index = multi_hit_.back();
@@ -352,7 +368,7 @@ namespace OpenMS
           multi_hit_.pop_back();
         }
 
-        // in the case of ambiguous aa, the supply link leading to a hit may drop the first ambiguous aa and nothing is returned
+        // In the case of ambiguous aa, the supply link leading to a hit may drop the first ambiguous aa and nothing is returned
         else
         {
           return findNext(pos_in_protein, peptide_index);
@@ -372,9 +388,8 @@ namespace OpenMS
   {
 
     Int32 sl_node = 0;
-    // global variable should not be changed
+    // Global variable should not be changed
     uint16_t amb_depth = max_depth_decrease_;
-
     Int32 node = node_pos_;
 
     // Follows the supply links to root
@@ -382,8 +397,12 @@ namespace OpenMS
     {
       if (isHit_(sl_node))
       {
-        multi_hit_.push_back(output_[sl_node]);
-        multipleOccurrence_(output_[sl_node]);
+        // Test if node is an output node or just marked that a substr is a hit
+        if (output_[sl_node] != SUBSTR_IS_HIT)
+        {
+          multi_hit_.push_back(output_[sl_node]);
+          multipleOccurrence_(output_[sl_node]);
+        }
       }
       node = sl_node;
     }
@@ -404,7 +423,7 @@ namespace OpenMS
   {
     TailNode_ * tail_str;
 
-    // node is in BC array
+    // Node is in BC array
     if (node_pos_ >= 0)
     {
       while (!bc_[node_pos_].leaf_flag)
@@ -416,18 +435,31 @@ namespace OpenMS
 
         if (*protein_ == '\0')
         {
-          return failure_();
+          if (failure_())
+          {
+            return retrieval_();
+          }
+          return false;
         }
 
         if (isAmbiguous_(*protein_))
         {
-          return consumeAmbiguousAA_(*protein_);
+          if (consumeAmbiguousAA_(*protein_))
+          {
+            return retrieval_();
+          }
+          return false;
         }
 
+        // Compute child node
         UInt32 next_node = child_(bc_[node_pos_].base, *protein_);
         if(bc_[next_node].lcheck != code_(*protein_))
         {
-          return failure_();
+          if (failure_())
+          {
+            return retrieval_();
+          }
+          return false;
         }
 
         node_pos_ = next_node;
@@ -435,8 +467,7 @@ namespace OpenMS
         ++prot_pos_;
       }
 
-      // node is a leaf (following node is in Tail)
-
+      // Node is a leaf (following node is in Tail)
       if (bc_[node_pos_].term_flag == 1)
       {
         return true;
@@ -444,10 +475,14 @@ namespace OpenMS
 
       if (isAmbiguous_(*protein_))
       {
-        return consumeAmbiguousAA_(*protein_);
+        if (consumeAmbiguousAA_(*protein_))
+        {
+          return retrieval_();
+        }
+        return false;
       }
 
-      // find tail position
+      // Find tail position
       if (tail_[bc_[node_pos_].base].label == code_(*protein_))
       {
         tail_str = &tail_[bc_[node_pos_].base];
@@ -455,29 +490,42 @@ namespace OpenMS
       }
       else
       {
-        return failure_();
+        if (failure_())
+        {
+          return retrieval_();
+        }
+        return false;
       }
     }
 
-    // node_pos_ is negative, node is in Tail
+    // Node_pos_ is negative which means node is in Tail
+    // This is called after either a new spawn is consumed or after a hit
     else
     {
+      // The current node position was determined by getChildNode_ and is a valid node.
+      // Before the next node you have to test if it is a terminal node. The protein position is already one position further.
       tail_str = &tail_[-node_pos_];
+      // If it is a terminal node, then the node position must be one position further
+      // Because of the query in Tail, the node is always one position further.
+      --node_pos_;
+      if (tail_str->term_flag == 1)
+      {
+        return true;
+      }
+      ++tail_str;
     }
 
     return compareTail_(tail_str);
   }
 
-  //-----------------------------------------------------------------------------------------------------------------
-  // TODO: It is possible to drop the 0 in the tail, but except that the output key is no longer shifted by 1,
-  //  it makes no difference.
-  //-----------------------------------------------------------------------------------------------------------------
 
   bool AhoCorasickDA::compareTail_(const TailNode_* tail_str)
   {
-    //as long as the aa are the same, comparing and testing if a substr ends
+
+    // As long as the aa are the same, comparing and testing if a substr ends
     while (tail_str->label != 0 && tail_str->label == code_(*protein_))
     {
+      // If it is a terminal node, then the node position must be one position further, because because of the query in tail, the node is always one position further.
       ++protein_;
       ++prot_pos_;
       --node_pos_;
@@ -488,6 +536,7 @@ namespace OpenMS
       }
 
       ++tail_str;
+
     }
 
     // 0 marks end of sequence
@@ -497,18 +546,27 @@ namespace OpenMS
     }
 
 
-    // ambiguous aa always result in a mismatch, because no amb aa must occur in the patterns
+    // Ambiguous aa always result in a mismatch, because no amb aa must occur in the patterns
     if (isAmbiguous_(*protein_))
     {
-      return consumeAmbiguousAA_(*protein_);
+      if (consumeAmbiguousAA_(*protein_))
+      {
+        return retrieval_();
+      }
+      return false;
     }
 
-    return failure_();
+    if (failure_())
+    {
+      return retrieval_();
+    }
+    return false;
   }
 
 
   bool AhoCorasickDA::failure_()
   {
+
     if (*protein_ == '\0')
     {
       return useSpawn_();
@@ -517,26 +575,28 @@ namespace OpenMS
     Int32 cur_node = node_pos_;
     Int32 sl_node;
     node_pos_ = 0;
+
     if (isAmbiguous_(*protein_))
     {
       return consumeAmbiguousAA_(*protein_);
     }
 
-    // tests for each supply link if there is a vaild trasition, if it reachs root, try next aa
+    // Tests for each supply link if there is a vaild trasition, if it reachs root, try next aa
     while (followSupplyLink_(cur_node, sl_node, max_depth_decrease_))
     {
-
+      // Test valid transition from supply link node
       if (getChildNode_(sl_node, code_(*protein_), cur_node))
       {
         ++protein_;
         ++prot_pos_;
         node_pos_ = cur_node;
-        return retrieval_();
+        return true;
       }
 
+      // No futher supply links
       if (sl_node == 0 )
       {
-        // as long as is a next aa use next aa
+        // As long as there is a next aa use next aa
         if (*protein_ != '\0')
         {
           ++protein_;
@@ -546,7 +606,7 @@ namespace OpenMS
             return consumeAmbiguousAA_(*protein_);
           }
         }
-        // no transition found in the remaining peptide
+        // No transition found in the remaining protein
         else
         {
           break;
@@ -560,8 +620,7 @@ namespace OpenMS
 
   bool AhoCorasickDA::followSupplyLink_(Int32 node, Int32& output_node, uint16_t& amb_depth)
   {
-
-    // get the node the supply link leads to
+    // Get the node the supply link leads to
     Int32 sl = 0;
     if (node < 0)
     {
@@ -572,13 +631,14 @@ namespace OpenMS
       sl = failure_bc_[node].link;
     }
 
-    // if the supply link would cause the first read ambiguous aa to be dropped, the supply link is valid.
-    // else the number of aa before the first ambiguous aa is updated (depth)
+    // If the supply link would cause the first read ambiguous aa to be dropped, the supply link is not valid.
+    // Else the number of aa before the first ambiguous aa is updated (Depth)
     if (amb_count_ > 0)
     {
 
+
       uint8_t up_count = getDepth_(node) - getDepth_(sl);
-      if (up_count > amb_depth || (( amb_depth == 0) && (up_count == 0)))
+      if (up_count > amb_depth || ((amb_depth == 0 ) && (up_count == 0)))
       {
         output_node = 0;
         return false;
@@ -594,7 +654,7 @@ namespace OpenMS
 
     Spawn_ cur_spawn;
 
-    // maximum permitted count of ambiguous aa is reached
+    // Maximum permitted count of ambiguous aa is reached
     if (amb_count_ == amb_max_)
     {
 
@@ -606,30 +666,28 @@ namespace OpenMS
         node_pos_ = 0;
         amb_count_ = 0;
         max_depth_decrease_ = 0;
-        return retrieval_();
+        return true;
       }
 
       return useSpawn_();
     }
-
-    // depth is only set for the first amb aa
+    // Depth is only set for the first amb aa
     if (amb_count_ == 0)
     {
-      max_depth_decrease_ = getDepth_(node_pos_);
+       max_depth_decrease_ = getDepth_(node_pos_);
     }
     ++amb_count_;
     uint8_t first = 0;
     uint8_t last = 0;
     getSpawnRange_(aa, first, last);
 
-
     //-----------------------------------------------------------------------------------------------------------------
     // TODO:
     //  At the moment the query for BC, Leaf or Tail in 'getChildNode_' in 'getNextNode_'
-    //  is done every time for the same node.
+    //  is done every time for the same node. Same problem with getNode_ in failure array construction
     //-----------------------------------------------------------------------------------------------------------------
 
-    // search child of node_pos_ with all aa for which the given amb aa can represent
+    // Search child of node_pos_ with all aa for which the given amb aa can represent
     for (uint8_t a = first; a <= last; ++a)
     {
       uint16_t amb_depth = max_depth_decrease_;
@@ -654,7 +712,7 @@ namespace OpenMS
       ++prot_pos_;
       amb_count_ = 0;
       max_depth_decrease_ = 0;
-      return retrieval_();
+      return true;
     }
     else
     {
@@ -686,7 +744,7 @@ namespace OpenMS
       amb_count_ = spawn.counter;
       max_depth_decrease_  = spawn.max_depth_decrease;
       spawns_.pop_back();
-      return retrieval_();
+      return true;
     }
     return false;
   }
@@ -694,24 +752,25 @@ namespace OpenMS
 
   bool AhoCorasickDA::getChildNode_(const Int32 node, const uint8_t label,  Int32& output_node)
   {
-    // node is in tail, child is next index if label match
+    // Node is in tail, child is next index if label match
     if (node < 0)
     {
-      if ( tail_[-node].label != 0 && tail_[-node].label == label)
+      // test for 0, because then the end of a sequence has already been reached
+      if (tail_[-node].label != 0 && tail_[-node].label == label)
       {
-        output_node = node -1;
+        output_node = node ;
         return true;
       }
       output_node = 0;
       return false;
     }
 
-    // child is tail[base] if label match, returns negative base value because child node is in tail
+    // Child is tail[base] if label match, returns negative base value because child node is in tail
     if (bc_[node].leaf_flag)
     {
       if (tail_[bc_[node].base].label == label)
       {
-        output_node = -bc_[node].base-1;
+        output_node = -bc_[node].base;
         return true;
       }
       output_node = 0;
@@ -719,7 +778,7 @@ namespace OpenMS
 
     }
 
-      // child is in bc
+    // Child is in bc
     else
     {
       if (label != 0)
@@ -739,14 +798,14 @@ namespace OpenMS
 
   bool AhoCorasickDA::getNextNode_(const Int32 node, const uint8_t label, Int32& output_node, uint16_t& amb_depth)
   {
+    // Test for valid transition of current node position
     if (getChildNode_(node, label, output_node))
     {
-      //output_node = output_node;
       return true;
     }
     Int32 cur_node = node;
 
-    //If child was not found, the supply links are followed to root and the transition is tested for each node.
+    // If child was not found, the supply links are followed to root and the transition is tested for each node.
     while (cur_node != 0 && followSupplyLink_(cur_node, output_node, amb_depth))
     {
       if (getChildNode_(output_node, label, cur_node))
@@ -774,16 +833,9 @@ namespace OpenMS
   {
     if ( node < 0)
     {
-      if (tail_[-node].label == 0)
-      {
-        return failure_tail_[-node-1].depth;
-      }
       return failure_tail_[-node].depth;
     }
-    else
-    {
-      return failure_bc_[node].depth;
-    }
+    return failure_bc_[node].depth;
   }
 
 
@@ -801,9 +853,9 @@ namespace OpenMS
       throw Exception::InvalidParameter(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No sequences given");
     }
 
-    // sort strings
+    // Sort strings
 
-    // index vector of sorted pattern
+    // Index vector of sorted pattern
     sorted_idx_.resize(sequences_.size());
     std::iota(sorted_idx_.begin(), sorted_idx_.end(), 0);
     std::sort(sorted_idx_.begin(), sorted_idx_.end(), [this](UInt32 idx1, UInt32 idx2){return sequences_[idx1].compare(sequences_[idx2]) < 0;});
@@ -811,8 +863,7 @@ namespace OpenMS
     // unique vector
     std::unique_copy(sorted_idx_.begin(), sorted_idx_.end(), std::back_inserter(unique_idx_), [this](UInt32 idx1, UInt32 idx2){return sequences_[idx1]==sequences_[idx2];});
 
-    //DA
-
+    // Double-array construction
     Size init_capa = 1;
     while (init_capa < unique_idx_.size())
     {
@@ -843,18 +894,18 @@ namespace OpenMS
     }
 
 
-    // add new empty nodes
+    // Add new empty nodes
     bc_.resize(new_size);
 
 
-    // set linkage
+    // Set build informations and linkage
     for (auto i = old_size; i < new_size; ++i)
     {
       build_info_.emplace_back(i);
     }
 
 
-    // add new node to bc and set empty head
+    // Add the new nodes to linkage
     if (first_empty_elem_ == 0)
     {
       build_info_[old_size].prev = new_size - 1;
@@ -862,7 +913,7 @@ namespace OpenMS
       first_empty_elem_ = old_size;
     }
 
-    // add new nodes to empty linkage
+
     else
     {
       auto emp_tail = build_info_[first_empty_elem_].prev;
@@ -875,14 +926,14 @@ namespace OpenMS
 
   void AhoCorasickDA::buildTrie_(Size begin, const Size end, const Size depth, const UInt32 node_pos)
   {
-    // reaches end of a string
+    // Reaches end of a string
     if (sequences_[unique_idx_[begin]].size() == depth)
     {
       bc_[node_pos].term_flag = 1;
       output_[node_pos] = unique_idx_[begin];
       ++begin;
 
-      // string is not substring of another string
+      // String is not substring of another string
       if (begin == end)
       {
         bc_[node_pos].base = 0;
@@ -891,7 +942,7 @@ namespace OpenMS
       }
     }
 
-    // only one string in subtrie -> store in tail
+    // Only one string in subtrie -> store in tail
     if (begin+1 == end) // && !bc_[node_pos].term_flag)
     {
       bc_[node_pos].leaf_flag = 1;
@@ -901,7 +952,7 @@ namespace OpenMS
       return;
     }
 
-    // creates vector containing all transition labels
+    // Creates vector containing all transition labels
     edges_.clear();
 
     char current_label = sequences_[unique_idx_[begin]][depth];
@@ -926,11 +977,11 @@ namespace OpenMS
     edges_.push_back(current_label);
 
 
-    // return a base value which is valid for all labels in edges
+    // Return a base value which is valid for all labels in edges
      auto base_value = xCheck_();
     //auto base_value = plusCheck_();
 
-    // set values
+    // Set values
     bc_[node_pos].base = base_value;
 
     build_info_[base_value].base_flag = 1;
@@ -939,7 +990,7 @@ namespace OpenMS
     for (auto const label : edges_)
     {
       UInt32 child_pos = child_(base_value, label);
-      // need more nodes
+      // More nodes needed
       if (child_pos >= bc_.size())
       {
         expand_();
@@ -949,7 +1000,7 @@ namespace OpenMS
       build_info_[child_pos].check = node_pos;
     }
 
-    // calls buildTrie_ for each subtrie
+    // Calls buildTrie_ for each subtrie
     Size begin_sub = begin;
     auto cur_label = sequences_[unique_idx_[begin]][depth];
     for (auto end_sub = begin +1; end_sub < end; ++end_sub)
@@ -967,7 +1018,7 @@ namespace OpenMS
 
   UInt32 AhoCorasickDA::xCheck_()
   {
-    // if no empty head the nodes are attached at the end of the DA
+    // If empty head doesn't exist the nodes are attached at the end of the bc array
     if (first_empty_elem_ == 0)
     {
       expand_();
@@ -978,7 +1029,7 @@ namespace OpenMS
       }
       return base_value;
     }
-    // try every empty element in DA
+    // Try every empty element in DA
     UInt32 pos = first_empty_elem_;
     do
     {
@@ -990,7 +1041,7 @@ namespace OpenMS
       pos = build_info_[pos].next;
     } while (first_empty_elem_ != pos);
 
-    // if no empty element can be used the nodes are attached at the end of the DA
+    // If the empty elements can't be used the nodes are attached at the end of the bc array
     auto base_value = static_cast<UInt32>(bc_.size());
     expand_();
     while (!checkAllEdges_(base_value))
@@ -1003,16 +1054,16 @@ namespace OpenMS
 
   bool AhoCorasickDA::checkAllEdges_(const UInt32 base)
   {
-    // tests if base value was already used
+    // Tests if base value was already used
     if (build_info_[base].base_flag)
     {
       return false;
     }
-    // tests for each child in the subtrie if the calculated node position is available
+    // Tests for each child in the subtrie if the calculated node position is available
     for (auto label : edges_)
     {
       UInt32 pos = child_(base, label);
-      // in case child_node is greater than the current array size, used_flag does not need to be tested, because the nodes could not be used yet
+      // In case child_node is greater than the current array size, used_flag does not need to be tested, because the nodes could not be used yet
       if (build_info_[pos].used_flag && pos < bc_.size())
       {
         return false;
@@ -1025,12 +1076,13 @@ namespace OpenMS
   void AhoCorasickDA::arrangeEmpty_(const UInt32 node_pos)
   {
     build_info_[node_pos].used_flag = 1;
-    // removes the node from the link by linking the previous empty node and the following empty node
+    // Removes the node from the link by linking the previous empty node and the following empty node
     auto prev = build_info_[node_pos].prev;
     auto next = build_info_[node_pos].next;
     build_info_[next].prev = prev;
     build_info_[prev].next = next;
-    // if the empty node was the empty head, then empty head is either set to the next empty node or to 0 (there is no more empty node in the DA)
+
+    // If the empty node was the empty head, then empty head is either set to the next empty node or to 0 (there is no more empty node in the bc array)
     if (node_pos == first_empty_elem_)
     {
       if (node_pos == next)
@@ -1058,23 +1110,22 @@ namespace OpenMS
      tail_.emplace_back(TailNode_(0));
   }
 
-  //-----------------------------------------------------------------------------------------------------------------
-  // TODO: Not yet commented
-  //-----------------------------------------------------------------------------------------------------------------
 
   void AhoCorasickDA::constructFailure_()
   {
-    // create empty failure vectors of size bc and tail
-
+    // Create empty failure vectors of size bc and tail
     failure_bc_.resize(bc_.size());
     failure_tail_.resize(tail_.size());
 
-    std::vector<Int32>nodes;
-    std::vector<Int32>next_nodes;
+    // All nodes of depth d-1 which have already been processed
+    std::vector<Int32> nodes;
+    // Child nodes of nodes (depth d)
+    std::vector<Int32> next_nodes;
 
     uint8_t depth = 1;
 
-    // compute child nodes of current node_pos
+
+    // Create vector of nodes for depth 1 and set supply link and depth
     for (uint8_t label = 1; label <= AA_COUNT_; ++label)
     {
       Int32 node_pos = getNode_(0, label);
@@ -1086,30 +1137,50 @@ namespace OpenMS
       }
     }
 
+    // For all nodes in each depth of the trie
     while(!nodes.empty())
     {
      ++depth;
+
+     // Depth is only used for the restriction of ambiguous aa
+     if (depth > UINT8_MAX && amb_max_ > 0)
+     {
+       throw Exception::InvalidParameter(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Depth of the tree cannot be stored. Set the maximum number of ambiguous amino acids allowed to 0 to continue with this data");
+     }
+
+     // For every child node of node the supply link is computed
      for (Int32 node : nodes)
      {
+       // Compute child nodes of current node
        for (uint8_t label = 1; label <= AA_COUNT_; ++label)
        {
-         Int32 node_pos = getNode_(node, label);
+         Int32 child_pos = getNode_(node, label);
 
-         if (node_pos != 0)
+
+         if (child_pos != 0)
          {
-           next_nodes.push_back(node_pos);
-           // supply link of parent of node_pos
+           // Stores all child nodes as parent for next iteration
+           next_nodes.push_back(child_pos);
+
+           // Supply link of parent of child_pos
            Int32 down = getSupplyLink_(node);
 
-           while ((down != 0) && (getNode_(down, label) == 0)) //
+
+           // Follow the supply links (longest suffix) and test transition with label of child_pos
+           while ((down != 0) && (getNode_(down, label) == 0))
            {
              down = getSupplyLink_(down);
            }
-           setSupplyLink_(node_pos,getNode_(down, label), depth);
-           isEndOfSeq_(node_pos);
+
+           // Set supply link if transition found else supply link points to root
+           setSupplyLink_(child_pos, getNode_(down, label), depth);
+
+           // Test if this node is an end of a substr for retrieval and mark them so it just has to be done once for each node
+           isEndOfSeq_(child_pos);
          }
        }
      }
+     // Processed nodes become new parent nodes
      nodes = next_nodes;
      next_nodes.clear();
     }
@@ -1118,7 +1189,7 @@ namespace OpenMS
 
   Int32 AhoCorasickDA::getNode_(const Int32 node, const uint8_t label)
   {
-    // node is in tail, child is next index if label match
+    // Node is in tail, child is next index if label match
     if (node < 0)
     {
       if (tail_[-node+1].label == label )
@@ -1128,7 +1199,7 @@ namespace OpenMS
       return 0;
     }
 
-    // child is tail[base] if label match, returns negative base value because child node is in tail
+    // Child is tail[base] if label match, returns negative base value because child node is in tail
     if (bc_[node].leaf_flag)
     {
       if (tail_[bc_[node].base].label == label)
@@ -1138,7 +1209,7 @@ namespace OpenMS
       return 0;
     }
 
-    // child is in bc
+    // Child is in bc
     else
     {
       UInt32 c_node = child_(bc_[node].base, label);
@@ -1152,16 +1223,34 @@ namespace OpenMS
 
   void AhoCorasickDA::setSupplyLink_(const Int32 node, Int32 sl, const uint8_t depth)
   {
-    // supply link for node in tail, absolute value as index
+    // In the tail query, the stored sequence is compared with the protein sequence letter by letter (no transtion anymore).
+
+    // The supply link leads to the node up to which the sequence still matches. In tail the query must start with the following characters.
     if (sl < 0)
     {
       --sl;
     }
+
+    // supply link for node in tail, absolute value as index
     if (node < 0)
     {
+      // If a mismatch occures, the node position is already the position of the mismatch. The supply links are calculated so that they go from the last valid node
+      // to the node with the longest matching suffix. In the tail, a mismatch would always require going back one node to find the correct supply link.
+      // Therefore the supply link for each node is stored one position further (at the node the missmatch occures).
       failure_tail_[-node+1].link = sl;
-      failure_tail_[-node].depth = depth;
+
+      // If a label is read that forms the transition between a leaf node and a tail node, the depth of this label would be the depth of the leaf node and not
+      // the depth of the tail node. However, the depth is only determined after the transition in the tail node.
+      // Therefore depth-1 is calculated for each tail node.
+      failure_tail_[-node].depth = depth-1;
+      // Because the depth is shifted to the 'left' and therefore the leaf and tail node have the same depth, the end node must also have a depth
+      if (tail_[-node+1].label == 0)
+      {
+        failure_tail_[-node+1].depth = depth;
+      }
     }
+
+    // BC array
     else
     {
       failure_bc_[node].link = sl;
@@ -1171,8 +1260,9 @@ namespace OpenMS
 
   Int32 AhoCorasickDA::getSupplyLink_(const Int32 node)
   {
-    // supply link of node in tail, absolute value as index
+    // Because of setting in setSupplyLink_
     Int32 sl;
+
     if ( node < 0)
     {
       sl =  failure_tail_[-node+1].link;
@@ -1190,12 +1280,15 @@ namespace OpenMS
 
   void AhoCorasickDA::isEndOfSeq_(const Int32 node)
   {
+    // Is a hit, the retrieval already searches for substrings
     if (isHitConstr_(node))
     {
       return;
     }
 
     Int32 sl = getSupplyLink_(node);
+
+    // Follow supply links to root a check for a peptide end
     while (sl != 0)
     {
       if (isHitConstr_(sl))
@@ -1203,12 +1296,13 @@ namespace OpenMS
         if (node < 0)
         {
           tail_[-node].term_flag = 1;
-          output_[node-1] = UINT32_MAX;
+          // Because of the query in tail, the node is always one position further.
+          output_[node-1] = SUBSTR_IS_HIT;
         }
         else
         {
           bc_[node].term_flag = 1;
-          output_[node] = UINT32_MAX;
+          output_[node] = SUBSTR_IS_HIT;
         }
         return;
       }
@@ -1220,12 +1314,14 @@ namespace OpenMS
   {
     if (node < 0)
     {
+      // 0 marks the end of a sequence. If the next node is 0, the current aa is the last of the peptide
       return tail_[-node+1].label == 0;
     }
     return bc_[node].term_flag==1;
   }
 
 
+  // Only test difference between + and XOR
   UInt32 AhoCorasickDA::plusCheck_()
   {
     // if no empty head
