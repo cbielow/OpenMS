@@ -75,7 +75,7 @@ namespace OpenMS
     /**
      * @brief search for and numerate all occurrences of the peptides in the protein
      * @param[out] pos_in_protein Position (zero-based) in the protein
-     * @param[out] peptide_index index of sequence in given vector
+     * @param[out] peptide_index index of sequence in peptide database
      * @return False if end of protein is reached. True if a hit is found.
      */
     bool findNext(Size& pos_in_protein, Size& peptide_index);
@@ -243,7 +243,7 @@ namespace OpenMS
     /// returns code of a aa
     uint8_t code_(const char label);
 
-    // TODO mache ich bei overloading die erklärung für jede der beiden Funktionen?
+    // TODO mache ich bei overloading die Erklärung für jede der beiden Funktionen?
     /**
      * @brief compute the child node. Uses XOR for computation
      * @param base_value base value of current node
@@ -261,15 +261,6 @@ namespace OpenMS
     //  CDA - retrieval
     //-------------------------------------------------------------------------------------------------------------------------------------
 
-    //-----------------------------------------------------------------------------------------------------------------
-    // TODO - Question:
-    //  The functions 'failure_' and 'consumeAmbiguousAA_' call 'retrieval_' if a valid transition or spawn was
-    //  found and return false otherwise. If 'retrieval_' returns false, it means that nothing else was found.
-    //  If 'retrieval_' is called in one of the two functions, the result is returned accordingly. But because
-    //  'retrieval_' calls these two functions itself, it is very interlaced. Should the functions only return
-    //  true and in 'retrieval_' even then retrieval_() should be called at true?
-    //  'useSpawn_' too.
-    //-----------------------------------------------------------------------------------------------------------------
 
     /**
      * @brief Follows the supply links of a node marked with term_flag to the root and stores the index of all substrings found in multi_seq_.

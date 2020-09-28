@@ -1122,7 +1122,7 @@ namespace OpenMS
     // Child nodes of nodes (depth d)
     std::vector<Int32> next_nodes;
 
-    uint8_t depth = 1;
+    uint16_t depth = 1;
 
 
     // Create vector of nodes for depth 1 and set supply link and depth
