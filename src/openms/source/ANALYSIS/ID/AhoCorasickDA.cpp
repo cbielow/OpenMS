@@ -35,12 +35,15 @@
 #include <OpenMS/ANALYSIS/ID/AhoCorasickDA.h>
 #include <OpenMS/CONCEPT/Exception.h>
 #include <OpenMS/CONCEPT/Types.h>
+#include <OpenMS/SYSTEM/StopWatch.h>
+
 
 #include <algorithm>
 #include <math.h>
 #include <iostream>
 #include <numeric>
 #include <iterator>
+#include <chrono>
 
 
 namespace OpenMS
@@ -55,25 +58,6 @@ namespace OpenMS
     std::cout << std::endl;
     std::cout << "BC size: " << bc_.size() << std::endl;
     std::cout << "TAIL size: " << tail_.size() << std::endl;
-
-    for (Size i = 0; i < tail_.size(); i++)
-    {
-      if ( i == 189706 || i == 189705|| i == 189704)
-      {
-        std::cout << i << " " << tail_[i].label+0 << " " << failure_tail_[i].depth<< std::endl;
-      }
-
-    }
-
-    for (Size i = 0; i < bc_.size(); i++)
-    {
-      if ( i == 58509 || i == 55151  || i == 59629 || i == 60855)
-      {
-        std::cout << i << " " << bc_[i].lcheck+0  << " " << failure_bc_[i].depth << std::endl;
-      }
-
-    }
-
 
 
     if (arrays)
@@ -161,6 +145,8 @@ namespace OpenMS
 
     UInt32 count = 0;
     UInt32 out = 0;
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     for (const String& i: sequences_)
     {
       const char* c = i.c_str();
@@ -185,6 +171,9 @@ namespace OpenMS
         std::cout << i << std::endl;
       }
     }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double,std::milli> elapsed = t2 - t1;
+    std::cout << "Retrieval time " << elapsed.count()/sequences_.size() << " ms"<< std::endl;
 
 
     UInt32 num_emps_ = 0;
@@ -376,6 +365,7 @@ namespace OpenMS
       }
       return true;
     }
+    //std::cout << "failure " << function_counter2 << "   supply links " << function_counter1 << std::endl;
     return false;
   }
 
@@ -410,11 +400,16 @@ namespace OpenMS
 
   void AhoCorasickDA::multipleOccurrence_(const Size pep_idx )
   {
-    UInt32 idx = static_cast<UInt32>(std::distance(sorted_idx_.begin(), std::find(sorted_idx_.begin(), sorted_idx_.end(), pep_idx)));
-    while (idx+1 < sequences_.size() && sequences_[sorted_idx_[idx]] == sequences_[sorted_idx_[idx+1]])
+    //UInt32 idx = static_cast<UInt32>(std::distance(sorted_idx_.begin(), std::find(sorted_idx_.begin(), sorted_idx_.end(), pep_idx)));
+    UInt32 idx = multi_idx_[pep_idx].first;
+    /*while (idx+1 < sequences_.size() && sequences_[sorted_idx_[idx]] == sequences_[sorted_idx_[idx+1]])
     {
       multi_hit_.push_back(sorted_idx_[idx+1]);
       ++idx;
+    }*/
+    for (auto i = 1; i <= multi_idx_[pep_idx].second; ++i )
+    {
+      multi_hit_.push_back(sorted_idx_[idx+1]);
     }
   }
 
@@ -433,23 +428,24 @@ namespace OpenMS
           return true;
         }
 
+
         if (*protein_ == '\0')
         {
-          if (failure_())
+          if (useSpawn_())
           {
             return retrieval_();
           }
           return false;
         }
 
-        if (isAmbiguous_(*protein_))
+        /*if (isAmbiguous_(*protein_))
         {
           if (consumeAmbiguousAA_(*protein_))
           {
             return retrieval_();
           }
           return false;
-        }
+        }*/
 
         // Compute child node
         UInt32 next_node = child_(bc_[node_pos_].base, *protein_);
@@ -473,14 +469,14 @@ namespace OpenMS
         return true;
       }
 
-      if (isAmbiguous_(*protein_))
+      /*if (isAmbiguous_(*protein_))
       {
         if (consumeAmbiguousAA_(*protein_))
         {
           return retrieval_();
         }
         return false;
-      }
+      }*/
 
       // Find tail position
       if (tail_[bc_[node_pos_].base].label == code_(*protein_))
@@ -547,14 +543,14 @@ namespace OpenMS
 
 
     // Ambiguous aa always result in a mismatch, because no amb aa must occur in the patterns
-    if (isAmbiguous_(*protein_))
+    /*if (isAmbiguous_(*protein_))
     {
       if (consumeAmbiguousAA_(*protein_))
       {
         return retrieval_();
       }
       return false;
-    }
+    }*/
 
     if (failure_())
     {
@@ -572,14 +568,17 @@ namespace OpenMS
       return useSpawn_();
     }
 
-    Int32 cur_node = node_pos_;
-    Int32 sl_node;
-    node_pos_ = 0;
 
     if (isAmbiguous_(*protein_))
     {
       return consumeAmbiguousAA_(*protein_);
     }
+
+    Int32 cur_node = node_pos_;
+    Int32 sl_node;
+    node_pos_ = 0;
+
+    ++function_counter2;
 
     // Tests for each supply link if there is a vaild trasition, if it reachs root, try next aa
     while (followSupplyLink_(cur_node, sl_node, max_depth_decrease_))
@@ -618,25 +617,30 @@ namespace OpenMS
     return useSpawn_();
   }
 
-  bool AhoCorasickDA::followSupplyLink_(Int32 node, Int32& output_node, uint16_t& amb_depth)
+  Int32 AhoCorasickDA::getSupplyLink_(Int32 node)
   {
-    // Get the node the supply link leads to
-    Int32 sl = 0;
     if (node < 0)
     {
-      sl = failure_tail_[-node].link;
+      return failure_tail_[-node].link;
     }
     else
     {
-      sl = failure_bc_[node].link;
+      return failure_bc_[node].link;
     }
+  }
+
+  bool AhoCorasickDA::followSupplyLink_(Int32 node, Int32& output_node, uint16_t& amb_depth)
+  {
+
+    ++function_counter1;
+    // Get the node the supply link leads to
+    Int32 sl = getSupplyLink_(node);
+
 
     // If the supply link would cause the first read ambiguous aa to be dropped, the supply link is not valid.
     // Else the number of aa before the first ambiguous aa is updated (Depth)
     if (amb_count_ > 0)
     {
-
-
       uint8_t up_count = getDepth_(node) - getDepth_(sl);
       if (up_count > amb_depth || ((amb_depth == 0 ) && (up_count == 0)))
       {
@@ -654,20 +658,25 @@ namespace OpenMS
 
     Spawn_ cur_spawn;
 
+    if (amb_max_ == 0)
+    {
+      //pos_max_ = prot_pos_;
+      ++prot_pos_;
+      ++protein_;
+      node_pos_ = 0;
+      amb_count_ = 0;
+      max_depth_decrease_ = 0;
+      return true;
+    }
+
+
     // Maximum permitted count of ambiguous aa is reached
     if (amb_count_ == amb_max_)
     {
 
       // If the current aa has not yet been read, it forgets everything before and starts again from the root.
       // If it has been read, the spawn dies here and the next one is used
-      if (pos_max_ < prot_pos_ )
-      {
-        pos_max_ = prot_pos_;
-        node_pos_ = 0;
-        amb_count_ = 0;
-        max_depth_decrease_ = 0;
-        return true;
-      }
+      //if (pos_max_ < prot_pos_ )
 
       return useSpawn_();
     }
@@ -702,8 +711,9 @@ namespace OpenMS
       }
     }
 
-    // When the amb aa is seen to the first amn, the following aa is started from the root. Otherwise this has already been done and a spawn is used.
-    if (pos_max_ < prot_pos_ || (pos_max_ == 0 && prot_pos_ == 0))
+    // When the amb aa is seen for the first time, the following aa is started from the root. Otherwise this has already been done and a spawn is used.
+    //if (pos_max_ < prot_pos_ || (pos_max_ == 0 && prot_pos_ == 0))
+    if (amb_count_ == 1)
     {
       pos_max_ = prot_pos_;
 
@@ -855,13 +865,36 @@ namespace OpenMS
 
     // Sort strings
 
-    // Index vector of sorted pattern
+    // Index vector of sorted sequences
     sorted_idx_.resize(sequences_.size());
     std::iota(sorted_idx_.begin(), sorted_idx_.end(), 0);
     std::sort(sorted_idx_.begin(), sorted_idx_.end(), [this](UInt32 idx1, UInt32 idx2){return sequences_[idx1].compare(sequences_[idx2]) < 0;});
 
     // unique vector
-    std::unique_copy(sorted_idx_.begin(), sorted_idx_.end(), std::back_inserter(unique_idx_), [this](UInt32 idx1, UInt32 idx2){return sequences_[idx1]==sequences_[idx2];});
+    std::unique_copy(sorted_idx_.begin(), sorted_idx_.end(), std::back_inserter(unique_idx_), [this](UInt32 idx1, UInt32 idx2) {return sequences_[idx1]==sequences_[idx2];});
+
+
+    /*for (auto pep_idx : unique_idx_)
+    {
+      UInt32 idx = static_cast<UInt32>(std::distance(sorted_idx_.begin(), std::find(sorted_idx_.begin(), sorted_idx_.end(), pep_idx)));
+      multi_idx_[pep_idx] = idx;
+    }*/
+
+    UInt32 idx = 0;
+
+    while (idx < sorted_idx_.size())
+    {
+      uint8_t multi_counter = 0;
+      UInt32 idx2 = idx+1;
+      while (idx2 < sorted_idx_.size() && sequences_[sorted_idx_[idx]]==sequences_[sorted_idx_[idx2]])
+      {
+        ++idx2;
+        ++multi_counter;
+      }
+      multi_idx_[sorted_idx_[idx]] = {idx, multi_counter};
+      idx = idx2;
+    }
+
 
     // Double-array construction
     Size init_capa = 1;
@@ -879,6 +912,14 @@ namespace OpenMS
     arrangeEmpty_(0);
     buildTrie_(0, unique_idx_.size(), 0, 0);
     constructFailure_();
+    std::cout << "Size: " << sizeof(BCNode_) << " BC Array: " << bc_.size()<< " " << sizeof(BCNode_)* bc_.size() << std::endl;
+    std::cout << "Size: " << sizeof(TailNode_) << " Tail Array: " << tail_.size()<< " " << sizeof(TailNode_)* tail_.size() << std::endl;
+    std::cout << "Size: " << sizeof(SupplyLink_) << " Failure Tail Array: " << failure_tail_.size()<< " " << sizeof(SupplyLink_)* failure_tail_.size() << std::endl;
+    std::cout << "Size: " << sizeof(Int32) << " Output: " << output_.size()<< " " << sizeof(UInt32)* output_.size() << std::endl;
+
+    std::cout << "Unique Seq: " << unique_idx_.size() << std::endl;
+    std::cout << "Total: " << (sizeof(BCNode_)* bc_.size()) + (sizeof(TailNode_)* tail_.size()) + (sizeof(SupplyLink_)* failure_tail_.size()) + (8*output_.size()) << std::endl;
+
   }
 
   void AhoCorasickDA::expand_()
@@ -947,7 +988,8 @@ namespace OpenMS
     {
       bc_[node_pos].leaf_flag = 1;
       bc_[node_pos].base = static_cast<UInt32>(tail_.size());
-      appendToTail_(sequences_[unique_idx_[begin]].substr(depth));
+      const String& seq = sequences_[unique_idx_[begin]];
+      appendToTail_(&seq[depth]);
       output_[-(tail_.size()-1)] = unique_idx_[begin];
       return;
     }
@@ -1096,16 +1138,16 @@ namespace OpenMS
     }
   }
 
-  void AhoCorasickDA::appendToTail_(const String& suffix)
+  void AhoCorasickDA::appendToTail_(const char* suffix)
   {
-     const char* str = suffix.c_str();
-     while (*str != '\0')
+
+     while (*suffix != '\0')
      {
-       if (isAmbiguous_(*str))
+       if (isAmbiguous_(*suffix))
        {
          throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
        }
-      tail_.emplace_back(TailNode_(code_(*str++)));
+      tail_.emplace_back(TailNode_(code_(*suffix++)));
      }
      tail_.emplace_back(TailNode_(0));
   }
@@ -1163,13 +1205,13 @@ namespace OpenMS
            next_nodes.push_back(child_pos);
 
            // Supply link of parent of child_pos
-           Int32 down = getSupplyLink_(node);
+           Int32 down = getSupplyLinkConstr_(node);
 
 
            // Follow the supply links (longest suffix) and test transition with label of child_pos
            while ((down != 0) && (getNode_(down, label) == 0))
            {
-             down = getSupplyLink_(down);
+             down = getSupplyLinkConstr_(down);
            }
 
            // Set supply link if transition found else supply link points to root
@@ -1258,7 +1300,7 @@ namespace OpenMS
     }
   }
 
-  Int32 AhoCorasickDA::getSupplyLink_(const Int32 node)
+  Int32 AhoCorasickDA::getSupplyLinkConstr_(const Int32 node)
   {
     // Because of setting in setSupplyLink_
     Int32 sl;
@@ -1286,7 +1328,7 @@ namespace OpenMS
       return;
     }
 
-    Int32 sl = getSupplyLink_(node);
+    Int32 sl = getSupplyLinkConstr_(node);
 
     // Follow supply links to root a check for a peptide end
     while (sl != 0)
@@ -1306,7 +1348,7 @@ namespace OpenMS
         }
         return;
       }
-      sl = getSupplyLink_(sl);
+      sl = getSupplyLinkConstr_(sl);
     }
   }
 

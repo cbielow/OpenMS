@@ -102,13 +102,15 @@ namespace OpenMS
       UInt32 check           ;    ///< parent node TODO not necessary
     };
 
-    /// The properties of a node in the BC array
+    /// The properties of a node in the base-check-array (BC array)
     struct BCNode_
     {
       UInt32 base       :22 ;    ///< base value of the node
       UInt32 lcheck     :8  ;    ///< arc label from parent node. Only code of the aa is stored
       UInt32 leaf_flag  :1  ;    ///< marks if a node is a leaf
       UInt32 term_flag  :1  ;    ///< marks the end of a sequence if the sequence is a substring of another sequence
+      //Int32 link        :24 ;    ///< node to which the supply link leads (longest suffix)
+      //Int32 depth       :8  ;    ///< depth of node
     };
 
     /// The properties of node in Tail
@@ -117,6 +119,8 @@ namespace OpenMS
       explicit TailNode_(const uint8_t code) : label(code), term_flag(0){};
       uint8_t label      :7  ;  ///< code of aa, 0 marks the end of a sequence
       uint8_t term_flag  :1  ;  ///< marks the end of a sequence if the sequence is a substring of another sequence
+      //Int32 link         :24 ;  ///< node to which the supply link leads (longest suffix)
+      //Int32 depth        :8  ;  ///< depth of node
     };
 
     /// The properties of spawn. A spawn is created when an ambiguous aa is read and the possible aa form a valid transition
@@ -129,7 +133,6 @@ namespace OpenMS
     };
 
 
-    // TODO: Wäre es nicht sinnvoll diese Dinge im BCNode_ zu speichen? Dann spart man sich die Abfrage nach welchem Failure vector. Man ist ja schon beim Knoten.
     struct SupplyLink_
     {
       Int32 link      :24 ;   ///< node to which the supply link leads (longest suffix)
@@ -145,6 +148,9 @@ namespace OpenMS
     /// Indices of the sorted sequences, duplicate sequences are removed
     std::vector<UInt32> unique_idx_{};
 
+    std::unordered_map<UInt32, std::pair<UInt32, UInt32>> multi_idx_{};
+    //std::unordered_map<UInt32, UInt32> multi_idx_{};
+
     /// Stores information needed for the construction
     std::vector<BuildInformation_> build_info_{};
 
@@ -154,7 +160,7 @@ namespace OpenMS
     /// Tail array. Stores only the suffixes of the sequences, if all following nodes have exactly one child.
     std::vector<TailNode_> tail_ = {TailNode_(0)};
 
-    /// failure function // TODO: siehe oben
+    /// failure function
     std::vector<SupplyLink_> failure_tail_;
     std::vector<SupplyLink_> failure_bc_;
 
@@ -173,7 +179,6 @@ namespace OpenMS
     /// Current position in protein
     UInt32 prot_pos_ = 0;
 
-    // TODO darüber wollte ich nochmal reden
     /// Largest index of already read amb aa
     UInt32 pos_max_ = 0;
 
@@ -195,6 +200,9 @@ namespace OpenMS
     /// Current count of amb aa
     uint8_t amb_count_ = 0;
 
+
+    Size function_counter1 = 0;
+    Size function_counter2 = 0;
 
     /**
      * @brief code table
@@ -329,7 +337,6 @@ namespace OpenMS
 
 
 
-    //TODO macht fast exakt das gleiche wie 'getNode_' mit true/false.
     /**
      * @brief Compute the child node for each node depending on whether it is a node in trie, tail or leaf node
      * @param node Current node
@@ -362,6 +369,8 @@ namespace OpenMS
     /// Returns depth of the given node
     uint8_t getDepth_(const Int32 node);
 
+    Int32 getSupplyLink_(Int32 node);
+
     //-------------------------------------------------------------------------------------------------------------------------------------
     //  CDA - construction
     //-------------------------------------------------------------------------------------------------------------------------------------
@@ -387,7 +396,7 @@ namespace OpenMS
     void arrangeEmpty_(const UInt32 node_pos);
 
     /// stores the suffix string in tail as chars
-    void appendToTail_(const String& suffix);
+    void appendToTail_(const char* suffix);
 
     /// Construct the failure function
     void constructFailure_();
@@ -410,7 +419,7 @@ namespace OpenMS
     void setSupplyLink_(const Int32 node, Int32 sl, const uint8_t depth);
 
     /// returns the supply link for node either from failure_tail if node is negative or from failure_bc if positive
-    Int32 getSupplyLink_(const Int32 node);
+    Int32 getSupplyLinkConstr_(const Int32 node);
 
 
     /// tests if a supply link leads to a hit and marks the node with a term_flag

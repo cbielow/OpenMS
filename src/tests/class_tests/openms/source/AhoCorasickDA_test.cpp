@@ -36,11 +36,14 @@
 #include <OpenMS/test_config.h>
 #include <OpenMS/FORMAT/FileTypes.h>
 #include <OpenMS/FORMAT/TextFile.h>
+#include <OpenMS/SYSTEM/StopWatch.h>
+
 
 #include <OpenMS/ANALYSIS/ID/AhoCorasickDA.h>
 #include <iostream>
 #include <algorithm>
 #include <string>
+#include <chrono>
 
 using namespace OpenMS;
 
@@ -59,12 +62,16 @@ START_TEST(AhoCorasickDA, "$Id$")
     }
   }
 
-  std::vector<String> vec_short;
+ /* std::vector<String> vec_short;
   vec_short.insert(vec_short.begin(), vec_seq.begin(), vec_seq.end());
 
+  auto t1 = std::chrono::high_resolution_clock::now();
   AhoCorasickDA ac_da(vec_short);
+  auto t2 = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double,std::milli> elapsed = t2 - t1;
+  std::cout << "Construction time " << elapsed.count() << " ms"<< std::endl;
 
-  ac_da.printDA(false);
+  ac_da.printDA(false);*/
 
   std::vector<String> keys = {"VARK", "AAR", "AA", "DLAR", "DKL", "ARK", "ARK", "A", "KVAR", "KVAK"};
   std::vector<String> ambigious_tail = {"WITHB"};
@@ -140,9 +147,9 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      //std::cout << std::endl;
-      //std::cout << std::endl;
+      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
+      std::cout << std::endl;
+      std::cout << std::endl;
     }
 
     for (auto i: observed)
@@ -382,7 +389,7 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EQUAL(observed[2], "A7 @ 1")
     TEST_EQUAL(observed[3], "AAR1 @ 0");
 
-    observed.clear();
+   /* observed.clear();
     ac_da.setProtein("VGSDCTTIHYNYMCNSSCMGGMNXRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQ ", 3);
     while(ac_da.findNext(pos, idx))
     {
@@ -396,7 +403,7 @@ START_TEST(AhoCorasickDA, "$Id$")
     {
       std::cout << i << " ,  ";
     }
-    std::cout << std::endl;
+    std::cout << std::endl;*/
 
   }
   END_SECTION

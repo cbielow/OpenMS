@@ -57,6 +57,8 @@
 #include <atomic>
 #include <algorithm>
 #include <fstream>
+#include <chrono>
+
 
 
 namespace OpenMS
@@ -364,6 +366,7 @@ public:
                     << "\nPlease either remove the peptide or replace it with one of the unambiguous ones (while allowing for ambiguous AA's to match the protein)." << std::endl;;
         }
 //length(pep_DB)
+
         OPENMS_LOG_INFO << "Mapping " << pep_DB.size() << " peptides to " << (proteins.size() == PROTEIN_CACHE_SIZE ? "? (unknown number of)" : String(proteins.size()))  << " proteins." << std::endl;
 
         if (pep_DB.size() == 0)
@@ -380,12 +383,17 @@ public:
         OPENMS_LOG_INFO << "Building trie ...";
         StopWatch s;
         s.start();
+        auto s1 = std::chrono::high_resolution_clock::now();
+
 
         //AhoCorasickAmbiguous::FuzzyACPattern pattern;
         //AhoCorasickAmbiguous::initPattern(pep_DB, aaa_max_, mm_max_, pattern);
         Size pos = 0;
         Size idx = 0;
         AhoCorasickDA fuzzyAC(pep_DB);
+        auto s2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double,std::milli> elapsed = s2 - s1;
+        std::cout << "Construction time " << elapsed.count() << " ms"<< std::endl;
         s.stop();
         OPENMS_LOG_INFO << " done (" << int(s.getClockTime()) << "s)" << std::endl;
         s.reset();
@@ -417,7 +425,9 @@ public:
             } // implicit barrier here
             
             if (!has_active_data) break; // leave while-loop
+
             SignedSize prot_count = (SignedSize)proteins.chunkSize();
+            std::cout << "Prot Count " << prot_count << std::endl;
 
             #pragma omp master
             {
@@ -431,6 +441,7 @@ public:
               }
               //DEBUG_ONLY std::cerr << " done" << std::endl;
             }
+            auto t1 = std::chrono::high_resolution_clock::now();
             //DEBUG_ONLY std::cerr << " starting for loop \n";
             // search all peptides in each protein
             #pragma omp for schedule(dynamic, 100) nowait
@@ -504,11 +515,16 @@ public:
               }
             } // end parallel FOR
 
+            auto t2 = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double,std::milli> elapsed = t2 - t1;
+            std::cout << "Retrieval time of doubel-array based AC " << elapsed.count()/prot_count << " ms per Protein"<< std::endl;
+
             // join results again
            // DEBUG_ONLY std::cerr << " critical now \n";
             #ifdef _OPENMP
             #pragma omp critical(PeptideIndexer_joinAC)
             #endif
+
             {
               s.start();
               // hits
@@ -521,10 +537,10 @@ public:
           } // end readChunk
         } // OMP end parallel
         this->endProgress();
+
         std::cout << "Merge took: " << s.toString() << "\n";
         mu.after();
         std::cout << mu.delta("Aho-Corasick") << "\n\n";
-
         OPENMS_LOG_INFO << "\nAho-Corasick done:\n  found " << func.filter_passed << " hits for " << func.pep_to_prot.size() << " of " << pep_DB.size() << " peptides.\n";
 
         // write some stats
@@ -911,18 +927,15 @@ public:
 
     };
 
-   //inline void addHits_(AhoCorasickAmbiguous& fuzzyAC, const AhoCorasickAmbiguous::FuzzyACPattern& pattern, const AhoCorasickAmbiguous::PeptideDB& pep_DB, const String& prot, const String& full_prot, SignedSize idx_prot, Int offset, FoundProteinFunctor& func_threads) const
-
-   inline void addHits_(AhoCorasickDA& fuzzyAC, Size& pos_in_protein, Size& peptide_index, const Int amb_max, const std::vector<String>& pep_DB, const String& prot, const String& full_prot, SignedSize idx_prot, Int offset, FoundProteinFunctor& func_threads) const
+    inline void addHits_(AhoCorasickDA& fuzzyAC, Size& pos_in_protein, Size& peptide_index, const Int amb_max, const std::vector<String>& pep_DB, const String& prot, const String& full_prot, SignedSize idx_prot, Int offset, FoundProteinFunctor& func_threads) const
     {
-      fuzzyAC.setProtein(prot, amb_max);
+      fuzzyAC.setProtein(prot.c_str(), amb_max);
       while (fuzzyAC.findNext(pos_in_protein, peptide_index))
       {
-        const String tmp_pep = pep_DB[peptide_index];
+        const String& tmp_pep = pep_DB[peptide_index];
         func_threads.addHit(peptide_index, idx_prot, tmp_pep.length(), full_prot, pos_in_protein + offset);
       }
     }
-
     void updateMembers_() override;
 
     String decoy_string_{};
