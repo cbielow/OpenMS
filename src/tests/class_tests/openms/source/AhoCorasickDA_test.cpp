@@ -62,7 +62,7 @@ START_TEST(AhoCorasickDA, "$Id$")
     }
   }
 
- /* std::vector<String> vec_short;
+  std::vector<String> vec_short;
   vec_short.insert(vec_short.begin(), vec_seq.begin(), vec_seq.end());
 
   auto t1 = std::chrono::high_resolution_clock::now();
@@ -71,21 +71,26 @@ START_TEST(AhoCorasickDA, "$Id$")
   std::chrono::duration<double,std::milli> elapsed = t2 - t1;
   std::cout << "Construction time " << elapsed.count() << " ms"<< std::endl;
 
-  ac_da.printDA(false);*/
+  ac_da.printDA(false);
 
   std::vector<String> keys = {"VARK", "AAR", "AA", "DLAR", "DKL", "ARK", "ARK", "A", "KVAR", "KVAK"};
   std::vector<String> ambigious_tail = {"WITHB"};
   std::vector<String> ambigious_bc = {"ABCDE", "ABCFG"};
 
   std::vector<String> empty = {};
-    std::vector<String> observed{};
-    Size pos = 0;
-    Size idx = 0;
-  //std::vector<String> large = ...;
+  std::vector<String> observed{};
+  Size pos = 0;
+  Size idx = 0;
 
   AhoCorasickDA ac_keys(keys);
 
+  //std::vector<String> pat ={"ala#", "cca#", "cal#", "cc#", "icca#"};
+  //AhoCorasickDA ac_pat(pat);
+
   ac_keys.printDA(true);
+
+  //ac_pat.printDA(true);
+
 
   START_SECTION(bool findNext(Size& pos_in_protein, Size& peptide_index))
   {
@@ -94,11 +99,9 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EXCEPTION_WITH_MESSAGE(Exception::InvalidParameter, AhoCorasickDA ac_empty(empty), "No sequences given");
     TEST_EXCEPTION_WITH_MESSAGE(Exception::IllegalArgument, AhoCorasickDA ac_ambigious_t(ambigious_tail ), "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
     TEST_EXCEPTION_WITH_MESSAGE(Exception::IllegalArgument, AhoCorasickDA ac_ambigious_b(ambigious_bc ), "Input peptide must NOT contain ambiguous amino acids (B/J/Z/X) or characters other than amino acids!");
-    //TEST_EXCEPTION(Exception::InvalidSize, AhoCorasickDA ac_large(large))
 
 
-
-    //TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.findNext(pos, idx), "No protein for retrieval. Use function 'setProtein()'");
+    TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.findNext(pos, idx), "No protein for retrieval. Use function 'setProtein()'");
 
 
 
@@ -106,16 +109,8 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      std::cout << std::endl;
-      std::cout << std::endl;
     }
 
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
 
     TEST_EQUAL(observed.size(), 8)
     TEST_EQUAL(observed[0], "A7 @ 0");
@@ -147,16 +142,9 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      std::cout << std::endl;
-      std::cout << std::endl;
     }
 
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+
 
     TEST_EQUAL(observed.size(), 8)
     TEST_EQUAL(observed[0], "A7 @ 0");
@@ -177,11 +165,6 @@ START_TEST(AhoCorasickDA, "$Id$")
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
     }
 
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
 
     TEST_EQUAL(observed.size(), 9)
     TEST_EQUAL(observed[0], "A7 @ 2");
@@ -199,16 +182,8 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      std::cout << std::endl;
-      std::cout << std::endl;
     }
 
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
 
     TEST_EQUAL(observed.size(), 12)
     TEST_EQUAL(observed[0], "A7 @ 2");
@@ -230,15 +205,8 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      std::cout << std::endl;
-      std::cout << std::endl;
     }
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+
 
     TEST_EQUAL(observed.size(), 6)
     TEST_EQUAL(observed[0], "A7 @ 1");
@@ -256,11 +224,6 @@ START_TEST(AhoCorasickDA, "$Id$")
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
     }
 
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
 
     TEST_EQUAL(observed.size(), 11)
     TEST_EQUAL(observed[0], "A7 @ 2");
@@ -389,23 +352,19 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EQUAL(observed[2], "A7 @ 1")
     TEST_EQUAL(observed[3], "AAR1 @ 0");
 
-   /* observed.clear();
-    ac_da.setProtein("VGSDCTTIHYNYMCNSSCMGGMNXRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQ ", 3);
-    while(ac_da.findNext(pos, idx))
-    {
-      observed.push_back(vec_short[idx] + String(idx) + " @ " + String(pos));
-      std::cout << vec_short[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      std::cout << std::endl;
-      std::cout << std::endl;
-    }
+    observed.clear();
+
 
     for (auto i: observed)
     {
       std::cout << i << " ,  ";
     }
-    std::cout << std::endl;*/
+    std::cout << std::endl;
 
   }
   END_SECTION
+
+
+
 
 END_TEST

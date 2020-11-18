@@ -87,6 +87,7 @@ namespace OpenMS
     // for debugging
     void printDA(bool arrays);
 
+    UInt32 stat();
 
 
   private:
@@ -145,11 +146,14 @@ namespace OpenMS
     /// Indices of the sorted peptides in sequences_
     std::vector<UInt32> sorted_idx_{};
 
+    UInt32 aa_count_ = 0;
+
     /// Indices of the sorted sequences, duplicate sequences are removed
     std::vector<UInt32> unique_idx_{};
 
+    /// contains informations about duplicated sequences. Key: Peptide index, Value: position in sorted_idx_ vector, count of occurence
     std::unordered_map<UInt32, std::pair<UInt32, UInt32>> multi_idx_{};
-    //std::unordered_map<UInt32, UInt32> multi_idx_{};
+
 
     /// Stores information needed for the construction
     std::vector<BuildInformation_> build_info_{};
@@ -164,7 +168,7 @@ namespace OpenMS
     std::vector<SupplyLink_> failure_tail_;
     std::vector<SupplyLink_> failure_bc_;
 
-    ///Output function: contains all nodes, which are terminal nodes and the index of the Peptid.  Key: node position in Trie, value: original index of peptide in sequences_
+    /// Output function: contains all nodes, which are terminal nodes and the index of the Peptid.  Key: node position in Trie, value: original index of peptide in sequences_
     std::unordered_map<Int32, UInt32> output_{};
 
     /// First empty element in BC array
@@ -179,8 +183,7 @@ namespace OpenMS
     /// Current position in protein
     UInt32 prot_pos_ = 0;
 
-    /// Largest index of already read amb aa
-    UInt32 pos_max_ = 0;
+
 
     /// Depth of the first read aa
     uint16_t max_depth_decrease_ = 0;
@@ -200,9 +203,6 @@ namespace OpenMS
     /// Current count of amb aa
     uint8_t amb_count_ = 0;
 
-
-    Size function_counter1 = 0;
-    Size function_counter2 = 0;
 
     /**
      * @brief code table
@@ -242,7 +242,7 @@ namespace OpenMS
     static constexpr const uint8_t AA_COUNT_ = 22;
 
     /// Marks that supply links of the node leads to a hit
-    static constexpr const UInt32 SUBSTR_IS_HIT = UINT32_MAX;
+    static const UInt32 SUBSTR_IS_HIT = UINT32_MAX;
 
     //-------------------------------------------------------------------------------------------------------------------------------------
     //  CDA - functions
@@ -251,7 +251,7 @@ namespace OpenMS
     /// returns code of a aa
     uint8_t code_(const char label);
 
-    // TODO mache ich bei overloading die Erklärung für jede der beiden Funktionen?
+
     /**
      * @brief compute the child node. Uses XOR for computation
      * @param base_value base value of current node
@@ -297,20 +297,22 @@ namespace OpenMS
 
     /**
      * @brief Set new node_pos if there is no transition in trie
+     * @param node pointer to supply link of the current node
      * @return false if no transition was found with the help of the supply link,
      * if no transition with the next aa was found and no spawn exists.
      * Otherwise true
      */
-    bool failure_();
+    bool failure_(const SupplyLink_* node);
+
 
     /**
      * @brief Returns the supply link if this does not eliminate ambiguous aa. Don't do anything special with 0. Must be considered when calling
-     * @param node Node from which the supply link should be taken
+     * @param node pointer to supply link
      * @param[out] output_node Is set to the linked node
      * @param amb_depth Depth of the first read ambiguous aa
      * @return False if a supply link would cause the first read aa to be dropped. Otherwise true
      */
-    bool followSupplyLink_(Int32 node, Int32& output_node, uint16_t& amb_depth);
+    bool followSupplyLink_(const SupplyLink_* node, Int32& output_node, uint16_t& amb_depth);
 
     /**
      * @brief Processes ambiguous aa
@@ -336,15 +338,15 @@ namespace OpenMS
     bool useSpawn_();
 
 
-
-    /**
-     * @brief Compute the child node for each node depending on whether it is a node in trie, tail or leaf node
-     * @param node Current node
-     * @param label Code of transition label
-     * @param[out] output_node Child node
-     * @return True if a child node was found else false
-     */
-    bool getChildNode_(const Int32 node, const uint8_t label,  Int32& output_node);
+     /**
+      * @brief Compute the child node for each node depending on whether it is a node in trie, tail or leaf node
+      * @param node Current node
+      * @param label Code of transition label
+      * @param[out] output_node Child node
+      * @param[out] sl_pos supply link of the given node
+      * @return True if a child node was found else false
+      */
+    bool getChildNode_(const Int32 node, const uint8_t label,  Int32& output_node, SupplyLink_*& sl_pos);
 
     /**
      * @brief Calls getChildNode_. If false, the supply links are followed to 0 and the transition is tested for each node.
@@ -369,7 +371,7 @@ namespace OpenMS
     /// Returns depth of the given node
     uint8_t getDepth_(const Int32 node);
 
-    Int32 getSupplyLink_(Int32 node);
+    AhoCorasickDA::SupplyLink_* getSupplyLink_(Int32 node);
 
     //-------------------------------------------------------------------------------------------------------------------------------------
     //  CDA - construction
