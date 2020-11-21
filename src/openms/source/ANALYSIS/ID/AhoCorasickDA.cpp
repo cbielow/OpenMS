@@ -228,9 +228,13 @@ namespace OpenMS
     //between B (23) and X (26) (B,Z,J,X)
     return (23 <= code_(aa) && code_(aa) <= 26 );
   }
-  //void AhoCorasickDA::setProtein(const String& prot, const uint8_t amb_max)
+
   void AhoCorasickDA::setProtein(const char* prot, const uint8_t amb_max)
   {
+    if (prot == nullptr)
+    {
+      throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No protein for retrieval.");
+    }
     protein_ = prot;
     prot_pos_ = 0;
     node_pos_ = 0;
@@ -238,6 +242,7 @@ namespace OpenMS
     amb_count_ = 0;
     max_depth_decrease_ = 0;
   }
+
   bool AhoCorasickDA::findNext(Size& pos_in_protein, Size& peptide_index)
   {
     // Returns hits if more than one hit was found at the node position
@@ -250,8 +255,6 @@ namespace OpenMS
     }
     
     // Exception if no protein has been set
-    // if (*protein_ == '\0' && prot_pos_ == 0)
-    std::cout << "prot " << protein_[0] << std::endl;
     if (*protein_ == '\0' && prot_pos_ == 0)
     {
       throw Exception::MissingInformation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No protein for retrieval. Use function 'setProtein()'");

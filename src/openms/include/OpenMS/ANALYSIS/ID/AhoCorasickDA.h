@@ -178,7 +178,9 @@ namespace OpenMS
     std::vector<char> edges_{};
 
     /// Protein sequence for query
-    const char* protein_ = "";
+    const char empty_prot = '\0';
+    const char* protein_  = &empty_prot;
+    //const char* protein_  = "";
 
     /// Current position in protein
     UInt32 prot_pos_ = 0;

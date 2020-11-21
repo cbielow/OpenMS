@@ -84,12 +84,7 @@ START_TEST(AhoCorasickDA, "$Id$")
 
   AhoCorasickDA ac_keys(keys);
 
-  //std::vector<String> pat ={"ala#", "cca#", "cal#", "cc#", "icca#"};
-  //AhoCorasickDA ac_pat(pat);
 
-  ac_keys.printDA(true);
-
-  //ac_pat.printDA(true);
 
 
   START_SECTION(bool findNext(Size& pos_in_protein, Size& peptide_index))
@@ -103,6 +98,7 @@ START_TEST(AhoCorasickDA, "$Id$")
 
     TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.findNext(pos, idx), "No protein for retrieval. Use function 'setProtein()'");
 
+    TEST_EXCEPTION_WITH_MESSAGE(Exception::MissingInformation, ac_keys.setProtein(nullptr), "No protein for retrieval. Use function 'setProtein()'");
 
 
     ac_keys.setProtein("AARDVARK", 0);
@@ -246,12 +242,7 @@ START_TEST(AhoCorasickDA, "$Id$")
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
     }
-
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+    
 
     TEST_EQUAL(observed.size(), 7)
     TEST_EQUAL(observed[0], "A7 @ 3");
@@ -273,11 +264,7 @@ START_TEST(AhoCorasickDA, "$Id$")
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
 
     }
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+    
 
     TEST_EQUAL(observed.size(), 7)
     TEST_EQUAL(observed[0], "A7 @ 1")
@@ -294,15 +281,9 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      //std::cout << std::endl;
-      //std::cout << std::endl;
     }
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+
+   
 
     TEST_EQUAL(observed.size(), 3)
     TEST_EQUAL(observed[0], "DKL4 @ 0");
@@ -317,11 +298,7 @@ START_TEST(AhoCorasickDA, "$Id$")
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
 
     }
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+    
 
     TEST_EQUAL(observed.size(), 4)
     TEST_EQUAL(observed[0], "DKL4 @ 0");
@@ -335,16 +312,10 @@ START_TEST(AhoCorasickDA, "$Id$")
     while(ac_keys.findNext(pos, idx))
     {
       observed.push_back(keys[idx] + String(idx) + " @ " + String(pos));
-      //std::cout << keys[idx] + String(idx) + " @ " + String(pos) << std::endl;
-      //std::cout << std::endl;
-      //std::cout << std::endl;
+
     }
 
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+    
 
     TEST_EQUAL(observed.size(), 4)
     TEST_EQUAL(observed[0], "A7 @ 0");
@@ -352,14 +323,7 @@ START_TEST(AhoCorasickDA, "$Id$")
     TEST_EQUAL(observed[2], "A7 @ 1")
     TEST_EQUAL(observed[3], "AAR1 @ 0");
 
-    observed.clear();
-
-
-    for (auto i: observed)
-    {
-      std::cout << i << " ,  ";
-    }
-    std::cout << std::endl;
+    
 
   }
   END_SECTION
