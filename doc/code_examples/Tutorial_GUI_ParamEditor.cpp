@@ -58,6 +58,6 @@ Int main(int argc, const char** argv)
 
   editor->store();
   paramFile.store("Tutorial_ParamEditor_out.ini", param);
-
+  delete editor;
   return 0;
 } //end of main
