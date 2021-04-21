@@ -443,6 +443,7 @@ set(analysis_executables_list
   AbsoluteQuantitationStandards_test
   AccurateMassSearchEngine_test
   AhoCorasickAmbiguous_test
+  AhoCorasickDA_test
   AScore_test
   BaseGroupFinder_test
   BaseSuperimposer_test
