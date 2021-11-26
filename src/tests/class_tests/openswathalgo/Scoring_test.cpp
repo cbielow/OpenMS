@@ -400,8 +400,8 @@ y = [5.97543668746948 4.2749171257019 3.3301842212677 4.08597040176392 5.5030703
 
   std::vector<double> data2 {15.8951349258423, 41.5446395874023, 76.0746307373047, 109.069435119629, 111.90364074707, 169.79216003418,
                              121.043930053711, 63.0136985778809, 44.6150207519531, 21.4926776885986, 7.93575811386108};
-
-  auto result = Scoring::computeRank(data1);
+  std::vector<unsigned int> result;
+  Scoring::computeRank(data1, result);
 
   TEST_EQUAL (result[0],7);
   TEST_EQUAL (result[1],4);
@@ -418,6 +418,93 @@ y = [5.97543668746948 4.2749171257019 3.3301842212677 4.08597040176392 5.5030703
 }
 END_SECTION
 
+BOOST_AUTO_TEST_CASE(test_maxElem)
+{
+  std::vector<unsigned int> data1 = {0, 7, 2, 1, 5, 4, 6};
+  std::vector<unsigned int> data2 = {10, 35, 4, 2, 36, 12};
+
+  unsigned int result = Scoring::maxElem(data1);
+  TEST_EQUAL(result, 8);
+  result = Scoring::maxElem(data2);
+  TEST_EQUAL(result, 37);
+
+}
+END_SECTION
+
+BOOST_AUTO_TEST_CASE(test_calcJointProbability)
+{
+  std::vector<double> data1 {5.97543668746948, 4.2749171257019, 3.3301842212677, 4.08597040176392, 5.50307035446167, 5.24326848983765,
+                             8.40812492370605, 2.83419919013977, 6.94378805160522, 7.69957494735718, 4.08597040176392};
+
+  std::vector<double> data2 {15.8951349258423, 41.5446395874023, 76.0746307373047, 109.069435119629, 111.90364074707, 169.79216003418,
+                             121.043930053711, 63.0136985778809, 44.6150207519531, 21.4926776885986, 7.93575811386108};
+  std::vector<unsigned int> ranks1;
+  std::vector<unsigned int> ranks2;
+  Scoring::computeRank(data1, ranks1);
+  Scoring::computeRank(data2, ranks2);
+
+  Scoring::jpstate result = Scoring::calcJointProbability(ranks1, ranks2, ranks1.size());
+
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[0],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[1],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[2],0.18181818);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[3],0);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[4],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[5],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[6],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[7],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[8],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[9],0.09090909);
+  TEST_REAL_SIMILAR (result.firstProbabilityVector[10],0.09090909);
+
+
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[0],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[1],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[2],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[3],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[4],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[5],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[6],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[7],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[8],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[9],0.09090909);
+  TEST_REAL_SIMILAR (result.secondProbabilityVector[10],0.09090909);
+
+  TEST_EQUAL (result.jointPositionVector[0],18);
+  TEST_EQUAL (result.jointPositionVector[1],37);
+  TEST_EQUAL (result.jointPositionVector[2],67);
+  TEST_EQUAL (result.jointPositionVector[3],79);
+  TEST_EQUAL (result.jointPositionVector[4],94);
+  TEST_EQUAL (result.jointPositionVector[5],115);
+  TEST_EQUAL (result.jointPositionVector[6],109);
+  TEST_EQUAL (result.jointPositionVector[7],55);
+  TEST_EQUAL (result.jointPositionVector[8],52);
+  TEST_EQUAL (result.jointPositionVector[9],31);
+  TEST_EQUAL (result.jointPositionVector[10],2);
+  TEST_EQUAL (result.jointPositionVector[11],0);
+
+}
+END_SECTION
+
+BOOST_AUTO_TEST_CASE(test_mutualInformation)
+{
+  std::vector<double> data1 {5.97543668746948, 4.2749171257019, 3.3301842212677, 4.08597040176392, 5.50307035446167, 5.24326848983765,
+                             8.40812492370605, 2.83419919013977, 6.94378805160522, 7.69957494735718, 4.08597040176392};
+
+  std::vector<double> data2 {15.8951349258423, 41.5446395874023, 76.0746307373047, 109.069435119629, 111.90364074707, 169.79216003418,
+                             121.043930053711, 63.0136985778809, 44.6150207519531, 21.4926776885986, 7.93575811386108};
+  std::vector<unsigned int> ranks1;
+  std::vector<unsigned int> ranks2;
+  Scoring::computeRank(data1, ranks1);
+  Scoring::computeRank(data2, ranks2);
+
+  Scoring::jpstate state = Scoring::calcJointProbability(ranks1, ranks2, ranks1.size());
+  double result = Scoring::mutualInformation(state, ranks1, ranks2);
+
+  TEST_REAL_SIMILAR (result, 3.2776);
+}
+END_SECTION
+
 BOOST_AUTO_TEST_CASE(test_rankedMutualInformation)
 {
 /*
@@ -431,7 +518,7 @@ x = [15.8951349258423 41.5446395874023 76.0746307373047 109.069435119629 111.903
 
 m1 = mi(x_ranking,y_ranking)
 */
-
+/*
   static const double arr1[] =
   {
     5.97543668746948, 4.2749171257019, 3.3301842212677, 4.08597040176392, 5.50307035446167, 5.24326848983765,
@@ -442,10 +529,16 @@ m1 = mi(x_ranking,y_ranking)
     15.8951349258423, 41.5446395874023, 76.0746307373047, 109.069435119629, 111.90364074707, 169.79216003418,
     121.043930053711, 63.0136985778809, 44.6150207519531, 21.4926776885986, 7.93575811386108
   };
-  std::vector<double> data1 (arr1, arr1 + sizeof(arr1) / sizeof(arr1[0]) );
-  std::vector<double> data2 (arr2, arr2 + sizeof(arr2) / sizeof(arr2[0]) );
+  */
+  std::vector<double> data1 = {5.97543668746948, 4.2749171257019, 3.3301842212677, 4.08597040176392, 5.50307035446167, 5.24326848983765,
+                                 8.40812492370605, 2.83419919013977, 6.94378805160522, 7.69957494735718, 4.08597040176392};
+  std::vector<double> data2 = {15.8951349258423, 41.5446395874023, 76.0746307373047, 109.069435119629, 111.90364074707, 169.79216003418,
+                               121.043930053711, 63.0136985778809, 44.6150207519531, 21.4926776885986, 7.93575811386108};
+  std::vector<unsigned int> rank_vec1, rank_vec2;
+  Scoring::computeRank(data1, rank_vec1);
+  Scoring::computeRank(data2, rank_vec2);
 
-  double result = Scoring::rankedMutualInformation(data1, data2);
+  double result = Scoring::rankedMutualInformation(rank_vec1, rank_vec2);
 
   TEST_REAL_SIMILAR (result, 3.2776);
 }

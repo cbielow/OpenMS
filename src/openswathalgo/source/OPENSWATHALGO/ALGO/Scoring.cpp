@@ -32,6 +32,7 @@
 // $Authors: Hannes Roest $
 // --------------------------------------------------------------------------
 
+#include <iostream>
 #include <OpenMS/OPENSWATHALGO/ALGO/Scoring.h>
 #include <OpenMS/OPENSWATHALGO/Macros.h>
 #include <cmath>
@@ -153,14 +154,15 @@ namespace OpenSwath::Scoring
       {
         stdev = 1; // all data is equal
       }
+      stdev = 1/stdev;
       for (std::size_t i = 0; i < data.size(); i++)
       {
-        data[i] = (data[i] - mean) / stdev;
+        data[i] = (data[i] - mean) * stdev;
       }
     }
 
     XCorrArrayType normalizedCrossCorrelation(std::vector<double>& data1,
-                                              std::vector<double>& data2, int maxdelay, int lag = 1)
+                                              std::vector<double>& data2, int maxdelay, int lag = 1)  //const ref entfernt
     {
       OPENSWATH_PRECONDITION(data1.size() != 0 && data1.size() == data2.size(), "Both data vectors need to have the same length");
 
@@ -168,15 +170,17 @@ namespace OpenSwath::Scoring
       standardize_data(data1);
       standardize_data(data2);
       XCorrArrayType result = calculateCrossCorrelation(data1, data2, maxdelay, lag);
-      for (XCorrArrayType::iterator it = result.begin(); it != result.end(); ++it)
+
+      double d = 1.0 / data1.size();
+      for(auto& e : result)
       {
-        it->second = it->second / data1.size();
+        e.second *= d;
       }
       return result;
     }
 
     XCorrArrayType calculateCrossCorrelation(const std::vector<double>& data1,
-                                             const std::vector<double>& data2, int maxdelay, int lag)
+                                             const std::vector<double>& data2, int maxdelay, int lag) //const ref entfernt
     {
       OPENSWATH_PRECONDITION(data1.size() != 0 && data1.size() == data2.size(), "Both data vectors need to have the same length");
 
@@ -232,7 +236,8 @@ namespace OpenSwath::Scoring
         // sigma_1 * sigma_2 * n
         denominator = sqrt(sqsum1 * sqsum2);
       }
-      denominator = 1/denominator; // inverse denominator for faster calculation 
+      //avoids division in the for loop
+      denominator = 1/denominator;
       XCorrArrayType result;
       result.data.reserve( (size_t)std::ceil((2*maxdelay + 1) / lag));
       int cnt = 0;
@@ -269,43 +274,126 @@ namespace OpenSwath::Scoring
       return result;
     }
 
-    std::vector<unsigned int> computeRank(const std::vector<double>& v_temp)
+    void computeRank(const std::vector<double>& v_temp, std::vector<unsigned int>& ranks_out)
     {
-      std::vector<std::pair<float, unsigned int> > v_sort(v_temp.size());
-
-      for (unsigned int i = 0; i < v_sort.size(); ++i) {
-        v_sort[i] = std::make_pair(v_temp[i], i);
-      }
-
-      std::sort(v_sort.begin(), v_sort.end());
-
-      std::pair<double, unsigned int> rank;
-      std::vector<unsigned int> result(v_temp.size());
-
-      for (unsigned int i = 0; i < v_sort.size(); ++i)
+      std::vector<unsigned int> ranks{};
+      ranks.resize(v_temp.size());
+      std::iota(ranks.begin(), ranks.end(), 0);
+      std::sort(ranks.begin(), ranks.end(),
+                [&v_temp](unsigned int i, unsigned int j) { return v_temp[i] < v_temp[j]; });
+      ranks_out.clear();
+      ranks_out.resize(v_temp.size());
+      double x = 0;
+      unsigned int y = 0;
+      for(unsigned int i = 0; i < ranks.size();++i)
       {
-        if (v_sort[i].first != rank.first)
+        if(v_temp[ranks[i]] != x)
         {
-          rank = std::make_pair(v_sort[i].first, i);
+          x = v_temp[ranks[i]];
+          y = i;
         }
-        result[v_sort[i].second] = rank.second;
+        ranks_out[ranks[i]] = y;
       }
-      return result;
     }
 
-    double rankedMutualInformation(std::vector<double>& data1, std::vector<double>& data2)
+    unsigned int maxElem(const std::vector<unsigned int>& arr)
+    {
+      unsigned int max = arr[0];
+      for(auto e : arr)
+      {
+        if(e > max) max = e;
+      }
+      return max+1;
+    }
+
+
+
+    jpstate calcJointProbability(const std::vector<unsigned int>& firstVector,const std::vector<unsigned int>& secondVector,const int& vectorLength)
+    {
+      jpstate state;
+      double length = 1.0 / vectorLength;
+      unsigned int firstNumStates = maxElem(firstVector);
+      unsigned int secondNumStates = maxElem(secondVector);
+      unsigned int jointNumStates = firstNumStates * secondNumStates;
+
+      std::vector<unsigned int> firstStateCounts(firstNumStates, 0);
+      std::vector<unsigned int> secondStateCounts(secondNumStates, 0);
+      std::vector<unsigned int> jointStateCounts(jointNumStates, 0);
+      std::vector<unsigned int> jointPosition(firstNumStates, 0);
+
+      std::vector<double> firstStateProbs(firstNumStates, 0.0);
+      std::vector<double> secondStateProbs(secondNumStates, 0.0);
+      std::vector<double> jointStateProbs(jointNumStates, 0.0);
+
+      for(int i = 0; i < vectorLength; i++)
+      {
+        firstStateCounts[firstVector[i]] += 1;
+        secondStateCounts[secondVector[i]] += 1;
+        jointPosition[i] = secondVector[i] * firstNumStates + firstVector[i];
+        jointStateCounts[jointPosition[i]] += 1;
+      }
+
+      for (unsigned int i = 0; i < firstNumStates; i++) {
+        firstStateProbs[i] = firstStateCounts[i] * length;
+      }
+
+      for (unsigned int i = 0; i < secondNumStates; i++) {
+        secondStateProbs[i] = secondStateCounts[i] * length;
+      }
+
+      for (unsigned int i = 0; i < jointNumStates; i++) {
+        jointStateProbs[i] = jointStateCounts[i] * length;
+      }
+
+      state.jointPositionVector = jointPosition;
+      state.jointProbabilityVector = jointStateProbs;
+      state.numJointStates = jointNumStates;
+      state.firstProbabilityVector = firstStateProbs;
+      state.numFirstStates = firstNumStates;
+      state.secondProbabilityVector = secondStateProbs;
+      state.numSecondStates = secondNumStates;
+
+      return state;
+    }
+
+    double mutualInformation(jpstate& state,const std::vector<unsigned int>& firstVector,const std::vector<unsigned int>& secondVector)
+    {
+      double mutualInformation = 0.0;
+      //int firstIndex,secondIndex;
+
+      /*
+      ** I(X;Y) = \sum_x \sum_y p(x,y) * \log (p(x,y)/p(x)p(y))
+      */
+      for (unsigned int i = 0; i < firstVector.size(); i++)
+      {
+
+        int j = state.jointPositionVector[i];
+        if(state.jointProbabilityVector[j] != 0)
+        {
+          /*double division is probably more stable than multiplying two small numbers together
+          ** mutualInformation += state.jointProbabilityVector[i] * log(state.jointProbabilityVector[i] / (state.firstProbabilityVector[firstIndex] * state.secondProbabilityVector[secondIndex]));
+          */
+          mutualInformation += state.jointProbabilityVector[j] *
+                               log2(state.jointProbabilityVector[j] / state.firstProbabilityVector[firstVector[i]] /
+                                    state.secondProbabilityVector[secondVector[i]]);
+          state.jointProbabilityVector[j] = 0;
+        }
+      }
+      return mutualInformation;
+    }
+
+    double rankedMutualInformation(std::vector<unsigned int>& data1, std::vector<unsigned int>& data2)
     {
       OPENSWATH_PRECONDITION(data1.size() != 0 && data1.size() == data2.size(), "Both data vectors need to have the same length");
 
-      // rank the data
-      std::vector<unsigned int> int_data1 = computeRank(data1);
-      std::vector<unsigned int> int_data2 = computeRank(data2);
+      jpstate state = calcJointProbability(data1, data2, data1.size());
 
-      unsigned int* arr_int_data1 = &int_data1[0];
-      unsigned int* arr_int_data2 = &int_data2[0];
-
-      double result = calcMutualInformation(arr_int_data1, arr_int_data2, int_data1.size());
-
+      double result = mutualInformation(state, data1, data2);
+      /*
+      unsigned int* arr_int_data1 = &data1[0];
+      unsigned int* arr_int_data2 = &data2[0];
+      double result = calcMutualInformation(arr_int_data1, arr_int_data2, data1.size());
+      */
       return result;
     }
 }      //namespace OpenMS  // namespace Scoring
