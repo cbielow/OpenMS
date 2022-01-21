@@ -23,6 +23,7 @@ set(qc_executables_list
   MissedCleavages_test
   Ms2IdentificationRate_test
   Ms2SpectrumStats_test
+  MQEvidenceExporter_test
   MzCalibration_test
   PeptideMass_test
   PSMExplainedIonCurrent_test
@@ -68,6 +69,7 @@ set(datastructures_executables_list
   #MatrixUtils_test
   OPXLDataStructs_test
   Param_test
+  ParamValue_test
   QTCluster_test
   RangeManager_test
   StringListUtils_test
@@ -142,7 +144,6 @@ set(kernel_executables_list
   BaseFeature_test
   ChromatogramPeak_test
   ChromatogramTools_test
-  ComparatorUtils_test
   ConsensusFeature_test
   ConsensusMap_test
   ConversionHelper_test
@@ -220,16 +221,20 @@ set(format_executables_list
   MzMLValidator_test
   MzTab_test
   MzTabFile_test
+  MzTabM_test
+  MzTabMFile_test
   # MSstatsFile_test
   MzQuantMLFile_test
   #MzQuantMLValidator_test
   MzXMLFile_test
   NoopMSDataConsumer_test
   TraMLValidator_test
+  OMSFile_test
   OMSSACSVFile_test
   OMSSAXMLFile_test
   OSWFile_test
   PTMXMLFile_test
+  ParamCTDFile_test
   ParamXMLFile_test
   PeakFileOptions_test
   PeakTypeEstimator_test
@@ -513,6 +518,7 @@ set(analysis_executables_list
   MRMFeaturePicker_test
   MRMFragmentSelection_test
   MRMMapping_test
+  MRMScoring_test
   MapAlignmentAlgorithmIdentification_test
   MapAlignmentAlgorithmKD_test
   MapAlignmentAlgorithmPoseClustering_test
@@ -527,6 +533,7 @@ set(analysis_executables_list
   MetaboliteFeatureDeconvolution_test
   MetaboliteSpectralMatching_test
   ModifiedPeptideGenerator_test
+  NeedlemanWunsch_test
   OfflinePrecursorIonSelection_test
   PeptideIndexing_test
   PeptideAndProteinQuant_test
@@ -633,6 +640,12 @@ set(transformations_executables_list
 )
 endif(NOT DISABLE_OPENSWATH)
 
+set(ionmobility_executables_list
+  FAIMSHelper_test
+  IMDataConverter_test
+  IMTypes_test
+)
+
 set(simulation_executables_list
   DetectabilitySimulation_test
   DigestSimulation_test
@@ -724,6 +737,7 @@ set(TEST_executables
     ${analysis_executables_list}
     ${applications_executables_list}
     ${transformations_executables_list}
+    ${ionmobility_executables_list}
     ${simulation_executables_list}
     ${swath_executables_list}
     ${qc_executables_list}

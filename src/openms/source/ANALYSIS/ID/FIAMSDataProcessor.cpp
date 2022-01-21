@@ -59,18 +59,18 @@ namespace OpenMS {
 
     defaults_.setValue("bin_step", 20, "The size of the step to recalculated the bin size used for adding up spectra along the time axis");
 
-    defaults_.setValue("db:mapping", ListUtils::create<String>("CHEMISTRY/HMDBMappingFile.tsv"), "For the accurate mass search. Database input file(s), containing three tab-separated columns of mass, formula, identifier. "
+    defaults_.setValue("db:mapping", std::vector<std::string>{"CHEMISTRY/HMDBMappingFile.tsv"}, "For the accurate mass search. Database input file(s), containing three tab-separated columns of mass, formula, identifier. "
                                                                       "If 'mass' is 0, it is re-computed from the molecular sum formula. "
                                                                       "By default CHEMISTRY/HMDBMappingFile.tsv in OpenMS/share is used! If empty, the default will be used.");
-    defaults_.setValue("db:struct", ListUtils::create<String>("CHEMISTRY/HMDB2StructMapping.tsv"), "For the accurate mass search. Database input file(s), containing four tab-separated columns of identifier, name, SMILES, INCHI."
+    defaults_.setValue("db:struct", std::vector<std::string>{"CHEMISTRY/HMDB2StructMapping.tsv"}, "For the accurate mass search. Database input file(s), containing four tab-separated columns of identifier, name, SMILES, INCHI."
                                                                         "The identifier should match with mapping file. SMILES and INCHI are reported in the output, but not used otherwise. "
                                                                         "By default CHEMISTRY/HMDB2StructMapping.tsv in OpenMS/share is used! If empty, the default will be used.");
     defaults_.setValue("positive_adducts", "CHEMISTRY/PositiveAdducts.tsv", "For the accurate mass search. This file contains the list of potential positive adducts that will be looked for in the database. "
                                                                                   "Edit the list if you wish to exclude/include adducts. "
-                                                                                  "By default CHEMISTRY/PositiveAdducts.tsv in OpenMS/share is used! If empty, the default will be used.", ListUtils::create<String>("advanced"));
+                                                                                  "By default CHEMISTRY/PositiveAdducts.tsv in OpenMS/share is used! If empty, the default will be used.", {"advanced"});
     defaults_.setValue("negative_adducts", "CHEMISTRY/NegativeAdducts.tsv", "For the accurate mass search. This file contains the list of potential negative adducts that will be looked for in the database. "
                                                                                   "Edit the list if you wish to exclude/include adducts. "
-                                                                                  "By default CHEMISTRY/NegativeAdducts.tsv in OpenMS/share is used! If empty, the default will be used.", ListUtils::create<String>("advanced"));
+                                                                                  "By default CHEMISTRY/NegativeAdducts.tsv in OpenMS/share is used! If empty, the default will be used.", {"advanced"});
 
     defaults_.setValue("store_progress", "true", "If the intermediate files should be stored in the output directory");
     
@@ -81,7 +81,8 @@ namespace OpenMS {
     defaultsToParam_();
   }
 
-  void FIAMSDataProcessor::updateMembers_() {
+  void FIAMSDataProcessor::updateMembers_()
+  {
     float max_mz_ = param_.getValue("max_mz");
     float bin_step_ = param_.getValue("bin_step");
     float resolution_ = static_cast<float>(param_.getValue("resolution"));
@@ -100,7 +101,8 @@ namespace OpenMS {
     sgfilter_.setParameters(p);
   }
 
-  void FIAMSDataProcessor::cutForTime(const MSExperiment& experiment, const float n_seconds, std::vector<MSSpectrum>& output) {
+  void FIAMSDataProcessor::cutForTime(const MSExperiment& experiment, const float n_seconds, std::vector<MSSpectrum>& output)
+  {
       for (const auto & s : experiment.getSpectra()) {
           if (s.getRT() < n_seconds) output.push_back(s);
       }
@@ -123,7 +125,8 @@ namespace OpenMS {
       return output;
   }
 
-  MSSpectrum FIAMSDataProcessor::extractPeaks(const MSSpectrum& input) {
+  MSSpectrum FIAMSDataProcessor::extractPeaks(const MSSpectrum& input)
+  {
     MSSpectrum spectrum(input);
     sgfilter_.filter(spectrum);
 
@@ -133,8 +136,9 @@ namespace OpenMS {
     return picked;
   }
 
-  FeatureMap FIAMSDataProcessor::convertToFeatureMap(const MSSpectrum& input) {
-    String polarity_ = param_.getValue("polarity");
+  FeatureMap FIAMSDataProcessor::convertToFeatureMap(const MSSpectrum& input)
+  {
+    String polarity_ = param_.getValue("polarity").toString();
     FeatureMap output;
     for (auto it = input.begin(); it != input.end(); ++it) {
         Feature f;
@@ -146,7 +150,8 @@ namespace OpenMS {
     return output;
   }
 
-  void FIAMSDataProcessor::runAccurateMassSearch(FeatureMap& input, OpenMS::MzTab& output) {
+  void FIAMSDataProcessor::runAccurateMassSearch(FeatureMap& input, OpenMS::MzTab& output)
+  {
     Param ams_param;
     ams_param.setValue("ionization_mode", "auto");
     ams_param.setValue("mass_error_value", 1e+06 / (static_cast<float>(param_.getValue("resolution"))*2));
@@ -154,6 +159,7 @@ namespace OpenMS {
     ams_param.setValue("db:struct", param_.getValue("db:struct"));
     ams_param.setValue("positive_adducts", param_.getValue("positive_adducts"));
     ams_param.setValue("negative_adducts", param_.getValue("negative_adducts"));
+    ams_param.setValue("keep_unidentified_masses", "false"); // only report IDs
 
     AccurateMassSearchEngine ams;
     ams.setParameters(ams_param);
@@ -162,10 +168,11 @@ namespace OpenMS {
     ams.run(input, output);
   }
 
-  MSSpectrum FIAMSDataProcessor::trackNoise(const MSSpectrum& input) {
+  MSSpectrum FIAMSDataProcessor::trackNoise(const MSSpectrum& input)
+  {
     SignalToNoiseEstimatorMedianRapid sne(param_.getValue("sne:window"));
     MSSpectrum output;
-    if (input.size() == 0) {
+    if (input.empty()) {
       return output;
     }
     std::vector<double> mzs, intensities;
@@ -188,10 +195,11 @@ namespace OpenMS {
     return output;
   }
 
-  bool FIAMSDataProcessor::run(const MSExperiment& experiment, const float n_seconds, OpenMS::MzTab& output, const bool load_cached_spectrum) {
+  bool FIAMSDataProcessor::run(const MSExperiment& experiment, const float n_seconds, OpenMS::MzTab& output, const bool load_cached_spectrum)
+  {
     String postfix = String(static_cast<int>(n_seconds));
-    String dir_output_ = param_.getValue("dir_output");
-    String filename_ = param_.getValue("filename");
+    std::string dir_output_ = param_.getValue("dir_output");
+    std::string filename_ = param_.getValue("filename");
     String filepath_picked = dir_output_ + "/" + filename_ + "_picked_" + postfix + ".mzML";
     MSSpectrum picked_spectrum;
     bool is_cached;
@@ -225,7 +233,8 @@ namespace OpenMS {
     return is_cached;
   }
 
-  void FIAMSDataProcessor::storeSpectrum_(const MSSpectrum& input, String filename) {
+  void FIAMSDataProcessor::storeSpectrum_(const MSSpectrum& input, String filename)
+  {
       MzMLFile mzml;
       MSExperiment exp;
       exp.addSpectrum(input);
@@ -233,12 +242,14 @@ namespace OpenMS {
   }
 
   /// Get mass-to-charge ratios to base the sliding window upon
-  const std::vector<float>& FIAMSDataProcessor::getMZs() {
+  const std::vector<float>& FIAMSDataProcessor::getMZs()
+  {
     return mzs_;
   }
 
   /// Get the sliding bin sizes
-  const std::vector<float>& FIAMSDataProcessor::getBinSizes() {
+  const std::vector<float>& FIAMSDataProcessor::getBinSizes()
+  {
     return bin_sizes_;
   }
 }

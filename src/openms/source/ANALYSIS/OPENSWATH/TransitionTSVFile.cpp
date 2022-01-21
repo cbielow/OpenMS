@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -111,12 +111,12 @@ namespace OpenMS
   TransitionTSVFile::TransitionTSVFile() :
     DefaultParamHandler("TransitionTSVFile")
   {
-    defaults_.setValue("retentionTimeInterpretation", "iRT", "How to interpret the provided retention time (the retention time column can either be interpreted to be in iRT, minutes or seconds)", ListUtils::create<String>("advanced"));
-    defaults_.setValidStrings("retentionTimeInterpretation", ListUtils::create<String>("iRT,seconds,minutes"));
-    defaults_.setValue("override_group_label_check", "false", "Override an internal check that assures that all members of the same PeptideGroupLabel have the same PeptideSequence (this ensures that only different isotopic forms of the same peptide can be grouped together in the same label group). Only turn this off if you know what you are doing.", ListUtils::create<String>("advanced"));
-    defaults_.setValidStrings("override_group_label_check", ListUtils::create<String>("true,false"));
-    defaults_.setValue("force_invalid_mods", "false", "Force reading even if invalid modifications are encountered (OpenMS may not recognize the modification)", ListUtils::create<String>("advanced"));
-    defaults_.setValidStrings("force_invalid_mods", ListUtils::create<String>("true,false"));
+    defaults_.setValue("retentionTimeInterpretation", "iRT", "How to interpret the provided retention time (the retention time column can either be interpreted to be in iRT, minutes or seconds)", {"advanced"});
+    defaults_.setValidStrings("retentionTimeInterpretation", {"iRT","seconds","minutes"});
+    defaults_.setValue("override_group_label_check", "false", "Override an internal check that assures that all members of the same PeptideGroupLabel have the same PeptideSequence (this ensures that only different isotopic forms of the same peptide can be grouped together in the same label group). Only turn this off if you know what you are doing.", {"advanced"});
+    defaults_.setValidStrings("override_group_label_check", {"true","false"});
+    defaults_.setValue("force_invalid_mods", "false", "Force reading even if invalid modifications are encountered (OpenMS may not recognize the modification)", {"advanced"});
+    defaults_.setValidStrings("force_invalid_mods", {"true","false"});
 
     // write defaults into Param object param_
     defaultsToParam_();
@@ -129,7 +129,7 @@ namespace OpenMS
 
   void TransitionTSVFile::updateMembers_()
   {
-    retentionTimeInterpretation_ = param_.getValue("retentionTimeInterpretation");
+    retentionTimeInterpretation_ = param_.getValue("retentionTimeInterpretation").toString();
     override_group_label_check_ = param_.getValue("override_group_label_check").toBool();
     force_invalid_mods_ = param_.getValue("force_invalid_mods").toBool();
   }
@@ -351,7 +351,7 @@ namespace OpenMS
       String proteins;
       void(!extractName(proteins, "ProteinName", tmp_line, header_dict) &&
       !extractName(proteins, "ProteinId", tmp_line, header_dict)); // Spectronaut
-      if (proteins != "NA" && proteins != "")
+      if (proteins != "NA" && !proteins.empty())
       {
         proteins.split(';', mytransition.ProteinName);
       }
@@ -397,7 +397,7 @@ namespace OpenMS
       String uniprot_ids;
       void(!extractName(uniprot_ids, "UniprotId", tmp_line, header_dict) &&
       !extractName(uniprot_ids, "UniprotID", tmp_line, header_dict));
-      if (uniprot_ids != "NA" && uniprot_ids != "")
+      if (uniprot_ids != "NA" && !uniprot_ids.empty())
       {
         uniprot_ids.split(';', mytransition.uniprot_id);
       }
@@ -839,7 +839,7 @@ namespace OpenMS
     if (tr_it->fragment_nr != -1 ||
         tr_it->fragment_mzdelta != -1 ||
         tr_it->fragment_modification < 0 ||
-        tr_it->fragment_type != "" )
+        !tr_it->fragment_type.empty() )
     {
       interpretation_set = true;
     }
@@ -928,7 +928,7 @@ namespace OpenMS
       // unknown means that we should write CV Term "1001240"
       interpretation.iontype = TargetedExperiment::IonType::NonIdentified;
     }
-    else if (tr_it->fragment_type == "")
+    else if (tr_it->fragment_type.empty())
     {
       // empty means that we have no information whatsoever
       interpretation.iontype = TargetedExperiment::IonType::Unannotated;
@@ -938,7 +938,7 @@ namespace OpenMS
       interpretation.iontype = TargetedExperiment::IonType::NonIdentified;
     }
 
-    // dont add empty interpretations
+    // don't add empty interpretations
     if (interpretation_set) 
     {
       p.addInterpretation(interpretation);
@@ -1260,7 +1260,7 @@ namespace OpenMS
         mytransition.precursor_charge = String(pep.getChargeState());
       }
       mytransition.peptide_group_label = "NA";
-      if (pep.getPeptideGroupLabel() != "")
+      if (!pep.getPeptideGroupLabel().empty())
       {
         mytransition.peptide_group_label = pep.getPeptideGroupLabel();
       }

@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -44,6 +44,7 @@
 
 #include <map>
 #include <iterator>
+#include <iostream>
 
 using namespace OpenMS;
 using namespace std;
@@ -157,35 +158,35 @@ protected:
       Param additional_parameters;
       ParamXMLFile paramFile;
       paramFile.load(in_params_name, additional_parameters);
-      if (additional_parameters.getValue("kernel_type") != DataValue::EMPTY)
+      if (additional_parameters.getValue("kernel_type") != ParamValue::EMPTY)
       {
-        svm.setParameter(SVMWrapper::KERNEL_TYPE, ((String) additional_parameters.getValue("kernel_type")).toInt());
+        svm.setParameter(SVMWrapper::KERNEL_TYPE, String( additional_parameters.getValue("kernel_type").toString()).toInt());
       }
 
-      if (additional_parameters.getValue("border_length") == DataValue::EMPTY
+      if (additional_parameters.getValue("border_length") == ParamValue::EMPTY
          && svm.getIntParameter(SVMWrapper::KERNEL_TYPE) == SVMWrapper::OLIGO)
       {
         writeLog_("No border length saved in additional parameters file. Aborting!");
         cout << "No border length saved in additional parameters file. Aborting!" << endl;
         return ILLEGAL_PARAMETERS;
       }
-      border_length = ((String)additional_parameters.getValue("border_length")).toInt();
-      if (additional_parameters.getValue("k_mer_length") == DataValue::EMPTY
+      border_length = String(additional_parameters.getValue("border_length").toString()).toInt();
+      if (additional_parameters.getValue("k_mer_length") == ParamValue::EMPTY
          && svm.getIntParameter(SVMWrapper::KERNEL_TYPE) == SVMWrapper::OLIGO)
       {
         writeLog_("No k-mer length saved in additional parameters file. Aborting!");
         cout << "No k-mer length saved in additional parameters file. Aborting!" << endl;
         return ILLEGAL_PARAMETERS;
       }
-      k_mer_length = ((String)additional_parameters.getValue("k_mer_length")).toInt();
-      if (additional_parameters.getValue("sigma") == DataValue::EMPTY
+      k_mer_length = String(additional_parameters.getValue("k_mer_length").toString()).toInt();
+      if (additional_parameters.getValue("sigma") == ParamValue::EMPTY
          && svm.getIntParameter(SVMWrapper::KERNEL_TYPE) == SVMWrapper::OLIGO)
       {
         writeLog_("No sigma saved in additional parameters file. Aborting!");
         cout << "No sigma saved in additional parameters file. Aborting!" << endl;
         return ILLEGAL_PARAMETERS;
       }
-      sigma = ((String)additional_parameters.getValue("sigma")).toFloat();
+      sigma = String(additional_parameters.getValue("sigma").toString()).toFloat();
 
     }
     String document_id;

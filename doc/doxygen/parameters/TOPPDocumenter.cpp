@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -46,8 +46,6 @@
 #include <fstream>
 #include <sstream>
 
-#include <boost/algorithm/string.hpp>
-
 using namespace std;
 using namespace OpenMS;
 using namespace Internal;
@@ -78,7 +76,7 @@ void convertINI2HTML(const Param& p, ostream& os)
         String d = it2->description;
         d.substitute("\n", "<br>");
         os << indentation
-           << "<div class=\"node\"><span class=\"node_name\">"
+           << R"(<div class="node"><span class="node_name">)"
            << (String().fillLeft('+', (UInt) indentation.size() / 2) + it2->name)
            << "</span><span class=\"node_description\">"
            << (d)
@@ -100,7 +98,7 @@ void convertINI2HTML(const Param& p, ostream& os)
       s_attr += " item_advanced"; // optionally add advanced class
     if (it->tags.find("required") != it->tags.end())
       s_req += " item_required"; // optionally add required class
-    DataValue::DataType value_type = it->value.valueType();
+    ParamValue::ValueType value_type = it->value.valueType();
     //write opening tag
     os << indentation
        << "<div class=\"item"
@@ -123,7 +121,7 @@ void convertINI2HTML(const Param& p, ostream& os)
 
     //tags
     String list;
-    for (set<String>::const_iterator tag_it = it->tags.begin(); tag_it != it->tags.end(); ++tag_it)
+    for (auto tag_it = it->tags.begin(); tag_it != it->tags.end(); ++tag_it)
     {
       if (*tag_it == "advanced")
         continue; // do not list "advanced" or "required" (this is done by color coding)
@@ -139,8 +137,8 @@ void convertINI2HTML(const Param& p, ostream& os)
     String restrictions = "";
     switch (value_type)
     {
-    case DataValue::INT_VALUE:
-    case DataValue::INT_LIST:
+    case ParamValue::INT_VALUE:
+    case ParamValue::INT_LIST:
     {
       bool min_set = (it->min_int != -numeric_limits<Int>::max());
       bool max_set = (it->max_int != numeric_limits<Int>::max());
@@ -159,8 +157,8 @@ void convertINI2HTML(const Param& p, ostream& os)
     }
     break;
 
-    case DataValue::DOUBLE_VALUE:
-    case DataValue::DOUBLE_LIST:
+    case ParamValue::DOUBLE_VALUE:
+    case ParamValue::DOUBLE_LIST:
     {
       bool min_set = (it->min_float != -numeric_limits<double>::max());
       bool max_set = (it->max_float != numeric_limits<double>::max());
@@ -179,9 +177,9 @@ void convertINI2HTML(const Param& p, ostream& os)
     }
     break;
 
-    case DataValue::STRING_VALUE:
-    case DataValue::STRING_LIST:
-      if (it->valid_strings.size() != 0)
+    case ParamValue::STRING_VALUE:
+    case ParamValue::STRING_LIST:
+      if (!it->valid_strings.empty())
       {
         restrictions.concatenate(it->valid_strings.begin(), it->valid_strings.end(), ",");
       }

@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -53,6 +53,7 @@
 #include <functional>
 
 #include <boost/bind.hpp>
+#include <cmath> // for isnan
 
 const double C13C12_MASSDIFF_U = 1.0033548;
 
@@ -66,9 +67,9 @@ namespace OpenMS
     defaults_.setValue("dia_extraction_window", 0.05, "DIA extraction window in Th or ppm.");
     defaults_.setMinFloat("dia_extraction_window", 0.0);
     defaults_.setValue("dia_extraction_unit", "Th", "DIA extraction window unit");
-    defaults_.setValidStrings("dia_extraction_unit", ListUtils::create<String>("Th,ppm"));
+    defaults_.setValidStrings("dia_extraction_unit", {"Th","ppm"});
     defaults_.setValue("dia_centroided", "false", "Use centroided DIA data.");
-    defaults_.setValidStrings("dia_centroided", ListUtils::create<String>("true,false"));
+    defaults_.setValidStrings("dia_centroided", {"true","false"});
     defaults_.setValue("dia_byseries_intensity_min", 300.0, "DIA b/y series minimum intensity to consider.");
     defaults_.setMinFloat("dia_byseries_intensity_min", 0.0);
     defaults_.setValue("dia_byseries_ppm_diff", 10.0, "DIA b/y series minimal difference in ppm to consider.");
@@ -465,7 +466,7 @@ namespace OpenMS
     // score the pattern against a theoretical one
     OPENMS_POSTCONDITION(isotopes_int.size() == isotopes.intensity.size(), "Vectors for pearson correlation do not have the same size.");
     double int_score = OpenSwath::cor_pearson(isotopes_int.begin(), isotopes_int.end(), isotopes.intensity.begin());
-    if (boost::math::isnan(int_score))
+    if (std::isnan(int_score))
     {
       int_score = 0;
     }

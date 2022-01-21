@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -106,7 +106,7 @@ namespace OpenMS
 
   bool Plot3DCanvas::finishAdding_()
   {
-    if (layers_.getCurrentLayer().type != LayerData::DT_PEAK)
+    if (layers_.getCurrentLayer().type != LayerDataBase::DT_PEAK)
     {
       popIncompleteLayer_("This widget supports peak data only. Aborting!");
       return false;
@@ -164,7 +164,7 @@ namespace OpenMS
     resetZoom();
   }
 
-  Plot3DOpenGLCanvas * Plot3DCanvas::openglwidget()
+  Plot3DOpenGLCanvas * Plot3DCanvas::openglwidget() const
   {
     return static_cast<Plot3DOpenGLCanvas *>(openglcanvas_);
   }
@@ -198,7 +198,7 @@ namespace OpenMS
   void Plot3DCanvas::showCurrentLayerPreferences()
   {
     Internal::Plot3DPrefDialog dlg(this);
-    LayerData & layer = getCurrentLayer();
+    LayerDataBase& layer = getCurrentLayer();
 
 // cout << "IN: " << param_ << endl;
 
@@ -207,14 +207,14 @@ namespace OpenMS
     MultiGradientSelector * gradient = dlg.findChild<MultiGradientSelector *>("gradient");
     QSpinBox * width  = dlg.findChild<QSpinBox *>("width");
 
-    bg_color->setColor(QColor(param_.getValue("background_color").toQString()));
+    bg_color->setColor(QColor(String(param_.getValue("background_color").toString()).toQString()));
     shade->setCurrentIndex(layer.param.getValue("dot:shade_mode"));
     gradient->gradient().fromString(layer.param.getValue("dot:gradient"));
     width->setValue(UInt(layer.param.getValue("dot:line_width")));
 
     if (dlg.exec())
     {
-      param_.setValue("background_color", bg_color->getColor().name());
+      param_.setValue("background_color", bg_color->getColor().name().toStdString());
       layer.param.setValue("dot:shade_mode", shade->currentIndex());
       layer.param.setValue("dot:gradient", gradient->gradient().toString());
       layer.param.setValue("dot:line_width", width->value());
@@ -236,8 +236,9 @@ namespace OpenMS
   {
     //Abort of there are no layers
     if (layers_.empty())
+    {
       return;
-
+    }
     QMenu * context_menu = new QMenu(this);
     QAction * result = nullptr;
 
@@ -305,10 +306,10 @@ namespace OpenMS
 
   void Plot3DCanvas::saveCurrentLayer(bool visible)
   {
-    const LayerData & layer = getCurrentLayer();
+    const LayerDataBase& layer = getCurrentLayer();
 
     //determine proposed filename
-    String proposed_name = param_.getValue("default_path");
+    String proposed_name = param_.getValue("default_path").toString();
     if (visible == false && layer.filename != "")
     {
       proposed_name = layer.filename;

@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -166,8 +166,6 @@ namespace OpenMS
 
       rsq = lin_reg.getRSquared();
 
-      std::cout << "rsq: " << rsq << " points: " << x.size() << std::endl;
-
       if (rsq < rsq_limit)
       {
         std::vector<double> residuals;
@@ -264,7 +262,7 @@ namespace OpenMS
 
     double d = fabs(residuals[pos] - mean) / stdev;
     d /= pow(2.0, 0.5);
-    double prob = boost::math::erfc(d);
+    double prob = std::erfc(d);
 
     return prob;
   }

@@ -2,7 +2,7 @@
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2020.
+// ETH Zurich, and Freie Universitaet Berlin 2002-2021.
 //
 // This software is released under a three-clause BSD license:
 //  * Redistributions of source code must retain the above copyright
@@ -171,8 +171,10 @@ namespace OpenMS
       QString str = index.data(Qt::DisplayRole).toString();
 
       // only set editor data for first column (value column)
-      if (index.column() != 1) return;
-
+      if (index.column() != 1)
+      {
+        return;
+      }
 
       if (qobject_cast<QComboBox *>(editor))       //Drop-down list for enums
       {
@@ -212,7 +214,10 @@ namespace OpenMS
       {
         String list = str.mid(1, str.length() - 2);
         StringList rlist = ListUtils::create<String>(list);
-        for (auto& item : rlist) item.trim(); // remove '\n'
+        for (auto& item : rlist)
+        {
+          item.trim(); // remove '\n'
+        }
         String restrictions = index.sibling(index.row(), 2).data(Qt::UserRole).toString();
         if (qobject_cast<ListEditor*>(editor))
         {
@@ -250,8 +255,10 @@ namespace OpenMS
     void ParamEditorDelegate::setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const
     {
       // only set model data for first column (value column)
-      if (index.column() != 1) return;
-
+      if (index.column() != 1)
+      {
+        return;
+      }
       QVariant present_value = index.data(Qt::DisplayRole);
       QVariant new_value;
       //extract new value
@@ -271,9 +278,13 @@ namespace OpenMS
         else if (static_cast<QLineEdit *>(editor)->text() == "" && ((dtype == "int") || (dtype == "float")))         //numeric
         {
           if (dtype == "int")
+          {
             new_value = QVariant("0");
+          }
           else if (dtype == "float")
+          {
             new_value = QVariant("nan");
+          }
         }
         else
         {
@@ -312,11 +323,11 @@ namespace OpenMS
           vector<String> parts;
           if (restrictions.split(' ', parts))
           {
-            if (parts[0] != "" && new_value.toInt() < parts[0].toInt())
+            if (!parts[0].empty() && new_value.toInt() < parts[0].toInt())
             {
               restrictions_met = false;
             }
-            if (parts[1] != "" && new_value.toInt() > parts[1].toInt())
+            if (!parts[1].empty() && new_value.toInt() > parts[1].toInt())
             {
               restrictions_met = false;
             }
@@ -335,11 +346,11 @@ namespace OpenMS
           vector<String> parts;
           if (restrictions.split(' ', parts))
           {
-            if (parts[0] != "" && new_value.toDouble() < parts[0].toDouble())
+            if (!parts[0].empty() && new_value.toDouble() < parts[0].toDouble())
             {
               restrictions_met = false;
             }
-            if (parts[1] != "" && new_value.toDouble() > parts[1].toDouble())
+            if (!parts[1].empty() && new_value.toDouble() > parts[1].toDouble())
             {
               restrictions_met = false;
             }
@@ -369,8 +380,10 @@ namespace OpenMS
     bool ParamEditorDelegate::eventFilter(QObject* editor, QEvent* event)
     {
       // NEVER EVER commit data (which calls setModelData()), without explicit calls to commit() for non-embedded Dialogs ;
-      if (qobject_cast<ListEditor*>(editor) || qobject_cast<ListFilterDialog*>(editor)) return false;
-
+      if (qobject_cast<ListEditor*>(editor) || qobject_cast<ListFilterDialog*>(editor))
+      {
+        return false;
+      }
       // default: will call commit(), if the event was handled (e.g. a press of 'Enter')
       return QItemDelegate::eventFilter(editor, event);
     }
@@ -500,17 +513,17 @@ namespace OpenMS
     {
       //********handle opened/closed nodes********
       const std::vector<Param::ParamIterator::TraceInfo> & trace = it.getTrace();
-      for (std::vector<Param::ParamIterator::TraceInfo>::const_iterator it2 = trace.begin(); it2 != trace.end(); ++it2)
+      for (const Param::ParamIterator::TraceInfo& par : trace)
       {
-        if (it2->opened)         //opened node
+        if (par.opened)         //opened node
         {
           item = new QTreeWidgetItem(parent);
           //name
-          item->setText(0, it2->name.toQString());
+          item->setText(0, String(par.name).toQString());
           item->setTextColor(0, Qt::darkGray);  // color of nodes with children
 
           //description
-          item->setData(1, Qt::UserRole, it2->description.toQString());
+          item->setData(1, Qt::UserRole, String(par.description).toQString());
           //role
           item->setData(0, Qt::UserRole, NODE);
           //flags
@@ -528,7 +541,9 @@ namespace OpenMS
         {
           parent = parent->parent();
           if (parent == nullptr)
+          {
             parent = tree_->invisibleRootItem();
+          }
         }
       }
 
@@ -561,36 +576,36 @@ namespace OpenMS
         item->setData(0, Qt::UserRole, NORMAL_ITEM);
       }
       // name
-      item->setText(0, it->name.toQString());
+      item->setText(0, String(it->name).toQString());
       // value
-      if (it->value.valueType() == DataValue::STRING_LIST)
+      if (it->value.valueType() == ParamValue::STRING_LIST)
       {
-        item->setText(1, QString("[%1]").arg(GUIHelpers::convert(it->value.toStringList()).join(",\n")));
+        item->setText(1, QString("[%1]").arg(GUIHelpers::convert(ListUtils::toStringList<std::string>(it->value.toStringVector())).join(",\n")));
       }
-      else if (it->value.valueType() == DataValue::INT_LIST)
+      else if (it->value.valueType() == ParamValue::INT_LIST)
       {
-        item->setText(1, QString("[%1]").arg(GUIHelpers::convert(ListUtils::toStringList(it->value.toIntList())).join(",\n")));
+        item->setText(1, QString("[%1]").arg(GUIHelpers::convert(ListUtils::toStringList(it->value.toIntVector())).join(",\n")));
       }
-      else if (it->value.valueType() == DataValue::DOUBLE_LIST)
+      else if (it->value.valueType() == ParamValue::DOUBLE_LIST)
       {
-        item->setText(1, QString("[%1]").arg(GUIHelpers::convert(ListUtils::toStringList(it->value.toDoubleList())).join(",\n")));
+        item->setText(1, QString("[%1]").arg(GUIHelpers::convert(ListUtils::toStringList(it->value.toDoubleVector())).join(",\n")));
       }
       else
       {
-        item->setText(1, String(it->value).toQString());
+        item->setText(1, String(it->value.toString()).toQString());
       }
       // type
       switch (it->value.valueType())
       {
-      case DataValue::INT_VALUE:
+      case ParamValue::INT_VALUE:
         item->setText(2, "int");
         break;
 
-      case DataValue::DOUBLE_VALUE:
+      case ParamValue::DOUBLE_VALUE:
         item->setText(2, "float");
         break;
 
-      case DataValue::STRING_VALUE:
+      case ParamValue::STRING_VALUE:
         if (it->tags.count("input file"))
         {
           item->setText(2, "input file");
@@ -605,7 +620,7 @@ namespace OpenMS
         }
         break;
 
-      case DataValue::STRING_LIST:
+      case ParamValue::STRING_LIST:
         if (it->tags.count("input file"))
         {
           item->setText(2, "input file list");
@@ -620,11 +635,11 @@ namespace OpenMS
         }
         break;
 
-      case DataValue::INT_LIST:
+      case ParamValue::INT_LIST:
         item->setText(2, "int list");
         break;
 
-      case DataValue::DOUBLE_LIST:
+      case ParamValue::DOUBLE_LIST:
         item->setText(2, "double list");
         break;
 
@@ -634,8 +649,8 @@ namespace OpenMS
       //restrictions (displayed and internal for easier parsing)
       switch (it->value.valueType())
       {
-      case DataValue::INT_VALUE:
-      case DataValue::INT_LIST:
+      case ParamValue::INT_VALUE:
+      case ParamValue::INT_LIST:
       {
         String drest = "", irest = "";
         bool min_set = (it->min_int != -numeric_limits<Int>::max());
@@ -661,8 +676,8 @@ namespace OpenMS
       }
       break;
 
-      case DataValue::DOUBLE_VALUE:
-      case DataValue::DOUBLE_LIST:
+      case ParamValue::DOUBLE_VALUE:
+      case ParamValue::DOUBLE_LIST:
       {
         String drest = "", irest = "";
         bool min_set = (it->min_float != -numeric_limits<double>::max());
@@ -688,8 +703,8 @@ namespace OpenMS
       }
       break;
 
-      case DataValue::STRING_VALUE:
-      case DataValue::STRING_LIST:
+      case ParamValue::STRING_VALUE:
+      case ParamValue::STRING_LIST:
       {
         String irest = ListUtils::concatenate(it->valid_strings, ",");
         if (!irest.empty())
@@ -709,9 +724,9 @@ namespace OpenMS
         break;
       }
 
-      // description
-      item->setData(1, Qt::UserRole, it->description.toQString());
-      // flags
+      //description
+      item->setData(1, Qt::UserRole, String(it->description).toQString());
+      //flags
       if (param_ != nullptr)
       {
         item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
@@ -777,7 +792,7 @@ namespace OpenMS
     */
     child->setData(1, Qt::BackgroundRole, QBrush(Qt::white));
 
-    if (path == "")
+    if (path.empty())
     {
       path = child->text(0).toStdString();
     }
@@ -788,7 +803,7 @@ namespace OpenMS
 
     String description = child->data(1, Qt::UserRole).toString();
 
-    StringList tag_list;
+    std::vector<std::string> tag_list;
     try // might throw ElementNotFound
     {
       tag_list = param_->getTags(path);
@@ -799,7 +814,7 @@ namespace OpenMS
 
     if (child->text(2) == "")  // node
     {
-      if (description != "")
+      if (!description.empty())
       {
         section_descriptions.insert(make_pair(path, description));
       }
@@ -813,11 +828,11 @@ namespace OpenMS
         vector<String> parts;
         if (restrictions.split(' ', parts))
         {
-          if (parts[0] != "")
+          if (!parts[0].empty())
           {
             param_->setMinFloat(path, parts[0].toDouble());
           }
-          if (parts[1] != "")
+          if (!parts[1].empty())
           {
             param_->setMaxFloat(path, parts[1].toDouble());
           }
@@ -827,10 +842,9 @@ namespace OpenMS
       {
         param_->setValue(path, child->text(1).toStdString(), description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
-        if (restrictions != "")
+        if (!restrictions.empty())
         {
-          std::vector<String> parts;
-          restrictions.split(',', parts);
+          std::vector<std::string> parts = ListUtils::create<std::string>(restrictions);
           param_->setValidStrings(path, parts);
         }
       }
@@ -838,10 +852,9 @@ namespace OpenMS
       {
         param_->setValue(path, child->text(1).toStdString(), description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
-        if (restrictions != "")
+        if (!restrictions.empty())
         {
-          std::vector<String> parts;
-          restrictions.split(',', parts);
+          std::vector<std::string> parts = ListUtils::create<std::string>(restrictions);
           param_->setValidStrings(path, parts);
         }
       }
@@ -849,10 +862,9 @@ namespace OpenMS
       {
         param_->setValue(path, child->text(1).toStdString(), description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
-        if (restrictions != "")
+        if (!restrictions.empty())
         {
-          std::vector<String> parts;
-          restrictions.split(',', parts);
+          std::vector<std::string> parts = ListUtils::create<std::string>(restrictions);
           param_->setValidStrings(path, parts);
         }
       }
@@ -863,11 +875,11 @@ namespace OpenMS
         vector<String> parts;
         if (restrictions.split(' ', parts))
         {
-          if (parts[0] != "")
+          if (!parts[0].empty())
           {
             param_->setMinInt(path, parts[0].toInt());
           }
-          if (parts[1] != "")
+          if (!parts[1].empty())
           {
             param_->setMaxInt(path, parts[1].toInt());
           }
@@ -875,19 +887,14 @@ namespace OpenMS
       }
       String list;
       list = child->text(1).mid(1, child->text(1).length() - 2);
-      StringList rlist = ListUtils::create<String>(list);
-      for (UInt i = 0; i < rlist.size(); ++i)
-      {
-        rlist[i] = rlist[i].trim();
-      }
+      std::vector<std::string> rlist = ListUtils::create<std::string>(list);
       if (child->text(2) == "string list")
       {
         param_->setValue(path, rlist, description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
-        if (restrictions != "")
+        if (!restrictions.empty())
         {
-          vector<String> parts;
-          restrictions.split(',', parts);
+          vector<std::string> parts = ListUtils::create<std::string>(restrictions);
           param_->setValidStrings(path, parts);
         }
       }
@@ -895,10 +902,9 @@ namespace OpenMS
       {
         param_->setValue(path, rlist, description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
-        if (restrictions != "")
+        if (!restrictions.empty())
         {
-          vector<String> parts;
-          restrictions.split(',', parts);
+          std::vector<std::string> parts = ListUtils::create<std::string>(restrictions);
           param_->setValidStrings(path, parts);
         }
       }
@@ -906,25 +912,24 @@ namespace OpenMS
       {
         param_->setValue(path, rlist, description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
-        if (restrictions != "")
+        if (!restrictions.empty())
         {
-          vector<String> parts;
-          restrictions.split(',', parts);
+          std::vector<std::string> parts = ListUtils::create<std::string>(restrictions);
           param_->setValidStrings(path, parts);
         }
       }
       else if (child->text(2) == "double list")
       {
-        param_->setValue(path, ListUtils::create<double>(rlist), description, tag_list);
+        param_->setValue(path, ListUtils::create<double>(ListUtils::toStringList<std::string>(rlist)), description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
         vector<String> parts;
         if (restrictions.split(' ', parts))
         {
-          if (parts[0] != "")
+          if (!parts[0].empty())
           {
             param_->setMinFloat(path, parts[0].toFloat());
           }
-          if (parts[1] != "")
+          if (!parts[1].empty())
           {
             param_->setMaxFloat(path, parts[1].toFloat());
           }
@@ -932,16 +937,16 @@ namespace OpenMS
       }
       else if (child->text(2) == "int list")
       {
-        param_->setValue(path, ListUtils::create<Int>(rlist), description, tag_list);
+        param_->setValue(path, ListUtils::create<Int>(ListUtils::toStringList<std::string>(rlist)), description, tag_list);
         String restrictions = child->data(2, Qt::UserRole).toString();
         vector<String> parts;
         if (restrictions.split(' ', parts))
         {
-          if (parts[0] != "")
+          if (!parts[0].empty())
           {
             param_->setMinInt(path, parts[0].toInt());
           }
-          if (parts[1] != "")
+          if (!parts[1].empty())
           {
             param_->setMaxInt(path, parts[1].toInt());
           }

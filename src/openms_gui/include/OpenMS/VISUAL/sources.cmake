@@ -18,7 +18,12 @@ HistogramWidget.h
 InputFile.h
 InputFileList.h
 LayerListView.h
-LayerData.h
+LayerDataBase.h
+LayerDataChrom.h
+LayerDataConsensus.h
+LayerDataFeature.h
+LayerDataIdent.h
+LayerDataPeak.h
 ListEditor.h
 LogWindow.h
 MetaDataBrowser.h
@@ -36,6 +41,7 @@ Plot3DWidget.h
 PlotCanvas.h
 PlotWidget.h
 RecentFilesMenu.h
+SequenceVisualizer.h
 SpectraTreeTab.h
 SpectraIDViewTab.h
 SwathLibraryStats.h
@@ -58,6 +64,7 @@ TVControllerBase.h
 TVDIATreeTabController.h
 TVIdentificationViewController.h
 TVSpectraViewController.h
+TVToolDiscovery.h
 )
 
 ### add path to the filenames
