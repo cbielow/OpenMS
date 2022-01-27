@@ -29,7 +29,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Timo Sachsenberg$
-// $Authors: Stephan Aiche, Chris Bielow$
+// $Authors: Stephan Aiche, Chris Bielow, Lucas Rieckert$
 // --------------------------------------------------------------------------
 
 #pragma once
@@ -89,6 +89,9 @@ public:
      */
     void simulate(SimTypes::MutableSimRandomNumberGeneratorPtr rnd_gen, SimTypes::SampleChannels& peptides);
 
+    /// Function to generate deisotoped version of the simulated centroided MS1 spectra containing only monoisotopic peaks
+    void createMonoisotopicExperiment();
+
     /// Access the simulated experiment
     const SimTypes::MSSimExperiment& getExperiment() const;
 
@@ -106,6 +109,9 @@ public:
 
     /// Access the picked (centroided) experiment
     const SimTypes::MSSimExperiment& getPeakMap() const;
+
+    /// Access the picked (centroided) experiment containing only the monoisotopic peaks of the simulated features
+    const SimTypes::MSSimExperiment& getMonoisotopicExperiment() const;
 
     /**
       @brief Access the simulated identifications (proteins and peptides)
@@ -155,6 +161,9 @@ private:
 
     /// Holds the ground-truth on generated peaks positions and intensities
     SimTypes::MSSimExperiment peak_map_;
+
+    /// Holds the ground-truth on generated monoisotopic peaks positions and intensities
+    SimTypes::MSSimExperiment monoisotopic_experiment_;
 
     /// Holds the ground-truth on generated features
     SimTypes::FeatureMapSimVector feature_maps_;
