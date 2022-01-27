@@ -54,6 +54,6 @@ Int main(int argc, const char ** argv)
   Plot1DWidget * widget = new Plot1DWidget(Param(), nullptr);
   widget->canvas()->addLayer(exp_sptr, on_disc_exp_sptr);
   widget->show();
-
+  delete widget;
   return app.exec();
 } //end of main
