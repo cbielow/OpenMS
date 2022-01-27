@@ -29,7 +29,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Chris Bielow $
-// $Authors: Stephan Aiche, Chris Bielow, Ole Schulz-Trieglaff $
+// $Authors: Stephan Aiche, Chris Bielow, Ole Schulz-Trieglaff, Lucas Rieckert $
 // --------------------------------------------------------------------------
 
 #include <iostream>
@@ -158,6 +158,8 @@ protected:
     setValidFormats_("out_cntm", ListUtils::create<String>("featureXML"));
     registerOutputFile_("out_id", "<file>", "", "output: ground-truth MS2 peptide identifications", false);
     setValidFormats_("out_id", ListUtils::create<String>("idXML"));
+    registerOutputFile_("out_mono", "<file>", "", "output: ground-truth picked (centroided) MS1 data containing only monoisotopic peaks", false);
+    setValidFormats_("out_mono", ListUtils::create<String>("mzML"));
 
     registerSubsection_("algorithm", "Algorithm parameters section");
   }
@@ -249,13 +251,14 @@ protected:
     //-------------------------------------------------------------
 
     // check if at least one output file is
-    if (getStringOption_("out").empty() &&
-        getStringOption_("out_pm").empty() &&
-        getStringOption_("out_fm").empty() &&
-        getStringOption_("out_cm").empty() &&
-        getStringOption_("out_lcm").empty() &&
-        getStringOption_("out_cntm").empty() &&
-        getStringOption_("out_id").empty())
+    if (getStringOption_("out") == "" &&
+        getStringOption_("out_pm") == "" &&
+        getStringOption_("out_fm") == "" &&
+        getStringOption_("out_cm") == "" &&
+        getStringOption_("out_lcm") == "" &&
+        getStringOption_("out_cntm") == "" &&
+        getStringOption_("out_id") == "" &&
+        getStringOption_("out_mono") == "")
     {
       OPENMS_LOG_ERROR << "Error: At least one output file needs to specified!" << std::endl;
       return MISSING_PARAMETERS;
@@ -292,28 +295,28 @@ protected:
     writeLog_(String("Simulation took ") + String(w.getClockTime()) + String(" seconds"));
 
     String outputfile_name = getStringOption_("out");
-    if (!outputfile_name.empty())
+    if (outputfile_name != "")
     {
       writeLog_(String("Storing simulated raw data in: ") + outputfile_name);
       MzMLFile().store(outputfile_name, ms_simulation.getExperiment());
     }
 
     String pxml_out = getStringOption_("out_pm");
-    if (!pxml_out.empty())
+    if (pxml_out != "")
     {
       writeLog_(String("Storing simulated peak/centroided data in: ") + pxml_out);
       MzMLFile().store(pxml_out, ms_simulation.getPeakMap());
     }
 
     String fxml_out = getStringOption_("out_fm");
-    if (!fxml_out.empty())
+    if (fxml_out != "")
     {
       writeLog_(String("Storing simulated features in: ") + fxml_out);
       FeatureXMLFile().store(fxml_out, ms_simulation.getSimulatedFeatures());
     }
 
     String cxml_out = getStringOption_("out_cm");
-    if (!cxml_out.empty())
+    if (cxml_out != "")
     {
       writeLog_(String("Storing charged consensus features in: ") + cxml_out);
 
@@ -326,7 +329,7 @@ protected:
     }
 
     String lcxml_out = getStringOption_("out_lcm");
-    if (!lcxml_out.empty())
+    if (lcxml_out != "")
     {
       writeLog_(String("Storing labeling consensus features in: ") + lcxml_out);
 
@@ -343,14 +346,22 @@ protected:
     }
 
     String cntxml_out = getStringOption_("out_cntm");
-    if (!cntxml_out.empty())
+    if (cntxml_out != "")
     {
       writeLog_(String("Storing simulated contaminant features in: ") + cntxml_out);
       FeatureXMLFile().store(cntxml_out, ms_simulation.getContaminants());
     }
 
+    String mono_out = getStringOption_("out_mono");
+    if(mono_out != "")
+    {
+      ms_simulation.createMonoisotopicExperiment();
+      writeLog_(String("Storing deisotoped simulated monoisotopic peak/centroided data in: ") + mono_out);
+      MzMLFile().store(mono_out, ms_simulation.getMonoisotopicExperiment());
+    }
+
     String id_out = getStringOption_("out_id");
-    if (!id_out.empty())
+    if (id_out != "")
     {
       writeLog_(String("Storing ground-truth peptide IDs in: ") + id_out);
       vector<ProteinIdentification> proteins;
