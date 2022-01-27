@@ -29,7 +29,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Timo Sachsenberg$
-// $Authors: Chris Bielow, Stephan Aiche$
+// $Authors: Chris Bielow, Stephan Aiche, Lucas Rieckert$
 // --------------------------------------------------------------------------
 
 #include <OpenMS/CONCEPT/ClassTest.h>
@@ -74,9 +74,9 @@ public:
   inline bool operator()(const Feature & f) const
   {
     String f_sequence = "";
-    if (!f.getPeptideIdentifications().empty())
+    if (f.getPeptideIdentifications().size() > 0)
     {
-      if (!f.getPeptideIdentifications()[0].getHits().empty())
+      if (f.getPeptideIdentifications()[0].getHits().size() > 0)
       {
         f_sequence = f.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
       }
@@ -107,9 +107,9 @@ public:
   inline bool operator()(const ConsensusFeature & f) const
   {
     String f_sequence = "";
-    if (!f.getPeptideIdentifications().empty())
+    if (f.getPeptideIdentifications().size() > 0)
     {
-      if (!f.getPeptideIdentifications()[0].getHits().empty())
+      if (f.getPeptideIdentifications()[0].getHits().size() > 0)
       {
         f_sequence = f.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
       }
@@ -226,6 +226,8 @@ START_SECTION((void simulate(const SimRandomNumberGenerator &rnd_gen, SimTypes::
 
   mssim.simulate(sim_rnd_ptr, channels);
 
+  mssim.createMonoisotopicExperiment();
+
   // results of simulate are tested individually in the accessors below
   NOT_TESTABLE
 }
@@ -262,6 +264,15 @@ START_SECTION((SimTypes::MSSimExperiment const& getExperiment() const ))
   MSSim no_sim;
   TEST_EQUAL(no_sim.getExperiment().getSize(), empty_experiment.getSize())
 }
+END_SECTION
+
+START_SECTION((SimTypes::MSSimExperiment const& getMonoisotopicExperiment() const ))
+
+  TEST_EQUAL(mssim.getMonoisotopicExperiment().getSize(),300);
+
+  SimTypes::MSSimExperiment empty_experiment;
+  MSSim no_sim;
+  TEST_EQUAL(no_sim.getMonoisotopicExperiment().getSize(), empty_experiment.getSize())
 END_SECTION
 
 START_SECTION((SimTypes::FeatureMapSim const& getSimulatedFeatures() const ))
