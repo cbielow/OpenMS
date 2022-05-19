@@ -40,6 +40,7 @@
 
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/CONCEPT/VersionInfo.h>
+#include <OpenMS/CONCEPT/Colorizer.h>
 
 #include <OpenMS/DATASTRUCTURES/Date.h>
 #include <OpenMS/DATASTRUCTURES/Param.h>
@@ -239,10 +240,10 @@ namespace OpenMS
     for (int i = 0; i < argc; ++i)
     {
       if (String(argv[i]).has(' '))
-      {
+      { 
         args.push_back(String(argv[i]).quote()); // surround with quotes if argument contains a space
       }
-      else
+      else 
       {
         args.push_back(argv[i]);
       }
@@ -540,10 +541,16 @@ namespace OpenMS
     bool verbose = getFlag_("-helphelp");
     String docurl = getDocumentationURL();
 
+
+    IndentedStringStream indentedStream0 (cerr, 0,10);
     // common output
-    cerr << "\n"
-         << ConsoleUtils::breakString(tool_name_ + " -- " + tool_description_, 0, 10) << "\n"
-         << ConsoleUtils::breakString(String("Full documentation: ") + docurl, 0, 10) << "\n"
+    indentedStream0 << "\n"
+         << red("Diese Zeile wurde manuell eingerfuegt. (TOPPBase.cpp zeile 546)") << "\n"
+         
+         << red(tool_name_) << green(tool_description_);
+
+    indentedStream0 << tool_name_ + " -- " << tool_description_ << "\n"
+         << String("Full documentation: ") << docurl << "\n"
          << "Version: " << verboseVersion_ << "\n"
          << "To cite OpenMS:\n  " << cite_openms_.toString() << "\n";
     if (!citations_.empty())
@@ -553,12 +560,12 @@ namespace OpenMS
     }
     cerr << "\n";
     cerr << "Usage:" << "\n"
-         << "  " << tool_name_ << " <options>" << "\n"
+         << "  " << tool_name_ << green(" <options>") << "\n"
          << "\n";
 
     // print warning regarding not shown parameters
     if (!subsections_.empty() && !verbose)
-      cerr << ConsoleUtils::breakString("This tool has algorithm parameters that are not shown here! Please check the ini file for a detailed description or use the --helphelp option.", 0, 10) + "\n\n";
+      indentedStream0 << "This tool has algorithm parameters that are not shown here! Please check the ini file for a detailed description or use the --helphelp option." << "\n\n";
 
     if (verbose)
     {
@@ -590,7 +597,9 @@ namespace OpenMS
     UInt offset = 6 + max_size;
     //keep track of the current subsection we are in, to display the subsection help when a new section starts
     String current_TOPP_subsection("");
+    
 
+    
     // PRINT parameters && description, restrictions and default
     for (vector<ParameterInformation>::const_iterator it = parameters_.begin(); it != parameters_.end(); ++it)
     {
@@ -617,7 +626,7 @@ namespace OpenMS
           subsection_description = current_TOPP_subsection;
         }
 
-        cerr << ConsoleUtils::breakString(subsection_description, 0, 10) << ":\n"; // print subsection description
+        indentedStream0 << yellow(subsection_description) << ":\n"; // print subsection description
       }
       else if (subsection.empty() && !current_TOPP_subsection.empty()) // subsection ended and normal parameters start again
       {
@@ -627,9 +636,9 @@ namespace OpenMS
 
       //NAME + ARGUMENT
       String str_tmp = "  -";
-      str_tmp += it->name + " " + it->argument;
+      str_tmp += (it->name) + " " + (it->argument);
       if (it->required)
-        str_tmp += '*';
+        str_tmp += ('*');
       if (it->type == ParameterInformation::NEWLINE)
         str_tmp = "";
 
@@ -683,10 +692,10 @@ namespace OpenMS
           }
 
           String add = "";
-          if (it->type == ParameterInformation::INPUT_FILE
+          if (it->type == ParameterInformation::INPUT_FILE 
             || it->type == ParameterInformation::OUTPUT_FILE
             || it->type == ParameterInformation::OUTPUT_PREFIX
-            || it->type == ParameterInformation::INPUT_FILE_LIST
+            || it->type == ParameterInformation::INPUT_FILE_LIST 
             || it->type == ParameterInformation::OUTPUT_FILE_LIST)
             add = " formats";
 
@@ -727,14 +736,14 @@ namespace OpenMS
       {
         desc_tmp += String(" (") + ListUtils::concatenate(addons, " ") + ")";
       }
-
+      IndentedStringStream indentedStream2 (cerr, offset,10);
       if (it->type == ParameterInformation::TEXT)
-        cerr << ConsoleUtils::breakString(str_tmp + desc_tmp, 0, 10); // no indentation for text
+        indentedStream2 << str_tmp << desc_tmp; // no indentation for text
       else
-        cerr << ConsoleUtils::breakString(str_tmp + desc_tmp, offset, 10);
+        indentedStream2 << str_tmp << desc_tmp;
       cerr << "\n";
     }
-
+    
     // SUBSECTION's at the end
     if (!subsections_.empty() && !verbose)
     {
@@ -745,7 +754,7 @@ namespace OpenMS
         indent = max((UInt)it->first.size(), indent);
       }
       indent += 6;
-
+      
       //output
       cerr << "\n"
            << "The following configuration subsections are valid:" << "\n";
@@ -753,14 +762,15 @@ namespace OpenMS
       {
         String tmp = String(" - ") + it->first;
         tmp.fillRight(' ', indent);
-        cerr << ConsoleUtils::breakString(tmp  + it->second, indent, 10);
+        IndentedStringStream indentedStream2 (cerr, indent,10);
+        indentedStream2 << tmp  << it->second;
         cerr << "\n";
       }
-      cerr << "\n"
-           << ConsoleUtils::breakString("You can write an example INI file using the '-write_ini' option.", 0, 10) << "\n"
-           << ConsoleUtils::breakString("Documentation of subsection parameters can be found in the doxygen documentation or the INIFileEditor.", 0, 10) << "\n"
-           << ConsoleUtils::breakString("For more information, please consult the online documentation for this tool:", 0, 10) << "\n"
-           << ConsoleUtils::breakString("  - " + docurl, 0, 10) << "\n";
+      indentedStream0 << "\n"
+           << "You can write an example INI file using the '-write_ini' option." << "\n"
+           << "Documentation of subsection parameters can be found in the doxygen documentation or the INIFileEditor." << "\n"
+           << "For more information, please consult the online documentation for this tool:" << "\n"
+           << "  - " << docurl << "\n";
     }
     cerr << endl;
   }
@@ -1125,7 +1135,7 @@ namespace OpenMS
     }
     if (required && !default_value.empty() && count_conflicting_tags == 0)
       throw InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Registering a required InputFile param (" + name + ") with a non-empty default is forbidden!", default_value);
-    parameters_.push_back(ParameterInformation(name, ParameterInformation::INPUT_FILE, argument, default_value, description, required, advanced, tags));
+    parameters_.push_back(ParameterInformation(name, ParameterInformation::INPUT_FILE, argument, default_value, description, required, advanced, tags));    
   }
 
   void TOPPBase::registerOutputFile_(const String& name, const String& argument, const String& default_value, const String& description, bool required, bool advanced)
@@ -1236,9 +1246,9 @@ namespace OpenMS
   String TOPPBase::getStringOption_(const String& name) const
   {
     const ParameterInformation& p = findEntry_(name);
-    if (p.type != ParameterInformation::STRING
-      && p.type != ParameterInformation::INPUT_FILE
-      && p.type != ParameterInformation::OUTPUT_FILE
+    if (p.type != ParameterInformation::STRING 
+      && p.type != ParameterInformation::INPUT_FILE 
+      && p.type != ParameterInformation::OUTPUT_FILE 
       && p.type != ParameterInformation::OUTPUT_PREFIX)
     {
       throw WrongParameterType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, name);
@@ -1422,7 +1432,7 @@ namespace OpenMS
         // determine file type as string
         FileTypes::Type f_type = FileHandler::getTypeByFileName(param_value);
         // Wrong ending, unknown is is ok.
-        if (f_type != FileTypes::UNKNOWN
+        if (f_type != FileTypes::UNKNOWN 
           && !ListUtils::contains(p.valid_strings, FileTypes::typeToName(f_type).toUpper(), ListUtils::CASE::INSENSITIVE))
         {
           throw InvalidParameter(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
@@ -1441,8 +1451,8 @@ namespace OpenMS
   StringList TOPPBase::getStringList_(const String& name) const
   {
     const ParameterInformation& p = findEntry_(name);
-    if (p.type != ParameterInformation::STRINGLIST
-      && p.type != ParameterInformation::INPUT_FILE_LIST
+    if (p.type != ParameterInformation::STRINGLIST 
+      && p.type != ParameterInformation::INPUT_FILE_LIST 
       && p.type != ParameterInformation::OUTPUT_FILE_LIST)
     {
       throw WrongParameterType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, name);
@@ -2007,7 +2017,7 @@ namespace OpenMS
       {
         tags.push_back("input file");
       }
-
+      
       if (it->type == ParameterInformation::OUTPUT_FILE || it->type == ParameterInformation::OUTPUT_FILE_LIST)
       {
         tags.push_back("output file");
@@ -2016,7 +2026,7 @@ namespace OpenMS
       if (it->type == ParameterInformation::OUTPUT_PREFIX)
       {
         tags.push_back("output prefix");
-      }
+      }        
 
       switch (it->type)
       {
