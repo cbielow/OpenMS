@@ -37,7 +37,13 @@
 
 ///////////////////////////
 #include <OpenMS/APPLICATIONS/ConsoleUtils.h>
+#include <OpenMS/CONCEPT/Colorizer.h>
 ///////////////////////////
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
 
 using namespace OpenMS;
 using namespace std;
@@ -47,32 +53,78 @@ START_TEST(ConsoleUtils, "$Id$")
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
 
-START_SECTION(ConsoleUtils())
-{
-	// this class is a singleton exposing a single function (breakString)
-	NOT_TESTABLE
-}
-END_SECTION
-
-START_SECTION(~ConsoleUtils())
+START_SECTION(const int getConsoleSize())
 {
 	NOT_TESTABLE
 }
 END_SECTION
 
-START_SECTION((static String breakString(const String &input, const Size indentation, const Size max_lines)))
+START_SECTION(ConsoleUtils getInstance())
+{
+	NOT_TESTABLE
+}
+END_SECTION
+
+#ifdef OPENMS_WINDOWSPLATTFORM
+
+START_SECTION(void resetConsoleColor())
+{
+	ConsoleUtils c(ConsoleUtils const);
+	c.ConsoleUtils::setCoutColor(16);
+	c.ConsoleUtils::setCerrColor(9);
+	int def_cout = c.ConsoleUtils::getCoutColor();
+	int def_cerr = c.ConsoleUtils::getCerrColor();
+	TEST_EQUAL(def_cout,16)
+	TEST_EQUAL(def_cerr,10)
+}
+END_SECTION
+
+START_SECTION(void setCoutColor())
+{
+	ConsoleUtils c(ConsoleUtils const);
+	c.ConsoleUtils::setCoutColor(16);
+	int def_ = c.ConsoleUtils::getCoutColor();
+	TEST_EQUAL(def,16);
+}
+END_SECTION
+
+START_SECTION(void setCerrColor())
+{
+	ConsoleUtils c(ConsoleUtils const);
+	c.ConsoleUtils::setCerrColor(11);
+	int def_ = c.ConsoleUtils::getCoutColor();
+	TEST_EQUAL(def,11);
+}
+END_SECTION
+#endif
+
+START_SECTION((static OpenMS::String breakString(const String& input,
+										const Size indentation, 
+										const Size max_lines,
+										const Size curser_pos = 0)))
 {
 	// we cannot predict which shape the broken string will have, so testing is rather limited
 	String test_string = "This is a test string which should be broken up into multiple lines.";
 	String broken_string = ConsoleUtils::breakString(test_string, 0, 10);
 
 	TEST_EQUAL(test_string.length() <= broken_string.length(), true)
+
 }
 END_SECTION
 
+START_SECTION(static OpenMS::StringList breakStringList(const String& input,
+										const Size indentation, 
+										const Size max_lines,
+										const Size curser_pos = 0))
+{
+	String test_string = "This is a test string which should be broken up into multiple lines.";
+	OpenMS::StringList broken_string = ConsoleUtils::breakStringList(test_string, 0, 10);
 
-/////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////
+	String broken_string_string = broken_string.StringList::at(0);
+	TEST_EQUAL(test_string.length() <= broken_string_string.length(), true)
+}
+END_SECTION
+
 END_TEST
 
 
