@@ -29,12 +29,11 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Timo Sachsenberg$
-// $Authors: Stephan Aiche, Chris Bielow$
+// $Authors: Stephan Aiche, Chris Bielow, Lucas Rieckert$
 // --------------------------------------------------------------------------
 
 #include <OpenMS/SIMULATION/MSSim.h>
 
-#include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/SIMULATION/DigestSimulation.h>
 #include <OpenMS/SIMULATION/DetectabilitySimulation.h>
 #include <OpenMS/SIMULATION/RawMSSignalSimulation.h>
@@ -108,6 +107,7 @@ namespace OpenMS
     experiment_(),
     feature_maps_(),
     consensus_map_(),
+    monoisotopic_experiment_(),
     labeler_(nullptr)
   {
     // section params
@@ -390,6 +390,53 @@ namespace OpenMS
   {
   }
 
+  void MSSim::createMonoisotopicExperiment()
+  {
+    //if no experiment was simulated there is no need to search for monoisotopic peaks
+    if (peak_map_.empty())
+    {
+      return;
+    }
+    else
+    {
+      monoisotopic_experiment_.clear(true);
+      MSSpectrum buffer_found;
+
+      for (auto spec : peak_map_)
+      {
+        if (spec.getMSLevel() == 1)
+        {
+          buffer_found.clear(true);
+          buffer_found.setNativeID(spec.getNativeID());
+          buffer_found.setRT(spec.getRT());
+          for (auto peak : spec)
+          {
+            auto peak_RT = spec.getRT();
+            auto peak_mz = peak.getMZ();
+            for (auto feature : feature_maps_[0])
+            {
+              double rt_min = feature.getConvexHulls()[0].getHullPoints()[0][0];
+              double rt_max = feature.getConvexHulls()[0].getHullPoints()[2][0];
+              double mz_min = feature.getConvexHulls()[0].getHullPoints()[0][1];
+              double mz_max = feature.getConvexHulls()[0].getHullPoints()[2][1];
+              //check if the observed peak is contained in the convex hull 0 of one of the features
+              if ((peak_RT <= rt_max) & (peak_RT >= rt_min) & (peak_mz <= mz_max) & (peak_mz >= mz_min))
+              {
+                buffer_found.push_back(peak);
+                break;
+              }
+            }
+          }
+          if (!buffer_found.empty())
+          {
+            monoisotopic_experiment_.addSpectrum(buffer_found);
+          }
+        }
+      }
+    }
+    monoisotopic_experiment_.updateRanges();
+  }
+
   const SimTypes::MSSimExperiment& MSSim::getExperiment() const
   {
     return experiment_;
@@ -419,6 +466,11 @@ namespace OpenMS
   const SimTypes::MSSimExperiment& MSSim::getPeakMap() const
   {
     return peak_map_;
+  }
+
+  const SimTypes::MSSimExperiment& MSSim::getMonoisotopicExperiment() const
+  {
+    return monoisotopic_experiment_;
   }
 
   void MSSim::getIdentifications(vector<ProteinIdentification>& proteins, vector<PeptideIdentification>& peptides) const
@@ -499,7 +551,7 @@ namespace OpenMS
     }
 
     // test if we have a feature map at all ..
-    if (!feature_maps_[0].getProteinIdentifications().empty())
+    if (feature_maps_[0].getProteinIdentifications().size() > 0)
     {
       // store protein identification / protein hits for those proteins used in the ms2 spectra
       const ProteinIdentification& protein = feature_maps_[0].getProteinIdentifications()[0];

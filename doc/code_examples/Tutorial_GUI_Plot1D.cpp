@@ -58,6 +58,6 @@ Int main(int argc, const char** argv)
   auto* widget = new Plot1DWidget(Param(), DIM::Y, nullptr);
   widget->canvas()->addPeakLayer(exp_sptr, on_disc_exp_sptr);
   widget->show();
-
+  delete widget;
   return app.exec();
 } // end of main
