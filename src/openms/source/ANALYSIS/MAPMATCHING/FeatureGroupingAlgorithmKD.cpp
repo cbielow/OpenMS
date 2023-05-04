@@ -199,7 +199,7 @@ namespace OpenMS
         double partition_start = partition_boundaries[j];
         double partition_end = partition_boundaries[j+1];
 
-        std::vector<MapType> tmp_input_maps(input_maps.size());
+        std::vector<std::vector<const BaseFeature*>> tmp_input_maps(input_maps.size());
         for (size_t k = 0; k < input_maps.size(); k++)
         {
           // iterate over all features in the current input map and append
@@ -210,10 +210,10 @@ namespace OpenMS
             if (input_maps[k][m].getMZ() >= partition_start &&
                 input_maps[k][m].getMZ() < partition_end)
             {
-              tmp_input_maps[k].push_back(input_maps[k][m]);
+              tmp_input_maps[k].push_back(&(input_maps[k][m]));
             }
           }
-          tmp_input_maps[k].updateRanges();
+          //tmp_input_maps[k].updateRanges();
         }
 
         // set up kd-tree
@@ -244,10 +244,10 @@ namespace OpenMS
       double partition_start = partition_boundaries[j];
       double partition_end = partition_boundaries[j+1];
 
-      std::vector<MapType> tmp_input_maps(input_maps.size());
+      std::vector<std::vector<const BaseFeature*>> tmp_input_maps(input_maps.size());
       for (size_t k = 0; k < input_maps.size(); k++)
       {
-        // iterate over all features in the current input map and append
+        // iterate over all features in the current input map and append pointer of
         // matching features (within the current partition) to the temporary
         // map
         for (size_t m = 0; m < input_maps[k].size(); m++)
@@ -255,10 +255,10 @@ namespace OpenMS
           if (input_maps[k][m].getMZ() >= partition_start &&
               input_maps[k][m].getMZ() < partition_end)
           {
-            tmp_input_maps[k].push_back(input_maps[k][m]);
+            tmp_input_maps[k].push_back(&(input_maps[k][m]));
           }
         }
-        tmp_input_maps[k].updateRanges();
+        //tmp_input_maps[k].updateRanges();
       }
 
       // set up kd-tree

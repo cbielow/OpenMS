@@ -93,6 +93,21 @@ public:
     optimizeTree();
   }
 
+  void addMaps(const std::vector<std::vector<const BaseFeature*>>& maps)
+  {
+    num_maps_ = maps.size();
+
+    for (Size i = 0; i < num_maps_; ++i)
+    {
+      const std::vector<const BaseFeature*>& m = maps[i];
+      for (const BaseFeature* basefeature_ptr : m) //Im Zweifel auto
+      {
+        addFeature(i, basefeature_ptr);
+      }
+    }
+    optimizeTree();
+  }
+
   /// Add feature
   void addFeature(Size mt_map_index, const BaseFeature* feature);
 

@@ -44,6 +44,8 @@
 
 #include <OpenMS/KERNEL/ConversionHelper.h>
 
+#include <OpenMS/SYSTEM/SysInfo.h>
+
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
 
 #include <iomanip>     // setw
@@ -184,7 +186,15 @@ protected:
         }
       }
 
-      vector<FeatureMap > maps(ins.size());
+      String mem_current;
+      {
+        size_t mem_virtual(0);
+        SysInfo::getProcessMemoryConsumption(mem_virtual);
+        if(mem_virtual != 0) mem_current = String("Current Memory Usage: ") + (mem_virtual / 1024) + " MB";
+      }
+      cout << mem_current << "\n";
+
+      vector<FeatureMap> maps(ins.size());
       FeatureXMLFile f;
       FeatureFileOptions param = f.getOptions();
 
@@ -253,6 +263,14 @@ protected:
         maps[i].updateRanges();
 
         setProgress(progress++);
+
+        String mem_current;
+        {
+          size_t mem_virtual(0);
+          SysInfo::getProcessMemoryConsumption(mem_virtual);
+          if(mem_virtual != 0) mem_current = String("Current Memory Usage: ") + (mem_virtual / 1024) + " MB";
+        }
+        cout << mem_current << "\n";
       }
       endProgress();
 
@@ -270,11 +288,13 @@ protected:
       
       if (frac2files.size() == 1) // group one fraction
       {
+        cout << "grouping one fraction...\n";
         algorithm->group(maps, out_map);
       }
       else // group multiple fractions
       {
         writeDebug_(String("Stored in ") + String(maps.size()) + " maps.", 3);
+        cout << "grouping "<< frac2files.size() << " fractions...\n";
         for (Size i = 1; i <= frac2files.size(); ++i)
         {
           vector<FeatureMap> fraction_maps;
