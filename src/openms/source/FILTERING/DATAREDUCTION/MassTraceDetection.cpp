@@ -34,16 +34,11 @@
 
 #include <OpenMS/FILTERING/DATAREDUCTION/MassTraceDetection.h>
 
+#include <OpenMS/MATH/MISC/MathFunctions.h>
 #include <OpenMS/MATH/STATISTICS/StatisticFunctions.h>
 
 #include <boost/dynamic_bitset.hpp>
-
 #include <omp.h>
-// #include <parallel/algorithm>
-// #include <ctime>
-#include <chrono>
-
-#include <OpenMS/MATH/MISC/MathFunctions.h>
 
 namespace OpenMS
 {
@@ -278,37 +273,11 @@ namespace OpenMS
 
     double MassTraceDetection::find_offset_(Size peak_index_in_apices_vec, double mass_error_ppm_, const PeakMap& input_exp, const std::vector<Apex>& apices_vec)
     {
-      double centroid_mz = input_exp[apices_vec[peak_index_in_apices_vec].scan_idx][apices_vec[peak_index_in_apices_vec].peak_idx].getMZ(); //create function
-      // double ftl_sd((centroid_mz / 1e6) * mass_error_ppm_);                      
-      double ftl_sd = Math::ppmToMass(mass_error_ppm_,centroid_mz);  // mit formel ergänzen header ppm to dalton
+      double centroid_mz = input_exp[apices_vec[peak_index_in_apices_vec].scan_idx][apices_vec[peak_index_in_apices_vec].peak_idx].getMZ();                   
+      double ftl_sd = Math::ppmToMass(mass_error_ppm_,centroid_mz); 
       double offset = 3 * ftl_sd;
       return offset;
     }
-
-    Size MassTraceDetection::calc_right_border_(Size peak_index_in_apices_vec, double mass_error_ppm_, const PeakMap& input_exp, const std::vector<Apex>& apices_vec)
-    {
-      double right_bound = (input_exp[apices_vec[peak_index_in_apices_vec].scan_idx][apices_vec[peak_index_in_apices_vec].peak_idx].getMZ()) + (3 /* border gerade 3 mal so groß wie "noetig" */ * find_offset_(peak_index_in_apices_vec, mass_error_ppm_, input_exp, apices_vec));
-      Size j{};
-      while (input_exp[apices_vec[peak_index_in_apices_vec + j].scan_idx][apices_vec[peak_index_in_apices_vec + j].peak_idx].getMZ() <= right_bound) 
-      { 
-        if(peak_index_in_apices_vec + j >= apices_vec.size()) break;
-        ++j;
-      }
-      return peak_index_in_apices_vec + j;
-    }
-
-    Size MassTraceDetection::calc_left_border_(Size peak_index_in_apices_vec, double mass_error_ppm_, const PeakMap& input_exp, const std::vector<Apex>& apices_vec)
-    {
-      double left_bound = (input_exp[apices_vec[peak_index_in_apices_vec].scan_idx][apices_vec[peak_index_in_apices_vec].peak_idx].getMZ()) -( 3 /* border gerade 3 mal so groß wie "noetig" */ * find_offset_(peak_index_in_apices_vec, mass_error_ppm_, input_exp, apices_vec));
-      Size j{};
-      while (input_exp[apices_vec[peak_index_in_apices_vec - j].scan_idx][apices_vec[peak_index_in_apices_vec - j].peak_idx].getMZ() >= left_bound) 
-      { 
-        if(peak_index_in_apices_vec - j == 0) break;
-        ++j;
-      }
-      return peak_index_in_apices_vec - j;
-    }
-
 
     void MassTraceDetection::run_(const std::vector<Apex>& chrom_apices,
                                   const Size total_peak_count,
@@ -317,7 +286,6 @@ namespace OpenMS
                                   std::vector<MassTrace>& found_masstraces,
                                   const Size max_traces)
     {
-      // boost::dynamic_bitset<> peak_visited_1(total_peak_count);
       Size trace_number(1);
 
       // check presence of FWHM meta data
@@ -347,57 +315,55 @@ namespace OpenMS
       Size peaks_detected(0);
 
 
-      // Size binnumber{1};
-      Size binnumber = omp_get_max_threads();
-
-      Size binsize = chrom_apices.size()/binnumber;
-      Size bin_tmp_start{0};
-      std::vector<Size> binstarts;
-      std::vector<Size> binends;
-      std::vector<Size> cutoff_mz;
-
-      if(binnumber > 1)
+      std::vector<Size> gaps_detected;
+      for(Size i = 0; i < chrom_apices.size() - 1; ++i)
       {
-        binstarts.push_back(0);
-        cutoff_mz.push_back(0);
-        bin_tmp_start += binsize;
-        binends.push_back(calc_right_border_(bin_tmp_start-1, mass_error_ppm_, work_exp, chrom_apices));
-        cutoff_mz.push_back(bin_tmp_start-1);
-
-        for(Size i = 1; i < binnumber - 1; ++i)
+        if((work_exp[chrom_apices[i+1].scan_idx][chrom_apices[i+1].peak_idx].getMZ() - work_exp[chrom_apices[i].scan_idx][chrom_apices[i].peak_idx].getMZ()) > find_offset_(i, mass_error_ppm_, work_exp, chrom_apices))
         {
-          
-          binstarts.push_back(calc_left_border_(bin_tmp_start-1, mass_error_ppm_, work_exp, chrom_apices));
-          bin_tmp_start += binsize;
-          cutoff_mz.push_back(bin_tmp_start-1);
-          // std::cout << "Index: " << bin_tmp_start << '\n';
-          binends.push_back(calc_right_border_(bin_tmp_start-1, mass_error_ppm_, work_exp, chrom_apices));
-
+          gaps_detected.push_back(i);
+          // std::cout << "Gap\n";
         }
-
-        binstarts.push_back(calc_left_border_(bin_tmp_start-1, mass_error_ppm_, work_exp, chrom_apices));
-        binends.push_back(chrom_apices.size());
-        cutoff_mz.push_back(chrom_apices.size()-1);
-      } 
-      else
-      {
-        binstarts.push_back(0);
-        binends.push_back(chrom_apices.size());
-        cutoff_mz.push_back(0);
-        cutoff_mz.push_back(chrom_apices.size()-1);
       }
 
-      // for(int i=0; i < binstarts.size(); ++i)
+      std::cout << "gaps_detected: " << gaps_detected.size() << '\n';
+
+      // for(auto gap : gaps_detected)
       // {
-      //   std::cout << "Start: " << binstarts[i] << "  End: " << binends[i] << '\n';
+      //   std::cout << "gap index: " << gap << '\n';
       // }
 
+      std::vector<Size> gaps_filtered;
+      gaps_filtered.push_back(0);
 
-      #pragma omp parallel for num_threads(binnumber)
-      for (Size i = 0; i < binnumber; ++i)
+      Size border{};
+
+      for(Size i = 0; i < gaps_detected.size() - 1; ++i)
       {
-        boost::dynamic_bitset<> peak_visited_1(total_peak_count); 
-        std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + binstarts[i], chrom_apices.cbegin() + binends[i]}; // copies because of bin overlap
+        if(gaps_detected[i+1] - gaps_detected[i - border] > 30000)
+        {
+          gaps_filtered.push_back(gaps_detected[i] + 1);
+          border = 0;
+        } 
+        else 
+        {
+          ++border;
+        }
+      }
+      gaps_filtered.push_back(chrom_apices.size() - 1);
+
+      std::cout << "gaps_detected filtered: " << gaps_filtered.size()-2 << '\n';
+
+      // for(auto gap : gaps_filtered)
+      // {
+      //   std::cout << "filtered gap index: " << gap << '\n';
+      // }
+      boost::dynamic_bitset<> peak_visited(total_peak_count); 
+      Size threads_number = gaps_filtered.size()-1;
+
+      #pragma omp parallel for num_threads(threads_number)
+      for (Size i = 0; i < gaps_filtered.size() - 1; ++i)
+      {
+        std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + gaps_filtered[i], chrom_apices.cbegin() + gaps_filtered[i+1]}; // copies because of bin overlap
         std::sort(chrom_apices_2.begin(), chrom_apices_2.end(),   // sort by intensity 
         [](const Apex & a, const Apex & b) -> bool
                    {
@@ -405,24 +371,11 @@ namespace OpenMS
                    });
         for (auto m_it = chrom_apices_2.cbegin(); m_it != chrom_apices_2.cend(); ++m_it) // iterate reverse from high intensity to low intensity
         {
-          // bool outer_loop = false;
-
-          // auto endpeak = chrom_apices.cbegin() + binends[i] - 1;
-          // Size end_scan_idx(endpeak->scan_idx);
-          // Size end_peak_idx(endpeak->peak_idx);
-          // double end_peak_mz = work_exp[end_scan_idx][end_peak_idx].getMZ();
-
-          // auto firstpeak = chrom_apices.cbegin() + binstarts[i];
-          // Size first_scan_idx(firstpeak->scan_idx);
-          // Size first_peak_idx(firstpeak->peak_idx);
-          // double first_peak_mz = work_exp[first_scan_idx][first_peak_idx].getMZ();
-
-
 
           Size apex_scan_idx(m_it->scan_idx);
           Size apex_peak_idx(m_it->peak_idx);
 
-          if (peak_visited_1[spec_offsets[apex_scan_idx] + apex_peak_idx])
+          if (peak_visited[spec_offsets[apex_scan_idx] + apex_peak_idx])
           {
             continue;
           }
@@ -435,8 +388,7 @@ namespace OpenMS
           Size trace_up_idx(apex_scan_idx);
           Size trace_down_idx(apex_scan_idx);
 
-          std::list<PeakType> current_trace;
-          double startint = work_exp[apex_scan_idx][apex_peak_idx].getIntensity();
+          std::deque<PeakType> current_trace;
           current_trace.push_back(apex_peak);
           std::vector<double> fwhms_mz; // peak-FWHM meta values of collected peaks
 
@@ -493,13 +445,9 @@ namespace OpenMS
 
                 if ((next_down_peak_mz <= right_bound) &&
                     (next_down_peak_mz >= left_bound) &&
-                    !peak_visited_1[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]
+                    !peak_visited[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]
                         )
                 {
-                  if(next_down_peak_int > startint)
-                  {
-                    std::cout << "Down Bigger than start\n";
-                  }
 
                   Peak2D next_peak;
                   next_peak.setRT(spec_trace_down.getRT());
@@ -576,12 +524,8 @@ namespace OpenMS
 
                 if ((next_up_peak_mz <= right_bound) &&
                     (next_up_peak_mz >= left_bound) &&
-                    !peak_visited_1[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
+                    !peak_visited[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
                 {
-                  if(next_up_peak_int > startint)
-                  {
-                    std::cout << "Up Bigger than start\n";
-                  }
                   Peak2D next_peak;
                   next_peak.setRT(spec_trace_up.getRT());
                   next_peak.setMZ(next_up_peak_mz);
@@ -639,7 +583,6 @@ namespace OpenMS
             }
           }
 
-          // if(outer_loop) continue;
           double num_scans(down_scan_counter + up_scan_counter + 1 - conseq_missed_peak_down - conseq_missed_peak_up);
 
           double mt_quality((double)current_trace.size() / (double)num_scans);
@@ -650,18 +593,14 @@ namespace OpenMS
           // Step 2.3 check if minimum length and quality of mass trace criteria are met
           // *********************************************************** //
           bool max_trace_criteria = (max_trace_length_ < 0.0 || rt_range < max_trace_length_);
-          if (rt_range >= min_trace_length_ && max_trace_criteria && mt_quality >= min_sample_rate_)
+          if (rt_range >= min_trace_length_ && max_trace_criteria && mt_quality >= min_sample_rate_ )
           {
-            // std::cout << "T" << trace_number << "\t" << mt_quality << std::endl;
-
-            // mark all peaks as visited
             for (Size i = 0; i < gathered_idx.size(); ++i)
             {
-              peak_visited_1[spec_offsets[gathered_idx[i].first] +  gathered_idx[i].second] = true;
+              peak_visited[spec_offsets[gathered_idx[i].first] +  gathered_idx[i].second] = true;
             }
-
             // create new MassTrace object and store collected peaks from list current_trace
-            MassTrace new_trace(current_trace);
+            MassTrace new_trace(current_trace.begin(), current_trace.end());
             new_trace.updateWeightedMeanRT();
             new_trace.updateWeightedMeanMZ();
             if (!fwhms_mz.empty())
@@ -672,24 +611,13 @@ namespace OpenMS
             //new_trace.setCentroidSD(ftl_sd);
             new_trace.updateWeightedMZsd();
 
-
             #pragma omp critical (add_trace)
-            { 
-              // Size leftbound_index = binsize * i;
-              // Size rightbound_index = binsize * (i+1);
-              Size leftbound_index = cutoff_mz[i];
-              Size rightbound_index = cutoff_mz[i+1];
-              double leftbound_mz = work_exp[chrom_apices[leftbound_index].scan_idx][chrom_apices[leftbound_index].peak_idx].getMZ();
-              double rightbound_mz = work_exp[chrom_apices[rightbound_index].scan_idx][chrom_apices[rightbound_index].peak_idx].getMZ();
-              if(new_trace.getCentroidMZ() >= leftbound_mz && 
-                      new_trace.getCentroidMZ() < rightbound_mz)
-              { 
+            {
                 new_trace.setLabel("T" + String(trace_number));
                 ++trace_number;
                 found_masstraces.push_back(new_trace);
                 peaks_detected += new_trace.getSize();
                 this->setProgress(peaks_detected);
-              }
             }
             // check if we already reached the (optional) maximum number of traces
             if (max_traces > 0 && found_masstraces.size() == max_traces)
