@@ -111,7 +111,7 @@ namespace OpenMS
         };
 
         /// The internal run method
-        void run_(const std::vector<Apex>& chrom_apices,
+        void run_(std::vector<Apex>& chrom_apices,
                   const Size peak_count,
                   const PeakMap & work_exp,
                   const std::vector<Size>& spec_offsets,

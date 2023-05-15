@@ -279,7 +279,7 @@ namespace OpenMS
       return offset;
     }
 
-    void MassTraceDetection::run_(const std::vector<Apex>& chrom_apices,
+    void MassTraceDetection::run_(std::vector<Apex>& chrom_apices,
                                   const Size total_peak_count,
                                   const PeakMap& work_exp,
                                   const std::vector<Size>& spec_offsets,
@@ -357,21 +357,20 @@ namespace OpenMS
       // {
       //   std::cout << "filtered gap index: " << gap << '\n';
       // }
-      boost::dynamic_bitset<> peak_visited(total_peak_count); 
       Size threads_number = gaps_filtered.size()-1;
 
       #pragma omp parallel for num_threads(threads_number)
       for (Size i = 0; i < gaps_filtered.size() - 1; ++i)
       {
-        std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + gaps_filtered[i], chrom_apices.cbegin() + gaps_filtered[i+1]}; // copies because of bin overlap
-        std::sort(chrom_apices_2.begin(), chrom_apices_2.end(),   // sort by intensity 
+        // std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + gaps_filtered[i], chrom_apices.cbegin() + gaps_filtered[i+1]}; // copies because of bin overlap
+        std::sort(chrom_apices.begin() + gaps_filtered[i], chrom_apices.begin() + gaps_filtered[i+1],   // sort by intensity 
         [](const Apex & a, const Apex & b) -> bool
                    {
                      return a.intensity > b.intensity;
                    });
-        for (auto m_it = chrom_apices_2.cbegin(); m_it != chrom_apices_2.cend(); ++m_it) // iterate reverse from high intensity to low intensity
+              boost::dynamic_bitset<> peak_visited(total_peak_count); 
+        for (auto m_it = chrom_apices.cbegin() + gaps_filtered[i]; m_it != chrom_apices.cbegin() + gaps_filtered[i+1]; ++m_it) // iterate reverse from high intensity to low intensity
         {
-
           Size apex_scan_idx(m_it->scan_idx);
           Size apex_peak_idx(m_it->peak_idx);
 
