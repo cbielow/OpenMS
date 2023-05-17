@@ -259,7 +259,7 @@ namespace OpenMS
                 [&work_exp](const Apex & a,
                     const Apex & b) -> bool
       { 
-        return (work_exp[a.scan_idx][a.peak_idx].getMZ()) < (work_exp[b.scan_idx][b.peak_idx].getMZ());
+        return a.intensity > b.intensity;
       });
 
       // *********************************************************************
@@ -275,7 +275,14 @@ namespace OpenMS
     {
       double centroid_mz = input_exp[apices_vec[peak_index_in_apices_vec].scan_idx][apices_vec[peak_index_in_apices_vec].peak_idx].getMZ();                   
       double ftl_sd = Math::ppmToMass(mass_error_ppm_,centroid_mz); 
-      double offset = 3 * ftl_sd;
+      double offset = 3 * ftl_sd; // ftl_sd == full trace length standard deviation
+      return offset;
+    }
+
+    double MassTraceDetection::findOffset_(double centroid_mz, double mass_error_ppm_)
+    {
+      double ftl_sd = Math::ppmToMass(mass_error_ppm_,centroid_mz); 
+      double offset = 3 * ftl_sd; // ftl_sd == full trace length standard deviation
       return offset;
     }
 
@@ -314,70 +321,79 @@ namespace OpenMS
       this->startProgress(0, total_peak_count, "mass trace detection");
       Size peaks_detected(0);
 
+      std::vector<double> mz_locked;
 
-      std::vector<Size> gaps_detected;
-      for(Size i = 0; i < chrom_apices.size() - 1; ++i)
-      {
-        if((work_exp[chrom_apices[i+1].scan_idx][chrom_apices[i+1].peak_idx].getMZ() - work_exp[chrom_apices[i].scan_idx][chrom_apices[i].peak_idx].getMZ()) > find_offset_(i, mass_error_ppm_, work_exp, chrom_apices))
-        {
-          gaps_detected.push_back(i);
-          // std::cout << "Gap\n";
-        }
-      }
 
-      std::cout << "gaps_detected: " << gaps_detected.size() << '\n';
-
-      // for(auto gap : gaps_detected)
+      // #pragma omp parallel for schedule(static)
+      // for (Size i = 0; i < chrom_apices.size(); ++i)
       // {
-      //   std::cout << "gap index: " << gap << '\n';
-      // }
-
-      std::vector<Size> gaps_filtered;
-      gaps_filtered.push_back(0);
-
-      Size border{};
-
-      for(Size i = 0; i < gaps_detected.size() - 1; ++i)
-      {
-        if(gaps_detected[i+1] - gaps_detected[i - border] > 30000)
+        // // std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + gaps_filtered[i], chrom_apices.cbegin() + gaps_filtered[i+1]}; // copies because of bin overlap
+        // std::sort(chrom_apices.begin() + gaps_filtered[i], chrom_apices.begin() + gaps_filtered[i+1],   // sort by intensity 
+        // [](const Apex & a, const Apex & b) -> bool
+        //            {
+        //              return a.intensity > b.intensity;
+        //            });
+        boost::dynamic_bitset<> peak_visited(total_peak_count); 
+        // // boost::dynamic_bitset<> peak_visited(gaps_filtered[i+1]-gaps_filtered[i]); 
+        // for (auto m_it = chrom_apices.cbegin() + gaps_filtered[i]; m_it != chrom_apices.cbegin() + gaps_filtered[i+1]; ++m_it) // iterate reverse from high intensity to low intensity
+        // #pragma omp parallel
+        // for (Size i = 0; i < chrom_apices.size(); ++i)
+        Size index = 0;
+        #pragma omp parallel
+        while(index != chrom_apices.size())
         {
-          gaps_filtered.push_back(gaps_detected[i] + 1);
-          border = 0;
-        } 
-        else 
-        {
-          ++border;
-        }
-      }
-      gaps_filtered.push_back(chrom_apices.size() - 1);
 
-      std::cout << "gaps_detected filtered: " << gaps_filtered.size()-2 << '\n';
+          // std::cout << "start\n";
+          auto m_it = chrom_apices[index];
+          // ++index;
+          // Size apex_scan_idx(m_it->scan_idx);
+          // Size apex_peak_idx(m_it->peak_idx);
+          Size apex_scan_idx(m_it.scan_idx);
+          Size apex_peak_idx(m_it.peak_idx);
 
-      // for(auto gap : gaps_filtered)
-      // {
-      //   std::cout << "filtered gap index: " << gap << '\n';
-      // }
-      Size threads_number = gaps_filtered.size()-1;
+          double currentApex_mz = work_exp[apex_scan_idx][apex_peak_idx].getMZ();
 
-      #pragma omp parallel for num_threads(threads_number)
-      for (Size i = 0; i < gaps_filtered.size() - 1; ++i)
-      {
-        // std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + gaps_filtered[i], chrom_apices.cbegin() + gaps_filtered[i+1]}; // copies because of bin overlap
-        std::sort(chrom_apices.begin() + gaps_filtered[i], chrom_apices.begin() + gaps_filtered[i+1],   // sort by intensity 
-        [](const Apex & a, const Apex & b) -> bool
-                   {
-                     return a.intensity > b.intensity;
-                   });
-              boost::dynamic_bitset<> peak_visited(total_peak_count); 
-        for (auto m_it = chrom_apices.cbegin() + gaps_filtered[i]; m_it != chrom_apices.cbegin() + gaps_filtered[i+1]; ++m_it) // iterate reverse from high intensity to low intensity
-        {
-          Size apex_scan_idx(m_it->scan_idx);
-          Size apex_peak_idx(m_it->peak_idx);
+          // std::cout << "index: " << index << '\n';
 
           if (peak_visited[spec_offsets[apex_scan_idx] + apex_peak_idx])
           {
+            // std::cout << "Continue peak visited\n";
+            #pragma omp atomic
+            ++index;
             continue;
           }
+
+          bool lock_found = false;
+          #pragma omp critical (check_lock)
+          {   
+            // std::cout << "mz_locked Size: " << mz_locked.size() << '\n';
+            for (const auto& lockedApex : mz_locked) 
+            {
+              if ((currentApex_mz + findOffset_(currentApex_mz, mass_error_ppm_)  > lockedApex) || (currentApex_mz - findOffset_(currentApex_mz, mass_error_ppm_) < lockedApex)) 
+              {
+                lock_found = true;
+              } 
+            }
+            if(lock_found)
+            {
+              // std::cout << "Lock found\n";
+            } 
+            else
+            {
+              // std::cout << "pusg back and next\n";
+              mz_locked.push_back(currentApex_mz);
+              ++index;
+            } 
+          }
+
+          // std::cout << "Are we here?\n";
+
+          if(lock_found)
+          {
+            // std::cout << "continue\n";
+            continue;
+          }
+
 
           Peak2D apex_peak;
           apex_peak.setRT(work_exp[apex_scan_idx].getRT());
@@ -624,8 +640,16 @@ namespace OpenMS
               break;
             }
           }
-        } 
-      }
+          #pragma omp critical
+            {
+                auto it = std::find(mz_locked.begin(), mz_locked.end(), currentApex_mz);
+                if (it != mz_locked.end()) {
+                  mz_locked.erase(it);
+                  // std::cout << "erase\n";
+                }
+                // std::cout << "index: " << index << '\n';
+            }
+          } 
       this->endProgress();
     }
 
