@@ -339,10 +339,10 @@ namespace OpenMS
         // #pragma omp parallel
         // for (Size i = 0; i < chrom_apices.size(); ++i)
         Size index = 0;
-        #pragma omp parallel
-        while(index != chrom_apices.size())
+        #pragma omp parallels
+        while(true)
         {
-
+          if(index == chrom_apices.size()) break;
           // std::cout << "start\n";
           auto m_it = chrom_apices[index];
           // ++index;
@@ -383,6 +383,7 @@ namespace OpenMS
               // std::cout << "pusg back and next\n";
               mz_locked.push_back(currentApex_mz);
               ++index;
+              // if(index == chrom_apices.size()) break;
             } 
           }
 
