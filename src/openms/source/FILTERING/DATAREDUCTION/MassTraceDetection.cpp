@@ -318,15 +318,15 @@ namespace OpenMS
         boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks,  apex_started, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
         
         apex_started |= new_found; // verodern der bitsets um auch apexes aus gefundenen traces zu ueberspringen
-        if(trace_count == (trace_count + current_trace_number))
-        // if(apex_started.all())
+        // if(trace_count == (trace_count + current_trace_number))
+        if(apex_started.all())
         {
           // std::cout << "break while\n";
           break;
         } else
         {
           allowed_peaks |= new_found;
-          // std::cout << "trace count plus\n";
+          std::cout << "trace count plus\n";
           trace_count += current_trace_number;
         }
       }
@@ -366,12 +366,12 @@ namespace OpenMS
         Size apex_scan_idx(m_it->scan_idx);
         Size apex_peak_idx(m_it->peak_idx);
 
-        // if (apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx])
-        // {
-        //   continue;
-        // } // damit klappt es nicht warum, der müsste die Peaks mit denen wir schonmal angefangen haben überspringen koennen ?
+        if (apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx])
+        {
+          continue;
+        } // damit klappt es nicht warum, der müsste die Peaks mit denen wir schonmal angefangen haben überspringen koennen ?
 
-        if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx])
+        if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx] || apex_visited[spec_offsets[apex_scan_idx] + apex_peak_idx])
         {
           continue;
         }
@@ -445,7 +445,7 @@ namespace OpenMS
                   !allowed_peaks[spec_offsets[trace_down_idx - 1] + next_down_peak_idx])
               {
 
-                if (start_int < next_down_peak_int /* && !apex_started[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]*/) // Hier geht das auch nicht aber selbe sache, wenn mit dem Peak schonmal gestartet wurde faellt er aus dem Kriterium raus 
+                if (start_int < next_down_peak_int && !apex_started[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]) // Hier geht das auch nicht aber selbe sache, wenn mit dem Peak schonmal gestartet wurde faellt er aus dem Kriterium raus 
                 {
                   outer_loop = true;
                   // std::cout << "Down\n";
@@ -529,7 +529,7 @@ namespace OpenMS
                   !allowed_peaks[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
               {
 
-                if (start_int < next_up_peak_int /* && !apex_started[spec_offsets[trace_up_idx + 1] + next_up_peak_idx] */ )
+                if (start_int < next_up_peak_int && !apex_started[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
                 {
                   outer_loop = true;
                   // std::cout << "Up\n";
@@ -597,6 +597,7 @@ namespace OpenMS
         if (outer_loop)
         {
           // std::cout << "Continue\n";
+          apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx] = true;
           continue;
         }
 
