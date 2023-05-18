@@ -339,9 +339,13 @@ namespace OpenMS
         // #pragma omp parallel
         // for (Size i = 0; i < chrom_apices.size(); ++i)
         Size index = 0;
-        #pragma omp parallels
-        while(true)
+        #pragma omp parallel 
         {
+          // Size index = 0;
+        while(index < chrom_apices.size())
+        {
+
+          // std::cout << chrom_apices.size();
           if(index == chrom_apices.size()) break;
           // std::cout << "start\n";
           auto m_it = chrom_apices[index];
@@ -374,11 +378,7 @@ namespace OpenMS
                 lock_found = true;
               } 
             }
-            if(lock_found)
-            {
-              // std::cout << "Lock found\n";
-            } 
-            else
+            if(!lock_found)
             {
               // std::cout << "pusg back and next\n";
               mz_locked.push_back(currentApex_mz);
@@ -636,12 +636,12 @@ namespace OpenMS
                 this->setProgress(peaks_detected);
             }
             // check if we already reached the (optional) maximum number of traces
-            if (max_traces > 0 && found_masstraces.size() == max_traces)
-            {
-              break;
-            }
+            // if (max_traces > 0 && found_masstraces.size() == max_traces)
+            // {
+            //   break;
+            // }
           }
-          #pragma omp critical
+          #pragma omp critical (erase_lock)
             {
                 auto it = std::find(mz_locked.begin(), mz_locked.end(), currentApex_mz);
                 if (it != mz_locked.end()) {
@@ -651,6 +651,7 @@ namespace OpenMS
                 // std::cout << "index: " << index << '\n';
             }
           } 
+        }
       this->endProgress();
     }
 
