@@ -40,6 +40,8 @@
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
 
+#include <boost/dynamic_bitset.hpp>
+
 namespace OpenMS
 {
 
@@ -108,10 +110,13 @@ namespace OpenMS
           double intensity;
           Size scan_idx;
           Size peak_idx;
+
+          // double upperbound_();
+          // double lowerbound_();
         };
 
         /// The internal run method
-        void run_(std::vector<Apex>& chrom_apices,
+        void run_(const std::vector<Apex>& chrom_apices,
                   const Size peak_count,
                   const PeakMap & work_exp,
                   const std::vector<Size>& spec_offsets,
@@ -120,6 +125,10 @@ namespace OpenMS
 
         // Find Offset for Peak
         double find_offset_(Size peak_index_in_apices_vec, double mass_error_ppm_, const PeakMap& input_exp, const std::vector<Apex>& apices_vec);
+        double findOffset_(double centroid_mz, double mass_error_ppm_);
+        
+
+        boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<> allowed_peaks, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
 
         // parameter stuff
         double mass_error_ppm_;
