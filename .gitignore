@@ -31,3 +31,4 @@ cmake-*-build
 *.code-workspace
 .vs
 .clion.*
+src/tests/class_tests/openms/data/SA1_subset_verysmall.mzML
