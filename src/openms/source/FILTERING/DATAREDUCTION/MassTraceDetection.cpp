@@ -274,8 +274,9 @@ namespace OpenMS
                                   std::vector<MassTrace>& found_masstraces,
                                   const Size max_traces)
     {
-      boost::dynamic_bitset<> peak_visited(total_peak_count);
-      boost::dynamic_bitset<> apex_visited(total_peak_count);
+      // boost::dynamic_bitset<> peak_visited(total_peak_count);
+      // boost::dynamic_bitset<> apex_started(total_peak_count);
+      
       Size trace_number(1);
 
       // check presence of FWHM meta data
@@ -308,10 +309,17 @@ namespace OpenMS
       bool trace_added = false;
       Size trace_count{};
       boost::dynamic_bitset<> allowed_peaks{total_peak_count};
-      while(true){
+      boost::dynamic_bitset<> apex_started{total_peak_count};
+
+      while(true)
+      // for(Size i{}; i < 1; ++i)
+      {
         Size current_trace_number{};
-        boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
+        boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks,  apex_started, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
+        
+        apex_started |= new_found; // verodern der bitsets um auch apexes aus gefundenen traces zu ueberspringen
         if(trace_count == (trace_count + current_trace_number))
+        // if(apex_started.all())
         {
           // std::cout << "break while\n";
           break;
@@ -346,7 +354,7 @@ namespace OpenMS
 
 
 
-    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<> allowed_peaks, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx)
+    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx)
     { 
       boost::dynamic_bitset<> apex_visited{total_peak_count};
 
@@ -357,6 +365,11 @@ namespace OpenMS
 
         Size apex_scan_idx(m_it->scan_idx);
         Size apex_peak_idx(m_it->peak_idx);
+
+        // if (apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx])
+        // {
+        //   continue;
+        // } // damit klappt es nicht warum, der müsste die Peaks mit denen wir schonmal angefangen haben überspringen koennen ?
 
         if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx])
         {
@@ -432,7 +445,7 @@ namespace OpenMS
                   !allowed_peaks[spec_offsets[trace_down_idx - 1] + next_down_peak_idx])
               {
 
-                if (start_int < next_down_peak_int)
+                if (start_int < next_down_peak_int /* && !apex_started[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]*/) // Hier geht das auch nicht aber selbe sache, wenn mit dem Peak schonmal gestartet wurde faellt er aus dem Kriterium raus 
                 {
                   outer_loop = true;
                   // std::cout << "Down\n";
@@ -516,7 +529,7 @@ namespace OpenMS
                   !allowed_peaks[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
               {
 
-                if (start_int < next_up_peak_int)
+                if (start_int < next_up_peak_int /* && !apex_started[spec_offsets[trace_up_idx + 1] + next_up_peak_idx] */ )
                 {
                   outer_loop = true;
                   // std::cout << "Up\n";
@@ -577,6 +590,9 @@ namespace OpenMS
             }
           }
         }
+
+        apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx] = true; // kommt man hier ueberhaubt zwanghaft an wenn man mit einem Peak startet
+                                                                          // eigentlich schon es sei denn man überspringt durch allowed peaks, dafuer wird aber in zeile 320 das bitset verodert
 
         if (outer_loop)
         {

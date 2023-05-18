@@ -128,7 +128,7 @@ namespace OpenMS
         double findOffset_(double centroid_mz, double mass_error_ppm_);
         
 
-        boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<> allowed_peaks, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
+        boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
 
         // parameter stuff
         double mass_error_ppm_;
