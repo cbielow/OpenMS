@@ -116,7 +116,7 @@ namespace OpenMS
         };
 
         /// The internal run method
-        void run_(const std::vector<Apex>& chrom_apices,
+        void run_(std::vector<Apex>& chrom_apices,
                   const Size peak_count,
                   const PeakMap & work_exp,
                   const std::vector<Size>& spec_offsets,
@@ -128,7 +128,26 @@ namespace OpenMS
         double findOffset_(double centroid_mz, double mass_error_ppm_);
         
 
-        boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
+        // boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
+        
+        void searchDownInRT(Size& trace_down_idx, bool& toggle_down, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
+                                            boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
+                                            std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& down_hitting_peak,
+                                            Size& down_scan_counter, Size& conseq_missed_peak_down, const Size max_consecutive_missing, double& current_sample_rate,
+                                            const Size min_scans_to_consider, double& intensity_so_far);
+
+        void searchUpInRT(Size& trace_up_idx, bool& toggle_up, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
+                                            boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
+                                            std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& up_hitting_peak,
+                                            Size& up_scan_counter, Size& conseq_missed_peak_up, const Size max_consecutive_missing, double& current_sample_rate,
+                                            const Size min_scans_to_consider, double& intensity_so_far);
+
+
+        void checkAndAddTrace(const double & rt_range, const bool max_trace_criteria, const double & mt_quality, Size & trace_number, 
+                                            boost::dynamic_bitset<>& peak_visited, const std::vector<Size>& spec_offsets, const std::vector<std::pair<Size, Size>>& gathered_idx,
+                                            const std::deque<PeakType>& current_trace, std::vector<MassTrace>& found_masstraces, Size & peaks_detected, const Size max_traces, 
+                                            const std::vector<double>& fwhms_mz);
+  
 
         // parameter stuff
         double mass_error_ppm_;

@@ -34,9 +34,11 @@
 
 #include <OpenMS/FILTERING/DATAREDUCTION/MassTraceDetection.h>
 
+#include <OpenMS/MATH/MISC/MathFunctions.h>
 #include <OpenMS/MATH/STATISTICS/StatisticFunctions.h>
 
 #include <boost/dynamic_bitset.hpp>
+#include <omp.h>
 
 namespace OpenMS
 {
@@ -193,6 +195,7 @@ namespace OpenMS
 
     void MassTraceDetection::run(const PeakMap& input_exp, std::vector<MassTrace>& found_masstraces, const Size max_traces)
     {
+      
       // make sure the output vector is empty
       found_masstraces.clear();
 
@@ -251,11 +254,12 @@ namespace OpenMS
       // discard last spectrum's offset
       spec_offsets.pop_back();
 
+      //hatten wir mal parallelisiert
       std::sort(chrom_apices.begin(), chrom_apices.end(),
-                [](const Apex & a,
+                [&work_exp](const Apex & a,
                     const Apex & b) -> bool
-      {
-        return a.intensity < b.intensity;
+      { 
+        return a.intensity > b.intensity;
       });
 
       // *********************************************************************
@@ -267,16 +271,27 @@ namespace OpenMS
       return;
     } // end of MassTraceDetection::run
 
-    void MassTraceDetection::run_(const std::vector<Apex>& chrom_apices,
+    double MassTraceDetection::find_offset_(Size peak_index_in_apices_vec, double mass_error_ppm_, const PeakMap& input_exp, const std::vector<Apex>& apices_vec)
+    {
+      double centroid_mz = input_exp[apices_vec[peak_index_in_apices_vec].scan_idx][apices_vec[peak_index_in_apices_vec].peak_idx].getMZ();                   
+      double offset = 3 * Math::ppmToMass(mass_error_ppm_,centroid_mz); // full trace length standard deviation
+      return offset;
+    }
+
+    double MassTraceDetection::findOffset_(double centroid_mz, double mass_error_ppm_)
+    {
+      double ftl_sd = Math::ppmToMass(mass_error_ppm_,centroid_mz); 
+      double offset = 3 * ftl_sd; // ftl_sd == full trace length standard deviation
+      return offset;
+    }
+
+    void MassTraceDetection::run_(std::vector<Apex>& chrom_apices,
                                   const Size total_peak_count,
                                   const PeakMap& work_exp,
                                   const std::vector<Size>& spec_offsets,
                                   std::vector<MassTrace>& found_masstraces,
                                   const Size max_traces)
     {
-      // boost::dynamic_bitset<> peak_visited(total_peak_count);
-      // boost::dynamic_bitset<> apex_started(total_peak_count);
-      
       Size trace_number(1);
 
       // check presence of FWHM meta data
@@ -305,34 +320,204 @@ namespace OpenMS
       this->startProgress(0, total_peak_count, "mass trace detection");
       Size peaks_detected(0);
 
+      std::vector<double> mz_locked;
 
-      bool trace_added = false;
-      Size trace_count{};
-      boost::dynamic_bitset<> allowed_peaks{total_peak_count};
-      boost::dynamic_bitset<> apex_started{total_peak_count};
 
-      while(true)
-      // for(Size i{}; i < 1; ++i)
-      {
-        Size current_trace_number{};
-        boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks,  apex_started, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
-        
-        apex_started |= new_found; // verodern der bitsets um auch apexes aus gefundenen traces zu ueberspringen
-        // if(trace_count == (trace_count + current_trace_number))
-        if(apex_started.all())
+      // #pragma omp parallel for schedule(static)
+      // for (Size i = 0; i < chrom_apices.size(); ++i)
+      // {
+        // // std::vector<Apex> chrom_apices_2 = {chrom_apices.cbegin() + gaps_filtered[i], chrom_apices.cbegin() + gaps_filtered[i+1]}; // copies because of bin overlap
+        // std::sort(chrom_apices.begin() + gaps_filtered[i], chrom_apices.begin() + gaps_filtered[i+1],   // sort by intensity 
+        // [](const Apex & a, const Apex & b) -> bool
+        //            {
+        //              return a.intensity > b.intensity;
+        //            });
+        boost::dynamic_bitset<> peak_visited(total_peak_count); 
+        // // boost::dynamic_bitset<> peak_visited(gaps_filtered[i+1]-gaps_filtered[i]); 
+        // for (auto m_it = chrom_apices.cbegin() + gaps_filtered[i]; m_it != chrom_apices.cbegin() + gaps_filtered[i+1]; ++m_it) // iterate reverse from high intensity to low intensity
+        // #pragma omp parallel
+        // for (Size i = 0; i < chrom_apices.size(); ++i)
+        Size index = 0;
+        #pragma omp parallel shared (index)
+        while(true)
         {
-          // std::cout << "break while\n";
-          break;
-        } else
-        {
-          allowed_peaks |= new_found;
-          std::cout << "trace count plus\n";
-          trace_count += current_trace_number;
-        }
-      }
-      // std::cout << "peaks detected: " << chrom_apices.size() - peaks_detected  << '\n';
+          if(index >= chrom_apices.size()) break;
+          // std::cout << "start\n";
+          auto m_it = chrom_apices[index];
+          // ++index;
+          // Size apex_scan_idx(m_it->scan_idx);
+          // Size apex_peak_idx(m_it->peak_idx);
+          Size apex_scan_idx(m_it.scan_idx);
+          Size apex_peak_idx(m_it.peak_idx);
+
+          double currentApex_mz = work_exp[apex_scan_idx][apex_peak_idx].getMZ();
+
+          // std::cout << "index: " << index << '\n';
+
+          if (peak_visited[spec_offsets[apex_scan_idx] + apex_peak_idx])
+          {
+            // std::cout << "Continue peak visited\n";
+            #pragma omp atomic
+            ++index;
+            continue;
+          }
+
+          bool lock_found = false;
+          #pragma omp critical (check_lock)
+          {   
+            // std::cout << "mz_locked Size: " << mz_locked.size() << '\n';
+            for (const auto& lockedApex : mz_locked) 
+            {
+              if ((currentApex_mz + findOffset_(currentApex_mz, mass_error_ppm_)  > lockedApex) || (currentApex_mz - findOffset_(currentApex_mz, mass_error_ppm_) < lockedApex)) 
+              {
+                lock_found = true;
+              } 
+            }
+            if(!lock_found)
+            {
+              // std::cout << "pusg back and next\n";
+              mz_locked.push_back(currentApex_mz);
+              ++index;
+              // if(index == chrom_apices.size()) break;
+            } 
+          }
+
+          // std::cout << "Are we here?\n";
+
+          if(lock_found)
+          {
+            // std::cout << "continue\n";
+            continue;
+          }
+
+
+          Peak2D apex_peak;
+          apex_peak.setRT(work_exp[apex_scan_idx].getRT());
+          apex_peak.setMZ(work_exp[apex_scan_idx][apex_peak_idx].getMZ());
+          apex_peak.setIntensity(work_exp[apex_scan_idx][apex_peak_idx].getIntensity());
+
+          Size trace_up_idx(apex_scan_idx);
+          Size trace_down_idx(apex_scan_idx);
+
+          std::deque<PeakType> current_trace;
+          current_trace.push_back(apex_peak);
+          std::vector<double> fwhms_mz; // peak-FWHM meta values of collected peaks
+
+          // Initialization for the iterative version of weighted m/z mean calculation
+          double centroid_mz(apex_peak.getMZ());
+          double prev_counter(apex_peak.getIntensity() * apex_peak.getMZ());
+          double prev_denom(apex_peak.getIntensity());
+
+          updateIterativeWeightedMeanMZ(apex_peak.getMZ(), apex_peak.getIntensity(), centroid_mz, prev_counter, prev_denom);
+
+          std::vector<std::pair<Size, Size> > gathered_idx;
+          gathered_idx.emplace_back(apex_scan_idx, apex_peak_idx);
+          if (fwhm_meta_idx != -1)
+          {
+            fwhms_mz.push_back(work_exp[apex_scan_idx].getFloatDataArrays()[fwhm_meta_idx][apex_peak_idx]);
+          }
+
+          Size up_hitting_peak(0), down_hitting_peak(0);
+          Size up_scan_counter(0), down_scan_counter(0);
+
+          bool toggle_up = true, toggle_down = true;
+
+          Size conseq_missed_peak_up(0), conseq_missed_peak_down(0);
+          Size max_consecutive_missing(trace_termination_outliers_);
+
+          double current_sample_rate(1.0);
+          // Size min_scans_to_consider(std::floor((min_sample_rate_ /2)*10));
+          Size min_scans_to_consider(5);
+
+          // double outlier_ratio(0.3);
+
+          // double ftl_mean(centroid_mz);
+          // double ftl_sd((centroid_mz / 1e6) * mass_error_ppm_);
+          double ftl_sd(Math::ppmToMass(mass_error_ppm_, centroid_mz));
+          double intensity_so_far(apex_peak.getIntensity());
+
+          double start_int{};
+
+          while (((trace_down_idx > 0) && toggle_down) ||
+                ((trace_up_idx < work_exp.size() - 1) && toggle_up)
+                  )
+          {
+            // *********************************************************** //
+            // Step 2.1 MOVE DOWN in RT dim
+            // *********************************************************** //
+
+            searchDownInRT(trace_down_idx, toggle_down, work_exp, start_int, spec_offsets, max_traces, peak_visited, current_trace, centroid_mz, ftl_sd, fwhm_meta_idx, gathered_idx, fwhms_mz,
+                           prev_counter, prev_denom, down_hitting_peak, down_scan_counter, conseq_missed_peak_down, max_consecutive_missing, current_sample_rate, min_scans_to_consider,
+                           intensity_so_far);
+
+            // *********************************************************** //
+            // Step 2.2 MOVE UP in RT dim
+            // *********************************************************** //
+
+            searchUpInRT(trace_up_idx, toggle_up, work_exp, start_int, spec_offsets, max_traces, peak_visited, current_trace, centroid_mz, ftl_sd, fwhm_meta_idx, gathered_idx, fwhms_mz,
+                           prev_counter, prev_denom, up_hitting_peak, up_scan_counter, conseq_missed_peak_up, max_consecutive_missing, current_sample_rate, min_scans_to_consider,
+                           intensity_so_far);
+
+          }
+
+          double num_scans(down_scan_counter + up_scan_counter + 1 - conseq_missed_peak_down - conseq_missed_peak_up);
+
+          double mt_quality((double)current_trace.size() / (double)num_scans);
+          // std::cout << "mt quality: " << mt_quality << std::endl;
+          double rt_range(std::fabs(current_trace.rbegin()->getRT() - current_trace.begin()->getRT()));
+
+          // *********************************************************** //
+          // Step 2.3 check if minimum length and quality of mass trace criteria are met
+          // *********************************************************** //
+          bool max_trace_criteria = (max_trace_length_ < 0.0 || rt_range < max_trace_length_);
+          if (rt_range >= min_trace_length_ && max_trace_criteria && mt_quality >= min_sample_rate_ )
+          {
+            for (Size i = 0; i < gathered_idx.size(); ++i)
+            {
+              peak_visited[spec_offsets[gathered_idx[i].first] +  gathered_idx[i].second] = true;
+            }
+            // create new MassTrace object and store collected peaks from list current_trace
+            MassTrace new_trace(current_trace.begin(), current_trace.end());
+            new_trace.updateWeightedMeanRT();
+            new_trace.updateWeightedMeanMZ();
+            if (!fwhms_mz.empty())
+            {
+              new_trace.fwhm_mz_avg = Math::median(fwhms_mz.begin(), fwhms_mz.end());
+            }
+            new_trace.setQuantMethod(quant_method_);
+            //new_trace.setCentroidSD(ftl_sd);
+            new_trace.updateWeightedMZsd();
+
+            #pragma omp critical (add_trace)
+            {
+                new_trace.setLabel("T" + String(trace_number));
+                ++trace_number;
+                found_masstraces.push_back(new_trace);
+                peaks_detected += new_trace.getSize();
+                this->setProgress(peaks_detected);
+            }
+            // check if we already reached the (optional) maximum number of traces
+            if (max_traces > 0 && found_masstraces.size() == max_traces)
+            {
+              break;
+            }
+          }
+
+          // checkAndAddTrace(rt_range, max_trace_criteria, mt_quality, trace_number, peak_visited, spec_offsets, gathered_idx,
+          //               current_trace,found_masstraces, peaks_detected, max_traces, fwhms_mz);
+
+
+          #pragma omp critical
+            {
+                auto it = std::find(mz_locked.begin(), mz_locked.end(), currentApex_mz);
+                if (it != mz_locked.end()) {
+                  mz_locked.erase(it);
+                  // std::cout << "erase\n";
+                }
+                // std::cout << "index: " << index << '\n';
+            }
+          } 
       this->endProgress();
-
     }
 
     void MassTraceDetection::updateMembers_()
@@ -351,138 +536,56 @@ namespace OpenMS
     }
 
 
-
-
-
-    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx)
-    { 
-      boost::dynamic_bitset<> apex_visited{total_peak_count};
-
-      #pragma omp parallel for
-      for (auto m_it = chrom_apices.crbegin(); m_it != chrom_apices.crend(); ++m_it)
+    void MassTraceDetection::searchDownInRT(Size& trace_down_idx, bool& toggle_down, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
+                                            boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
+                                            std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& down_hitting_peak,
+                                            Size& down_scan_counter, Size& conseq_missed_peak_down, const Size max_consecutive_missing, double& current_sample_rate,
+                                            const Size min_scans_to_consider, double& intensity_so_far)
+    {
+      if ((trace_down_idx > 0) && toggle_down)
       {
-        bool outer_loop = false;
-
-        Size apex_scan_idx(m_it->scan_idx);
-        Size apex_peak_idx(m_it->peak_idx);
-
-        if (apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx])
-        {
-          continue;
-        } // damit klappt es nicht warum, der müsste die Peaks mit denen wir schonmal angefangen haben überspringen koennen ?
-
-        if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx] || apex_visited[spec_offsets[apex_scan_idx] + apex_peak_idx])
-        {
-          continue;
-        }
-
-        Peak2D apex_peak;
-        apex_peak.setRT(work_exp[apex_scan_idx].getRT());
-        apex_peak.setMZ(work_exp[apex_scan_idx][apex_peak_idx].getMZ());
-        apex_peak.setIntensity(work_exp[apex_scan_idx][apex_peak_idx].getIntensity());
-
-        double start_int = work_exp[apex_scan_idx][apex_peak_idx].getIntensity();
-
-        Size trace_up_idx(apex_scan_idx);
-        Size trace_down_idx(apex_scan_idx);
-
-        std::list<PeakType> current_trace;
-        current_trace.push_back(apex_peak);
-        std::vector<double> fwhms_mz; // peak-FWHM meta values of collected peaks
-
-        // Initialization for the iterative version of weighted m/z mean calculation
-        double centroid_mz(apex_peak.getMZ());
-        double prev_counter(apex_peak.getIntensity() * apex_peak.getMZ());
-        double prev_denom(apex_peak.getIntensity());
-
-        updateIterativeWeightedMeanMZ(apex_peak.getMZ(), apex_peak.getIntensity(), centroid_mz, prev_counter, prev_denom);
-
-        std::vector<std::pair<Size, Size>> gathered_idx;
-        gathered_idx.emplace_back(apex_scan_idx, apex_peak_idx);
-        if (fwhm_meta_idx != -1)
-        {
-          fwhms_mz.push_back(work_exp[apex_scan_idx].getFloatDataArrays()[fwhm_meta_idx][apex_peak_idx]);
-        }
-
-        Size up_hitting_peak(0), down_hitting_peak(0);
-        Size up_scan_counter(0), down_scan_counter(0);
-
-        bool toggle_up = true, toggle_down = true;
-
-        Size conseq_missed_peak_up(0), conseq_missed_peak_down(0);
-        Size max_consecutive_missing(trace_termination_outliers_);
-
-        double current_sample_rate(1.0);
-        // Size min_scans_to_consider(std::floor((min_sample_rate_ /2)*10));
-        Size min_scans_to_consider(5);
-
-        // double outlier_ratio(0.3);
-
-        // double ftl_mean(centroid_mz);
-        double ftl_sd((centroid_mz / 1e6) * mass_error_ppm_);
-        double intensity_so_far(apex_peak.getIntensity());
-
-        while (((trace_down_idx > 0) && toggle_down) ||
-              ((trace_up_idx < work_exp.size() - 1) && toggle_up))
-        {
-          // *********************************************************** //
-          // Step 2.1 MOVE DOWN in RT dim
-          // *********************************************************** //
-          if ((trace_down_idx > 0) && toggle_down)
-          {
-            const MSSpectrum &spec_trace_down = work_exp[trace_down_idx - 1];
+            const MSSpectrum& spec_trace_down = work_exp[trace_down_idx - 1];
             if (!spec_trace_down.empty())
             {
-              Size next_down_peak_idx = spec_trace_down.findNearest(centroid_mz);
-              double next_down_peak_mz = spec_trace_down[next_down_peak_idx].getMZ();
-              double next_down_peak_int = spec_trace_down[next_down_peak_idx].getIntensity();
+                Size next_down_peak_idx = spec_trace_down.findNearest(centroid_mz);
+                double next_down_peak_mz = spec_trace_down[next_down_peak_idx].getMZ();
+                double next_down_peak_int = spec_trace_down[next_down_peak_idx].getIntensity();
+                double right_bound = centroid_mz + 3 * ftl_sd;
+                double left_bound = centroid_mz - 3 * ftl_sd;
 
-              double right_bound = centroid_mz + 3 * ftl_sd;
-              double left_bound = centroid_mz - 3 * ftl_sd;
-
-              if ((next_down_peak_mz <= right_bound) &&
-                  (next_down_peak_mz >= left_bound) &&
-                  !allowed_peaks[spec_offsets[trace_down_idx - 1] + next_down_peak_idx])
-              {
-
-                if (start_int < next_down_peak_int && !apex_started[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]) // Hier geht das auch nicht aber selbe sache, wenn mit dem Peak schonmal gestartet wurde faellt er aus dem Kriterium raus 
+                if ((next_down_peak_mz <= right_bound) && (next_down_peak_mz >= left_bound) && !peak_visited[spec_offsets[trace_down_idx - 1] + next_down_peak_idx])
                 {
-                  outer_loop = true;
-                  // std::cout << "Down\n";
-                  break;
-                }
-
-                Peak2D next_peak;
-                next_peak.setRT(spec_trace_down.getRT());
-                next_peak.setMZ(next_down_peak_mz);
-                next_peak.setIntensity(next_down_peak_int);
-
-                current_trace.push_front(next_peak);
-                // FWHM average
-                if (fwhm_meta_idx != -1)
-                {
-                  fwhms_mz.push_back(spec_trace_down.getFloatDataArrays()[fwhm_meta_idx][next_down_peak_idx]);
-                }
-                // Update the m/z mean of the current trace as we added a new peak
-                updateIterativeWeightedMeanMZ(next_down_peak_mz, next_down_peak_int, centroid_mz, prev_counter, prev_denom);
-                gathered_idx.emplace_back(trace_down_idx - 1, next_down_peak_idx);
-
-                // Update the m/z variance dynamically
-                if (reestimate_mt_sd_) //  && (down_hitting_peak+1 > min_flank_scans))
-                {
-                  // if (ftl_t > min_fwhm_scans)
+                  Peak2D next_peak;
+                  next_peak.setRT(spec_trace_down.getRT());
+                  next_peak.setMZ(next_down_peak_mz);
+                  next_peak.setIntensity(next_down_peak_int);
+                  
+                  current_trace.push_front(next_peak);
+                  // FWHM average
+                  if (fwhm_meta_idx != -1)
                   {
-                    updateWeightedSDEstimateRobust(next_peak, centroid_mz, ftl_sd, intensity_so_far);
+                    fwhms_mz.push_back(spec_trace_down.getFloatDataArrays()[fwhm_meta_idx][next_down_peak_idx]);
                   }
-                }
+                  // Update the m/z mean of the current trace as we added a new peak
+                  updateIterativeWeightedMeanMZ(next_down_peak_mz, next_down_peak_int, centroid_mz, prev_counter, prev_denom);
+                  gathered_idx.emplace_back(trace_down_idx - 1, next_down_peak_idx);
 
-                ++down_hitting_peak;
-                conseq_missed_peak_down = 0;
-              }
-              else
-              {
-                ++conseq_missed_peak_down;
-              }
+                  // Update the m/z variance dynamically
+                  if (reestimate_mt_sd_) //  && (down_hitting_peak+1 > min_flank_scans))
+                  {
+                // if (ftl_t > min_fwhm_scans)
+                {
+                  updateWeightedSDEstimateRobust(next_peak, centroid_mz, ftl_sd, intensity_so_far);
+                }
+                  }
+
+                  ++down_hitting_peak;
+                  conseq_missed_peak_down = 0;
+                }
+                else
+                {
+                  ++conseq_missed_peak_down;
+                }
             }
             --trace_down_idx;
             ++down_scan_counter;
@@ -492,80 +595,73 @@ namespace OpenMS
             // sampling_rate falls below min_sample_rate_
             if (trace_termination_criterion_ == "outlier")
             {
-              if (conseq_missed_peak_down > max_consecutive_missing)
-              {
-                toggle_down = false;
-              }
+                if (conseq_missed_peak_down > max_consecutive_missing)
+                {
+                  toggle_down = false;
+                }
             }
-            else if (trace_termination_criterion_ == "sample_rate")
-            {
-              current_sample_rate = (double)(down_hitting_peak + up_hitting_peak + 1) /
-                                    (double)(down_scan_counter + up_scan_counter + 1);
-              if (down_scan_counter > min_scans_to_consider && current_sample_rate < min_sample_rate_)
-              {
-                // std::cout << "stopping down..." << std::endl;
-                toggle_down = false;
-              }
-            }
-          }
+            // else if (trace_termination_criterion_ == "sample_rate")
+            // {
+            //     current_sample_rate = (double)(down_hitting_peak + up_hitting_peak + 1) / (double)(down_scan_counter + up_scan_counter + 1);
+            //     if (down_scan_counter > min_scans_to_consider && current_sample_rate < min_sample_rate_)
+            //     {
+            //       // std::cout << "stopping down..." << std::endl;
+            //       toggle_down = false;
+            //     }
+            // }
+      }
+    }
 
-          // *********************************************************** //
-          // Step 2.2 MOVE UP in RT dim
-          // *********************************************************** //
-          if ((trace_up_idx < work_exp.size() - 1) && toggle_up)
-          {
-            const MSSpectrum &spec_trace_up = work_exp[trace_up_idx + 1];
+    void MassTraceDetection::searchUpInRT(Size& trace_up_idx, bool& toggle_up, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
+                                          boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
+                                          std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& up_hitting_peak,
+                                          Size& up_scan_counter, Size& conseq_missed_peak_up, const Size max_consecutive_missing, double& current_sample_rate, const Size min_scans_to_consider,
+                                          double& intensity_so_far)
+    {
+      if ((trace_up_idx < work_exp.size() - 1) && toggle_up)
+      {
+            const MSSpectrum& spec_trace_up = work_exp[trace_up_idx + 1];
             if (!spec_trace_up.empty())
             {
-              Size next_up_peak_idx = spec_trace_up.findNearest(centroid_mz);
-              double next_up_peak_mz = spec_trace_up[next_up_peak_idx].getMZ();
-              double next_up_peak_int = spec_trace_up[next_up_peak_idx].getIntensity();
+                Size next_up_peak_idx = spec_trace_up.findNearest(centroid_mz);
+                double next_up_peak_mz = spec_trace_up[next_up_peak_idx].getMZ();
+                double next_up_peak_int = spec_trace_up[next_up_peak_idx].getIntensity();
 
-              double right_bound = centroid_mz + 3 * ftl_sd;
-              double left_bound = centroid_mz - 3 * ftl_sd;
+                double right_bound = centroid_mz + 3 * ftl_sd;
+                double left_bound = centroid_mz - 3 * ftl_sd;
 
-              if ((next_up_peak_mz <= right_bound) &&
-                  (next_up_peak_mz >= left_bound) &&
-                  !allowed_peaks[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
-              {
-
-                if (start_int < next_up_peak_int && !apex_started[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
+                if ((next_up_peak_mz <= right_bound) && (next_up_peak_mz >= left_bound) && !peak_visited[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
                 {
-                  outer_loop = true;
-                  // std::cout << "Up\n";
-                  break;
-                }
+                  Peak2D next_peak;
+                  next_peak.setRT(spec_trace_up.getRT());
+                  next_peak.setMZ(next_up_peak_mz);
+                  next_peak.setIntensity(next_up_peak_int);
 
-                Peak2D next_peak;
-                next_peak.setRT(spec_trace_up.getRT());
-                next_peak.setMZ(next_up_peak_mz);
-                next_peak.setIntensity(next_up_peak_int);
-
-                current_trace.push_back(next_peak);
-                if (fwhm_meta_idx != -1)
-                {
-                  fwhms_mz.push_back(spec_trace_up.getFloatDataArrays()[fwhm_meta_idx][next_up_peak_idx]);
-                }
-                // Update the m/z mean of the current trace as we added a new peak
-                updateIterativeWeightedMeanMZ(next_up_peak_mz, next_up_peak_int, centroid_mz, prev_counter, prev_denom);
-                gathered_idx.emplace_back(trace_up_idx + 1, next_up_peak_idx);
-
-                // Update the m/z variance dynamically
-                if (reestimate_mt_sd_) //  && (up_hitting_peak+1 > min_flank_scans))
-                {
-                  // if (ftl_t > min_fwhm_scans)
+                  current_trace.push_back(next_peak);
+                  if (fwhm_meta_idx != -1)
                   {
-                    updateWeightedSDEstimateRobust(next_peak, centroid_mz, ftl_sd, intensity_so_far);
+                fwhms_mz.push_back(spec_trace_up.getFloatDataArrays()[fwhm_meta_idx][next_up_peak_idx]);
                   }
-                }
+                  // Update the m/z mean of the current trace as we added a new peak
+                  updateIterativeWeightedMeanMZ(next_up_peak_mz, next_up_peak_int, centroid_mz, prev_counter, prev_denom);
+                  gathered_idx.emplace_back(trace_up_idx + 1, next_up_peak_idx);
 
-                ++up_hitting_peak;
-                conseq_missed_peak_up = 0;
-              }
-              else
-              {
-                ++conseq_missed_peak_up;
-              }
+                  // Update the m/z variance dynamically
+                  if (reestimate_mt_sd_) //  && (up_hitting_peak+1 > min_flank_scans))
+                  {
+                // if (ftl_t > min_fwhm_scans)
+                {
+                  updateWeightedSDEstimateRobust(next_peak, centroid_mz, ftl_sd, intensity_so_far);
+                }
+                  }
+
+                  ++up_hitting_peak;
+                  conseq_missed_peak_up = 0;
+                }
+                else
+                {
+                  ++conseq_missed_peak_up;
+                }
             }
 
             ++trace_up_idx;
@@ -573,86 +669,60 @@ namespace OpenMS
 
             if (trace_termination_criterion_ == "outlier")
             {
-              if (conseq_missed_peak_up > max_consecutive_missing)
-              {
-                toggle_up = false;
-              }
+                if (conseq_missed_peak_up > max_consecutive_missing)
+                {
+                  toggle_up = false;
+                }
             }
-            else if (trace_termination_criterion_ == "sample_rate")
-            {
-              current_sample_rate = (double)(down_hitting_peak + up_hitting_peak + 1) / (double)(down_scan_counter + up_scan_counter + 1);
+            // else if (trace_termination_criterion_ == "sample_rate")
+            // {
+            //     current_sample_rate = (double)(down_hitting_peak + up_hitting_peak + 1) / (double)(down_scan_counter + up_scan_counter + 1);
 
-              if (up_scan_counter > min_scans_to_consider && current_sample_rate < min_sample_rate_)
-              {
-                // std::cout << "stopping up" << std::endl;
-                toggle_up = false;
-              }
-            }
-          }
-        }
-
-        apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx] = true; // kommt man hier ueberhaubt zwanghaft an wenn man mit einem Peak startet
-                                                                          // eigentlich schon es sei denn man überspringt durch allowed peaks, dafuer wird aber in zeile 320 das bitset verodert
-
-        if (outer_loop)
-        {
-          // std::cout << "Continue\n";
-          apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx] = true;
-          continue;
-        }
-
-        // std::cout << "After\n";
-        // std::cout << "current sr: " << current_sample_rate << std::endl;
-        double num_scans(down_scan_counter + up_scan_counter + 1 - conseq_missed_peak_down - conseq_missed_peak_up);
-
-        double mt_quality((double)current_trace.size() / (double)num_scans);
-        // std::cout << "mt quality: " << mt_quality << std::endl;
-        double rt_range(std::fabs(current_trace.rbegin()->getRT() - current_trace.begin()->getRT()));
-
-        // *********************************************************** //
-        // Step 2.3 check if minimum length and quality of mass trace criteria are met
-        // *********************************************************** //
-        bool max_trace_criteria = (max_trace_length_ < 0.0 || rt_range < max_trace_length_);
-        if (rt_range >= min_trace_length_ && max_trace_criteria && mt_quality >= min_sample_rate_)
-        {
-          // std::cout << "T" << trace_number << "\t" << mt_quality << std::endl;
-
-          // mark all peaks as visited
-          for (Size i = 0; i < gathered_idx.size(); ++i)
-          {
-            apex_visited[spec_offsets[gathered_idx[i].first] + gathered_idx[i].second] = true;
-          }
-
-          // create new MassTrace object and store collected peaks from list current_tracekm
-          MassTrace new_trace(current_trace);
-          new_trace.updateWeightedMeanRT();
-          new_trace.updateWeightedMeanMZ();
-          if (!fwhms_mz.empty())
-          {
-            new_trace.fwhm_mz_avg = Math::median(fwhms_mz.begin(), fwhms_mz.end());
-          }
-          new_trace.setQuantMethod(quant_method_);
-          // new_trace.setCentroidSD(ftl_sd);
-          new_trace.updateWeightedMZsd();
-
-          #pragma omp critical(add_trace)
-          {
-            new_trace.setLabel("T" + String(trace_number));
-            ++trace_number;
-            ++current_trace_number;
-            found_masstraces.push_back(new_trace);
-            peaks_detected += new_trace.getSize();
-            this->setProgress(peaks_detected);
-          }
-
-          // check if we already reached the (optional) maximum number of traces
-          // if (max_traces > 0 && found_masstraces.size() == max_traces)
-          // {
-          //   break;
-          // }
-        }
+            //     if (up_scan_counter > min_scans_to_consider && current_sample_rate < min_sample_rate_)
+            //     {
+            //       // std::cout << "stopping up" << std::endl;
+            //       toggle_up = false;
+            //     }
+            // }
       }
-      return apex_visited;
     }
 
-}
+
+    void MassTraceDetection::checkAndAddTrace(const double & rt_range, const bool max_trace_criteria, const double & mt_quality, Size & trace_number, 
+                        boost::dynamic_bitset<>& peak_visited, const std::vector<Size>& spec_offsets, const std::vector<std::pair<Size, Size>>& gathered_idx,
+                        const std::deque<PeakType>& current_trace, std::vector<MassTrace>& found_masstraces, Size & peaks_detected, const Size max_traces, const std::vector<double>& fwhms_mz)
+    {
+      if (rt_range >= min_trace_length_ && max_trace_criteria && mt_quality >= min_sample_rate_)
+      {
+            for (Size i = 0; i < gathered_idx.size(); ++i)
+            {
+                peak_visited[spec_offsets[gathered_idx[i].first] + gathered_idx[i].second] = true;
+            }
+            // create new MassTrace object and store collected peaks from list current_trace
+            MassTrace new_trace(current_trace.begin(), current_trace.end());
+            new_trace.updateWeightedMeanRT();
+            new_trace.updateWeightedMeanMZ();
+            if (!fwhms_mz.empty())
+            {
+                new_trace.fwhm_mz_avg = Math::median(fwhms_mz.begin(), fwhms_mz.end());
+            }
+            new_trace.setQuantMethod(quant_method_);
+            // new_trace.setCentroidSD(ftl_sd);
+            new_trace.updateWeightedMZsd();
+
+            #pragma omp critical(add_trace)
+            {
+                new_trace.setLabel("T" + String(trace_number));
+                ++trace_number;
+                found_masstraces.push_back(new_trace);
+                peaks_detected += new_trace.getSize();
+                this->setProgress(peaks_detected);
+            }
+            // check if we already reached the (optional) maximum number of traces
+            // if (max_traces > 0 && found_masstraces.size() == max_traces)
+            // {
+            //     break;
+            // }
+      }
+    }
+} // namespace OpenMS
