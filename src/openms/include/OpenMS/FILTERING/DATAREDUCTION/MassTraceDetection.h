@@ -116,7 +116,7 @@ namespace OpenMS
         };
 
         /// The internal run method
-        void run_(std::vector<Apex>& chrom_apices,
+        void run_(const std::vector<Apex>& chrom_apices,
                   const Size peak_count,
                   const PeakMap & work_exp,
                   const std::vector<Size>& spec_offsets,
@@ -129,7 +129,6 @@ namespace OpenMS
         
 
         // boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
-        
         void searchDownInRT(Size& trace_down_idx, bool& toggle_down, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
                                             boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
                                             std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& down_hitting_peak,
@@ -147,7 +146,10 @@ namespace OpenMS
                                             boost::dynamic_bitset<>& peak_visited, const std::vector<Size>& spec_offsets, const std::vector<std::pair<Size, Size>>& gathered_idx,
                                             const std::deque<PeakType>& current_trace, std::vector<MassTrace>& found_masstraces, Size & peaks_detected, const Size max_traces, 
                                             const std::vector<double>& fwhms_mz);
-  
+
+        boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets,
+                                                                  std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks,
+                                                                  boost::dynamic_bitset<>& apex_started, Size& trace_number, Size& peaks_detected, Size& current_trace_number, int fwhm_meta_idx);
 
         // parameter stuff
         double mass_error_ppm_;
