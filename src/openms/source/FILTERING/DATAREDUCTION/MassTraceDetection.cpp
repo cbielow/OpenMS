@@ -318,15 +318,15 @@ namespace OpenMS
         boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks, apex_started, apex_started, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
         
         // apex_started; // verodern der bitsets um auch apexes aus gefundenen traces zu ueberspringen
-        if(trace_count == (trace_count + current_trace_number))
-        // if((apex_started | allowed_peaks).all())
+        // if(trace_count == (trace_count + current_trace_number))
+        if((apex_started | allowed_peaks).all())
         {
           // std::cout << "break while\n";
           break;
         } else
         {
           allowed_peaks |= new_found;
-          std::cout << "trace count plus\n";
+          // std::cout << "trace count plus\n";
           trace_count += current_trace_number;
         
         }
