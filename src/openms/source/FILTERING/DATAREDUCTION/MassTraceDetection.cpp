@@ -306,7 +306,7 @@ namespace OpenMS
       Size peaks_detected(0);
 
 
-      bool trace_added = false;
+      // bool trace_added = false;
       Size trace_count{};
       boost::dynamic_bitset<> allowed_peaks{total_peak_count};
       boost::dynamic_bitset<> apex_started{total_peak_count};
@@ -315,7 +315,7 @@ namespace OpenMS
       // for(Size i{}; i < 1; ++i)
       {
         Size current_trace_number{};
-        boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks,  apex_started, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
+        boost::dynamic_bitset<> new_found = searchTraces_(chrom_apices, total_peak_count, work_exp, spec_offsets, found_masstraces, max_traces, allowed_peaks, apex_started, apex_started, trace_number, peaks_detected, current_trace_number, fwhm_meta_idx);
         
         // apex_started; // verodern der bitsets um auch apexes aus gefundenen traces zu ueberspringen
         if(trace_count == (trace_count + current_trace_number))
@@ -355,7 +355,7 @@ namespace OpenMS
 
 
 
-    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx)
+    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, const boost::dynamic_bitset<>& allowed_peaks, const boost::dynamic_bitset<> apex_started_given, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx)
     { 
       boost::dynamic_bitset<> apex_visited{total_peak_count};
 
@@ -367,12 +367,12 @@ namespace OpenMS
         Size apex_scan_idx(m_it->scan_idx);
         Size apex_peak_idx(m_it->peak_idx);
 
-        if (apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx])
+        if (apex_started_given[spec_offsets[apex_scan_idx] + apex_peak_idx])
         {
           continue;
         } // damit klappt es nicht warum, der müsste die Peaks mit denen wir schonmal angefangen haben überspringen koennen ?
 
-        if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx] || apex_visited[spec_offsets[apex_scan_idx] + apex_peak_idx])
+        if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx])
         {
           continue;
         }
@@ -446,7 +446,7 @@ namespace OpenMS
                   !allowed_peaks[spec_offsets[trace_down_idx - 1] + next_down_peak_idx])
               {
 
-                if (start_int < next_down_peak_int && !apex_started[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]) // Hier geht das auch nicht aber selbe sache, wenn mit dem Peak schonmal gestartet wurde faellt er aus dem Kriterium raus 
+                if (start_int < next_down_peak_int && !apex_started_given[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]) // Hier geht das auch nicht aber selbe sache, wenn mit dem Peak schonmal gestartet wurde faellt er aus dem Kriterium raus 
                 {
                   outer_loop = true;
                   // std::cout << "Down\n";
@@ -530,7 +530,7 @@ namespace OpenMS
                   !allowed_peaks[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
               {
 
-                if (start_int < next_up_peak_int && !apex_started[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
+                if (start_int < next_up_peak_int && !apex_started_given[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
                 {
                   outer_loop = true;
                   // std::cout << "Up\n";
@@ -610,7 +610,7 @@ namespace OpenMS
         // std::cout << "mt quality: " << mt_quality << std::endl;
         double rt_range(std::fabs(current_trace.rbegin()->getRT() - current_trace.begin()->getRT()));
 
-        apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx] = true;
+        apex_started[spec_offsets[apex_scan_idx] + apex_peak_idx] = true; // maybe critical
 
         // *********************************************************** //
         // Step 2.3 check if minimum length and quality of mass trace criteria are met
@@ -623,7 +623,7 @@ namespace OpenMS
           // mark all peaks as visited
           for (Size i = 0; i < gathered_idx.size(); ++i)
           {
-            allowed_peaks[spec_offsets[gathered_idx[i].first] + gathered_idx[i].second] = true;
+            apex_visited[spec_offsets[gathered_idx[i].first] + gathered_idx[i].second] = true;
           }
 
           // create new MassTrace object and store collected peaks from list current_tracekm
