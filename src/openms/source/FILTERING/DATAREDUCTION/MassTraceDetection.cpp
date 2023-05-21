@@ -310,7 +310,8 @@ namespace OpenMS
       Size trace_count{};
       boost::dynamic_bitset<> allowed_peaks{total_peak_count};
       boost::dynamic_bitset<> apex_started{total_peak_count};
-
+      // Size round{0};
+      // Size roundbefore{};
       while(true)
       // for(Size i{}; i < 1; ++i)
       {
@@ -328,8 +329,14 @@ namespace OpenMS
           allowed_peaks |= new_found;
           // std::cout << "trace count plus\n";
           trace_count += current_trace_number;
+          // Size falseBitsCount = (allowed_peaks).count();
+          // std::cout << "Number of false bits: " << falseBitsCount << std::endl;
         
         }
+        // std::cout << round << "\t" << found_masstraces.size() - roundbefore << '\n';
+        // ++round;
+        // roundbefore = found_masstraces.size();
+        // std::cout << allowed_peaks << '\n';
       }
       // std::cout << "peaks detected: " << chrom_apices.size() - peaks_detected  << '\n';
       this->endProgress();
@@ -352,11 +359,11 @@ namespace OpenMS
     }
 
 
-
-
-
-    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, const boost::dynamic_bitset<>& allowed_peaks, const boost::dynamic_bitset<> apex_started_given, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx)
-    { 
+    boost::dynamic_bitset<> MassTraceDetection::searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets,
+                                                              std::vector<MassTrace>& found_masstraces, const Size max_traces, const boost::dynamic_bitset<>& allowed_peaks,
+                                                              const boost::dynamic_bitset<> apex_started_given, boost::dynamic_bitset<>& apex_started, Size& trace_number, Size& peaks_detected,
+                                                              Size& current_trace_number, int fwhm_meta_idx)
+    {
       boost::dynamic_bitset<> apex_visited{total_peak_count};
 
       #pragma omp parallel for
@@ -369,11 +376,13 @@ namespace OpenMS
 
         if (apex_started_given[spec_offsets[apex_scan_idx] + apex_peak_idx])
         {
+          // std::cout << "apex_started_given\n";
           continue;
         } // damit klappt es nicht warum, der müsste die Peaks mit denen wir schonmal angefangen haben überspringen koennen ?
 
         if (allowed_peaks[spec_offsets[apex_scan_idx] + apex_peak_idx])
         {
+          // std::cout << "allowed_peaks\n";
           continue;
         }
 
@@ -621,11 +630,13 @@ namespace OpenMS
           // std::cout << "T" << trace_number << "\t" << mt_quality << std::endl;
 
           // mark all peaks as visited
-          for (Size i = 0; i < gathered_idx.size(); ++i)
+          #pragma omp critical (add_to_peaks_visited)
           {
-            apex_visited[spec_offsets[gathered_idx[i].first] + gathered_idx[i].second] = true;
+            for (Size i = 0; i < gathered_idx.size(); ++i)
+            {
+              apex_visited[spec_offsets[gathered_idx[i].first] + gathered_idx[i].second] = true;
+            }
           }
-
           // create new MassTrace object and store collected peaks from list current_tracekm
           MassTrace new_trace(current_trace);
           new_trace.updateWeightedMeanRT();
@@ -638,7 +649,12 @@ namespace OpenMS
           // new_trace.setCentroidSD(ftl_sd);
           new_trace.updateWeightedMZsd();
 
-          #pragma omp critical(add_trace)
+          // #pragma omp critical (cout)
+          // {
+          //   std::cout << apex_scan_idx << "\t" << apex_peak_idx << '\t' << new_trace.getCentroidMZ() << '\t' << new_trace.getCentroidRT() << '\n';
+          // }
+
+          #pragma omp critical (add_trace)
           {
             new_trace.setLabel("T" + String(trace_number));
             ++trace_number;
@@ -646,13 +662,13 @@ namespace OpenMS
             found_masstraces.push_back(new_trace);
             peaks_detected += new_trace.getSize();
             this->setProgress(peaks_detected);
-          }
 
-          // check if we already reached the (optional) maximum number of traces
-          // if (max_traces > 0 && found_masstraces.size() == max_traces)
-          // {
-          //   break;
-          // }
+            // check if we already reached the (optional) maximum number of traces
+            // if (max_traces > 0 && found_masstraces.size() == max_traces)
+            // {
+            //   apex_visited.set();
+            // }
+          }
         }
       }
       return apex_visited;
