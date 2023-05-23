@@ -34,13 +34,12 @@
 
 #pragma once
 
+#include <boost/dynamic_bitset.hpp>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
 #include <OpenMS/KERNEL/MassTrace.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/KERNEL/StandardTypes.h>
-
-#include <boost/dynamic_bitset.hpp>
 
 namespace OpenMS
 {
@@ -86,7 +85,12 @@ namespace OpenMS
         */
 
         /// Allows the iterative computation of the intensity-weighted mean of a mass trace's centroid m/z.
-        void updateIterativeWeightedMeanMZ(const double &, const double &, double &, double &, double &);
+        void updateIterativeWeightedMeanMZ(const double added_mz,
+                                           const double added_int,
+                                           double& centroid_mz,
+                                           double& prev_counter,
+                                           double& prev_denom
+                                          );
 
         /** @name Main computation methods
         */
@@ -99,6 +103,8 @@ namespace OpenMS
 
         /** @name Private methods and members
         */
+
+       
     protected:
         void updateMembers_() override;
 
@@ -106,17 +112,72 @@ namespace OpenMS
 
         struct Apex
         {
-          Apex(double intensity, Size scan_idx, Size peak_idx);
-          double intensity;
-          Size scan_idx;
-          Size peak_idx;
+          Apex(PeakMap& map, const Size scan_idx, const Size peak_idx);
+          // Default constructors
+          Apex() = default;
+          Apex(const Apex& other) = default;
+          Apex(Apex&& other) = default;
 
-          // double upperbound_();
-          // double lowerbound_();
+          // Move assignment operator
+          Apex& operator=(Apex&& other) 
+          {
+            if (this != &other) {
+              map_ = other.map_;
+              scan_idx_ = other.scan_idx_;
+              peak_idx_ = other.peak_idx_;
+            }
+            return *this;
+          }
+
+          PeakMap& map_;
+          Size scan_idx_;
+          Size peak_idx_;
+
+          ///get's the corresponding values
+          double getMZ() const;
+          double getRT() const;
+          double getIntensity() const;
         };
 
+        struct NextIndex
+        {
+          /// C'tor: init with number of threads in parallel region
+          NextIndex(const std::vector<Apex>& data, const Size total_peak_count, const std::vector<Size>& spec_offsets, const double mass_error_ppm);
+
+          /// Get the next free apex index which is not in the neighbourhood of a currently processing apex (in another thread)
+          /// (Internally adds the apex's m/z to a blacklist which prevents other threads from obtaining an apex nearby)
+          /// This function blocks until the next free apex is not conflicting anymore - i.e. another thread called setApexAsProcessed()
+          Size getNextFreeIndex();
+          
+          /// If an apex was processed call this function to remove the apex from the blacklist and increase the current_apex_
+          /// ... doesn't create a feature
+          void setApexAsProcessed();
+          /// ... does create a feature
+          void setApexAsProcessed(const std::vector<std::pair<Size, Size> >& gathered_idx);
+
+          bool isConflictingApex(const Apex a) const;
+
+          bool isVisited(const Size scan_idx, const Size peak_idx) const;
+
+          void setNumberOfThreads(const Size thread_num);
+
+
+          /// reference for usage
+          const std::vector<Apex>& data_;
+          const std::vector<Size>& spec_offsets_;
+        
+          /// own datastructure
+          boost::dynamic_bitset<> peak_visited_;
+          Size current_Apex_;
+          std::vector<std::pair<RangeMZ,RangeRT>> lock_list_;
+          double mass_error_ppm_;
+        };
+
+        /// internal check for FWHM meta data
+        bool checkFWHMMetaData_(const PeakMap& work_exp);
+
         /// The internal run method
-        void run_(const std::vector<Apex>& chrom_apices,
+        void run_(std::vector<Apex>& chrom_apices,
                   const Size peak_count,
                   const PeakMap & work_exp,
                   const std::vector<Size>& spec_offsets,
@@ -124,34 +185,10 @@ namespace OpenMS
                   const Size max_traces = 0);
 
         // Find Offset for Peak
-        double find_offset_(Size peak_index_in_apices_vec, double mass_error_ppm_, const PeakMap& input_exp, const std::vector<Apex>& apices_vec);
-        double findOffset_(double centroid_mz, double mass_error_ppm_);
+        static double findOffset_(const double centroid_mz, const double mass_error_ppm_);
+        Size calc_right_border_(Size peak_index_in_apices_vec, const PeakMap& input_exp, const std::vector<Apex>& apices_vec);
+        Size calc_left_border_(Size peak_index_in_apices_vec, const PeakMap& input_exp, const std::vector<Apex>& apices_vec);
         
-
-        // boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets, std::vector<MassTrace>& found_masstraces, const Size max_traces, boost::dynamic_bitset<>& allowed_peaks, boost::dynamic_bitset<>& apex_started, Size & trace_number, Size & peaks_detected, Size & current_trace_number, int fwhm_meta_idx);
-        void searchDownInRT(Size& trace_down_idx, bool& toggle_down, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
-                                            boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
-                                            std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& down_hitting_peak,
-                                            Size& down_scan_counter, Size& conseq_missed_peak_down, const Size max_consecutive_missing, double& current_sample_rate,
-                                            const Size min_scans_to_consider, double& intensity_so_far);
-
-        void searchUpInRT(Size& trace_up_idx, bool& toggle_up, const PeakMap& work_exp, const double start_int, const std::vector<Size>& spec_offsets, const Size max_traces,
-                                            boost::dynamic_bitset<>& peak_visited, std::deque<PeakType>& current_trace, double& centroid_mz, double& ftl_sd, const int& fwhm_meta_idx,
-                                            std::vector<std::pair<Size, Size>>& gathered_idx, std::vector<double>& fwhms_mz, double& prev_counter, double& prev_denom, Size& up_hitting_peak,
-                                            Size& up_scan_counter, Size& conseq_missed_peak_up, const Size max_consecutive_missing, double& current_sample_rate,
-                                            const Size min_scans_to_consider, double& intensity_so_far);
-
-
-        void checkAndAddTrace(const double & rt_range, const bool max_trace_criteria, const double & mt_quality, Size & trace_number, 
-                                            boost::dynamic_bitset<>& peak_visited, const std::vector<Size>& spec_offsets, const std::vector<std::pair<Size, Size>>& gathered_idx,
-                                            const std::deque<PeakType>& current_trace, std::vector<MassTrace>& found_masstraces, Size & peaks_detected, const Size max_traces, 
-                                            const std::vector<double>& fwhms_mz);
-
-        boost::dynamic_bitset<> searchTraces_(const std::vector<Apex>& chrom_apices, const Size total_peak_count, const PeakMap& work_exp, const std::vector<Size>& spec_offsets,
-                                              std::vector<MassTrace>& found_masstraces, const Size max_traces, const boost::dynamic_bitset<>& allowed_peaks,
-                                              const boost::dynamic_bitset<> apex_started_given, boost::dynamic_bitset<>& apex_started, Size& trace_number, Size& peaks_detected,
-                                              Size& current_trace_number, int fwhm_meta_idx);
-
         // parameter stuff
         double mass_error_ppm_;
         double mass_error_da_;
