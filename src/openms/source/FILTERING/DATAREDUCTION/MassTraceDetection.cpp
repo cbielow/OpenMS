@@ -39,6 +39,10 @@
 #include <OpenMS/MATH/MISC/MathFunctions.h>
 #include <OpenMS/MATH/STATISTICS/StatisticFunctions.h>
 
+bool isInRange(int value, int lowerBound, int upperBound) {
+    return value >= lowerBound && value <= upperBound;
+}
+
 namespace OpenMS
 {
     MassTraceDetection::MassTraceDetection() :
@@ -99,22 +103,22 @@ namespace OpenMS
       peak_visited_(total_peak_count),
       current_Apex_(0),
       mass_error_ppm_(mass_error_ppm),
-      lock_list_(0)
+      lock_list_2_(0)
     {
     }
 
     void MassTraceDetection::NextIndex::setNumberOfThreads(const Size thread_num)
     {
-      lock_list_.resize(thread_num);
+      // lock_list_2_.resize(thread_num);
     }
 
     bool MassTraceDetection::NextIndex::isConflictingApex(const MassTraceDetection::Apex a) const
     {
       // std::cout << "Here1?\n";
-      for (const std::pair<RangeMZ, RangeRT>& i : lock_list_)
+      for (const double & i : lock_list_2_)
       {
         // std::cout << "Here2?\n";
-        if (i.first.containsMZ(a.getMZ()) && i.second.containsRT(a.getRT()))
+        if (isInRange(i, a.getMZ() - findOffset_(a.getMZ(), mass_error_ppm_), a.getMZ() + findOffset_(a.getMZ(), mass_error_ppm_)))
         {
           // std::cout << "Here3?\n";
           return true;
@@ -135,7 +139,7 @@ namespace OpenMS
       #pragma omp critical (look_for_lock)
       {
         while((current_Apex_ < data_.size()) &&
-              (*this).isVisited(data_[current_Apex_].scan_idx_, data_[current_Apex_].peak_idx_))
+              (*this).isVisited(data_[current_Apex_+1].scan_idx_, data_[current_Apex_+1].peak_idx_))
         {
           // std::cout << "Is Visited\n";
           ++current_Apex_;
@@ -147,39 +151,40 @@ namespace OpenMS
         else
         {
           while((*this).isConflictingApex(data_[current_Apex_]))
-          {
-            // std::cout << "Is Conflicting\n";
-            // for(auto i : lock_list_)
-            // {
-            //   std::cout << i.first << " " << i.second << "\n";
-            // }
-            // std::cout << '\n';
-          }
+          {}
           // std::cout << "After Conflicting\n";
-          ++current_Apex_;
           const double current_mz = data_[current_Apex_].getMZ();
-          double offset_mz = findOffset_(current_mz, mass_error_ppm_);
-          double offset_rt = 2*5*60;
-          RangeMZ tmp_mz(data_[current_Apex_].getMZ() - offset_mz, data_[current_Apex_].getMZ() + offset_mz);
-          RangeRT tmp_rt(data_[current_Apex_].getRT() - offset_rt, data_[current_Apex_].getMZ() + offset_rt);
-          lock_list_[omp_get_thread_num()] = std::make_pair(tmp_mz, tmp_rt);
+          ++current_Apex_;
+          // double offset_mz = findOffset_(current_mz, mass_error_ppm_);
+          // double offset_rt = 2*5*60;
+          // std::pair<double,double> tmp_mz(data_[current_Apex_].getMZ() - offset_mz, data_[current_Apex_].getMZ() + offset_mz);
+          // std::pair<double,double> tmp_rt(data_[current_Apex_].getRT() - offset_rt, data_[current_Apex_].getMZ() + offset_rt);
+          
+          // lock_list_[omp_get_thread_num()] = std::make_pair(tmp_mz, tmp_rt);
+          lock_list_2_.push_back(current_mz);
         }
       }
       return current_Apex_; //next apex 
     }
 
-    void MassTraceDetection::NextIndex::setApexAsProcessed()
+    void MassTraceDetection::NextIndex::setApexAsProcessed(const double mz)
     {
-      lock_list_[omp_get_thread_num()] = std::make_pair(RangeMZ{0,0},RangeRT{0,0});
+      #pragma omp critical (remove_lock_from_vec)
+      {
+        lock_list_2_.erase(std::remove(lock_list_2_.begin(), lock_list_2_.end(), mz), lock_list_2_.end());
+      }
     }
     
-    void MassTraceDetection::NextIndex::setApexAsProcessed(const std::vector<std::pair<Size, Size> >& gathered_idx)
+    void MassTraceDetection::NextIndex::setApexAsProcessed(const double mz, const std::vector<std::pair<Size, Size> >& gathered_idx)
     {
-      (*this).setApexAsProcessed();
-      for (Size i = 0; i < gathered_idx.size(); ++i)
-      {
-        peak_visited_[spec_offsets_[gathered_idx[i].first] +  gathered_idx[i].second] = true;
-      }
+      // #pragma omp critical (remove_lock_from_vec)
+      // {
+        (*this).setApexAsProcessed(mz);
+        for (Size i = 0; i < gathered_idx.size(); ++i)
+        {
+          peak_visited_[spec_offsets_[gathered_idx[i].first] +  gathered_idx[i].second] = true;
+        }
+      // }
     } // only set this to true
 
     void MassTraceDetection::updateIterativeWeightedMeanMZ(const double added_mz,
@@ -428,7 +433,7 @@ namespace OpenMS
       bool fwhm_meta_idx = checkFWHMMetaData_(work_exp);
 
       ///used variables
-      boost::dynamic_bitset<> peak_visited(total_peak_count);
+      // boost::dynamic_bitset<> peak_visited(total_peak_count);
 
       Size trace_number(1);
       Size peaks_detected(0);
@@ -442,22 +447,22 @@ namespace OpenMS
         relevant.setNumberOfThreads(omp_get_num_threads()); // todo: function 'setNumberOfThreads()' implementieren
       } 
 
-      for(Size i{}; i < relevant.lock_list_.size(); ++i)
-      {
-        relevant.lock_list_[i] = std::make_pair(RangeMZ{0,0},RangeRT{0,0});
-      }
+      // for(Size i{}; i < relevant.lock_list_2_.size(); ++i)
+      // {
+      //   relevant.lock_list_2_[i] = std::make_pair(std::pair<double,double>{0,0},std::pair<double,double>{0,0});
+      // }
       Size index{};
 
       #pragma omp parallel
       while(true)
       {
         
-        index = relevant.getNextFreeIndex();
+        index = relevant.getNextFreeIndex() - 1;
         std::cout << index << '\n';
 
         if(index >= chrom_apices.size()) break;
 
-        std::cout << "Start run\n";
+        // std::cout << "Start run\n";
 
         // if (max_traces > 0 && found_masstraces.size() == max_traces)
         // {
@@ -523,7 +528,7 @@ namespace OpenMS
           // *********************************************************** //
           if ((trace_down_idx > 0) && 
               toggle_down &&
-              (!peak_visited[spec_offsets[chrom_apices[index].scan_idx_] + chrom_apices[index].peak_idx_])
+              (!relevant.isVisited(chrom_apices[index].scan_idx_, chrom_apices[index].peak_idx_))
               )
           {
             const MSSpectrum& spec_trace_down = work_exp[trace_down_idx - 1];
@@ -537,7 +542,8 @@ namespace OpenMS
 
               if ((next_down_peak_mz <= right_bound) &&
                   (next_down_peak_mz >= left_bound) &&
-                  !peak_visited[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]
+                  (!relevant.isVisited(trace_down_idx - 1, next_down_peak_idx))
+                  // !peak_visited[spec_offsets[trace_down_idx - 1] + next_down_peak_idx]
                       )
               {
 
@@ -604,7 +610,7 @@ namespace OpenMS
           // *********************************************************** //
           if ((trace_up_idx < work_exp.size() - 1) && 
               toggle_up &&
-              (!peak_visited[spec_offsets[chrom_apices[index].scan_idx_] + chrom_apices[index].peak_idx_])
+              (!relevant.isVisited(chrom_apices[index].scan_idx_, chrom_apices[index].peak_idx_))
               )
           {
             const MSSpectrum& spec_trace_up = work_exp[trace_up_idx + 1];
@@ -619,7 +625,8 @@ namespace OpenMS
 
               if ((next_up_peak_mz <= right_bound) &&
                   (next_up_peak_mz >= left_bound) &&
-                  !peak_visited[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
+                  (!relevant.isVisited(trace_up_idx + 1, next_up_peak_idx)))
+                  // !peak_visited[spec_offsets[trace_up_idx + 1] + next_up_peak_idx])
               {
                 Peak2D next_peak;
                 next_peak.setRT(spec_trace_up.getRT());
@@ -695,7 +702,7 @@ namespace OpenMS
               // {
               //   peak_visited[spec_offsets[gathered_idx[i].first] +  gathered_idx[i].second] = true;
               // }
-              relevant.setApexAsProcessed(gathered_idx);
+              relevant.setApexAsProcessed(chrom_apices[index].getMZ(), gathered_idx);
               MassTrace new_trace(current_trace.begin(), current_trace.end());
               new_trace.updateWeightedMeanRT();
               new_trace.updateWeightedMeanMZ();
@@ -713,6 +720,10 @@ namespace OpenMS
               peaks_detected += new_trace.getSize();
               this->setProgress(peaks_detected);
             
+          } 
+          else
+          {
+            relevant.setApexAsProcessed(chrom_apices[index].getMZ());
           }
 
           // check if we already reached the (optional) maximum number of traces
@@ -721,7 +732,6 @@ namespace OpenMS
             continue;
           }
 
-          relevant.setApexAsProcessed();
       }
     this->endProgress();
     }
