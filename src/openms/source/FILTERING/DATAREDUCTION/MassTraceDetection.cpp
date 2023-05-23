@@ -102,14 +102,13 @@ namespace OpenMS
       spec_offsets_(spec_offsets),
       peak_visited_(total_peak_count),
       current_Apex_(0),
-      mass_error_ppm_(mass_error_ppm),
-      lock_list_2_(0)
+      mass_error_ppm_(mass_error_ppm)
     {
     }
 
     void MassTraceDetection::NextIndex::setNumberOfThreads(const Size thread_num)
     {
-      // lock_list_2_.resize(thread_num);
+      lock_list_2_.resize(thread_num);
     }
 
     bool MassTraceDetection::NextIndex::isConflictingApex(const MassTraceDetection::Apex a) const
@@ -151,10 +150,13 @@ namespace OpenMS
         {
           while((*this).isConflictingApex(data_[current_Apex_]))
           {
-            std::cout << "conflicting\n";
+            std::cout << "Found conflict\n";
+            usleep(10);
+            // std::cout << lock_list_2_.size() << '\n';
           }
- 
-          lock_list_2_.push_back(data_[current_Apex_].getMZ());
+          // std::cout << "After while\n";
+          int threadnum = omp_get_thread_num();
+          lock_list_2_[threadnum] = data_[current_Apex_].getMZ();
           ++current_Apex_;
         }
       }
@@ -165,25 +167,27 @@ namespace OpenMS
     {
       #pragma omp critical (remove_lock_from_vec)
       {
-        auto it = std::find(lock_list_2_.begin(), lock_list_2_.end(), data_[index].getMZ());
-        if (it != lock_list_2_.end()) 
-        {
-          // Remove the element
-          lock_list_2_.erase(it);
-        }
+        // auto it = std::find(lock_list_2_.begin(), lock_list_2_.end(), data_[index].getMZ());
+        // if (it != lock_list_2_.end()) 
+        // {
+        //   // Remove the element
+        //   lock_list_2_.erase(it);
+        //   std::cout << "Removed conflict\n";
+        // }
+        lock_list_2_[omp_get_thread_num()] = 0;
       }
     }
     
     void MassTraceDetection::NextIndex::setApexAsProcessed(Size index, const std::vector<std::pair<Size, Size> >& gathered_idx)
     {
-      // #pragma omp critical (remove_lock_from_vec)
-      // {
+      #pragma omp critical (remove_lock_from_vec_2)
+      {
         (*this).setApexAsProcessed(index);
         for (Size i = 0; i < gathered_idx.size(); ++i)
         {
           peak_visited_[spec_offsets_[gathered_idx[i].first] +  gathered_idx[i].second] = true;
         }
-      // }
+      }
     } // only set this to true
 
     void MassTraceDetection::updateIterativeWeightedMeanMZ(const double added_mz,
@@ -446,10 +450,10 @@ namespace OpenMS
         relevant.setNumberOfThreads(omp_get_num_threads()); // todo: function 'setNumberOfThreads()' implementieren
       } 
 
-      // for(Size i{}; i < relevant.lock_list_2_.size(); ++i)
-      // {
-      //   relevant.lock_list_2_[i] = std::make_pair(std::pair<double,double>{0,0},std::pair<double,double>{0,0});
-      // }
+      for(Size i{}; i < relevant.lock_list_2_.size(); ++i)
+      {
+        relevant.lock_list_2_[i] = 0;
+      }
       Size index{};
 
       #pragma omp parallel
@@ -467,6 +471,7 @@ namespace OpenMS
           continue;
         }
 
+        std::cout << omp_get_thread_num() << '\n';
         // std::cout << "Get here index\n";
 
         // std::cout << "Start run\n";
@@ -737,10 +742,10 @@ namespace OpenMS
           }
 
           // check if we already reached the (optional) maximum number of traces
-          if (max_traces > 0 && found_masstraces.size() == max_traces)
-          {
-            continue;
-          }
+          // if (max_traces > 0 && found_masstraces.size() == max_traces)
+          // {
+          //   continue;
+          // }
 
       }
     this->endProgress();
