@@ -151,9 +151,9 @@ namespace OpenMS
           
           /// If an apex was processed call this function to remove the apex from the blacklist and increase the current_apex_
           /// ... doesn't create a feature
-          void setApexAsProcessed(Size index);
+          void setApexAsProcessed();
           /// ... does create a feature
-          void setApexAsProcessed(Size index, const std::vector<std::pair<Size, Size> >& gathered_idx);
+          void setApexAsProcessed(const std::vector<std::pair<Size, Size> >& gathered_idx);
 
           bool isConflictingApex(const Apex a) const;
 
@@ -167,7 +167,7 @@ namespace OpenMS
           const std::vector<Size>& spec_offsets_;
         
           /// own datastructure
-          boost::dynamic_bitset<> peak_visited_;
+          std::vector<bool> peak_visited_;
           Size current_Apex_;
           std::vector<std::pair<RangeMZ,RangeRT>> lock_list_;
           std::vector<double> lock_list_2_;
