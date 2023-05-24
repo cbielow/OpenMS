@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <boost/dynamic_bitset.hpp>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
 #include <OpenMS/KERNEL/MassTrace.h>
@@ -84,7 +85,12 @@ namespace OpenMS
         */
 
         /// Allows the iterative computation of the intensity-weighted mean of a mass trace's centroid m/z.
-        void updateIterativeWeightedMeanMZ(const double &, const double &, double &, double &, double &);
+        void updateIterativeWeightedMeanMZ(const double added_mz,
+                                           const double added_int,
+                                           double& centroid_mz,
+                                           double& prev_counter,
+                                           double& prev_denom
+                                          );
 
         /** @name Main computation methods
         */
@@ -97,6 +103,8 @@ namespace OpenMS
 
         /** @name Private methods and members
         */
+
+       
     protected:
         void updateMembers_() override;
 
@@ -104,20 +112,84 @@ namespace OpenMS
 
         struct Apex
         {
-          Apex(double intensity, Size scan_idx, Size peak_idx);
-          double intensity;
-          Size scan_idx;
-          Size peak_idx;
+          Apex(PeakMap& map, const Size scan_idx, const Size peak_idx);
+          // Default constructors
+          Apex() = default;
+          Apex(const Apex& other) = default;
+          Apex(Apex&& other) = default;
+
+          // Move assignment operator
+          Apex& operator=(Apex&& other) 
+          {
+            if (this != &other) {
+              map_ = other.map_;
+              scan_idx_ = other.scan_idx_;
+              peak_idx_ = other.peak_idx_;
+            }
+            return *this;
+          }
+
+          PeakMap& map_;
+          Size scan_idx_;
+          Size peak_idx_;
+
+          ///get's the corresponding values
+          double getMZ() const;
+          double getRT() const;
+          double getIntensity() const;
         };
 
+        struct NextIndex
+        {
+          /// C'tor: init with number of threads in parallel region
+          NextIndex(const std::vector<Apex>& data, const Size total_peak_count, const std::vector<Size>& spec_offsets, const double mass_error_ppm);
+
+          /// Get the next free apex index which is not in the neighbourhood of a currently processing apex (in another thread)
+          /// (Internally adds the apex's m/z to a blacklist which prevents other threads from obtaining an apex nearby)
+          /// This function blocks until the next free apex is not conflicting anymore - i.e. another thread called setApexAsProcessed()
+          Size getNextFreeIndex();
+          
+          /// If an apex was processed call this function to remove the apex from the blacklist and increase the current_apex_
+          /// ... doesn't create a feature
+          void setApexAsProcessed();
+          /// ... does create a feature
+          void setApexAsProcessed(const std::vector<std::pair<Size, Size> >& gathered_idx);
+
+          bool isConflictingApex(const Apex a) const;
+
+          bool isVisited(const Size scan_idx, const Size peak_idx) const;
+
+          void setNumberOfThreads(const Size thread_num);
+
+
+          /// reference for usage
+          const std::vector<Apex>& data_;
+          const std::vector<Size>& spec_offsets_;
+        
+          /// own datastructure
+          std::vector<bool> peak_visited_;
+          Size current_Apex_;
+          std::vector<std::pair<RangeMZ,RangeRT>> lock_list_;
+          std::vector<double> lock_list_2_;
+          double mass_error_ppm_;
+        };
+
+        /// internal check for FWHM meta data
+        bool checkFWHMMetaData_(const PeakMap& work_exp);
+
         /// The internal run method
-        void run_(const std::vector<Apex>& chrom_apices,
+        void run_(std::vector<Apex>& chrom_apices,
                   const Size peak_count,
                   const PeakMap & work_exp,
                   const std::vector<Size>& spec_offsets,
                   std::vector<MassTrace> & found_masstraces,
                   const Size max_traces = 0);
 
+        // Find Offset for Peak
+        static double findOffset_(const double centroid_mz, const double mass_error_ppm_);
+        Size calc_right_border_(Size peak_index_in_apices_vec, const PeakMap& input_exp, const std::vector<Apex>& apices_vec);
+        Size calc_left_border_(Size peak_index_in_apices_vec, const PeakMap& input_exp, const std::vector<Apex>& apices_vec);
+        
         // parameter stuff
         double mass_error_ppm_;
         double mass_error_da_;
