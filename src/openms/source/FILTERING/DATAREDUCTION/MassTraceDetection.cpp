@@ -117,11 +117,12 @@ namespace OpenMS
       for (const double & i : lock_list_2_)
       {
         // std::cout << "Here2?\n";
-        if (isInRange(i, a.getMZ() - (5 * findOffset_(a.getMZ(), mass_error_ppm_)), a.getMZ() + (5 * findOffset_(a.getMZ(), mass_error_ppm_))))
-        {
-          // std::cout << "Here3?\n";
-          return true;
-        }
+        // if (isInRange(i, a.getMZ() - (2 * findOffset_(a.getMZ(), mass_error_ppm_)), a.getMZ() + (2 * findOffset_(a.getMZ(), mass_error_ppm_))))
+        // {
+        //   // std::cout << "Here3?\n";
+        //   return true;
+        // }
+        if(i != 0) return true;
       }
       return false;
     }
@@ -464,7 +465,7 @@ namespace OpenMS
         updateIterativeWeightedMeanMZ(apex_peak.getMZ(), apex_peak.getIntensity(), centroid_mz, prev_counter, prev_denom);
 
         std::vector<std::pair<Size, Size> > gathered_idx;
-        gathered_idx.emplace_back(chrom_apices[index].scan_idx_,chrom_apices[index].scan_idx_);
+        gathered_idx.emplace_back(chrom_apices[index].scan_idx_,chrom_apices[index].peak_idx_);
         if (fwhm_meta_idx)
         {
           fwhms_mz.push_back(work_exp[chrom_apices[index].scan_idx_].getFloatDataArrays()[0][chrom_apices[index].peak_idx_]);
@@ -726,94 +727,4 @@ namespace OpenMS
 }
 
 
-//notes for modularising:
-//Funktion for up, down can be the same
-      //Apex is just used once and can be way shorter done
-      // get rid of intensity and but a pointer to the map there done
-      //also needs a few member functions for easier handling done
-  // get rid of variables that are called and used just once i.p.
-
-// function for check max traces and already visited
-// function for building the trace and adding it
-// function for check quality, because that is just wasted memory 
-// a lot of size variables are initialized that are a waste of space
-
-
-// void MassTraceDetection::histogramm (std::vector<MassTraceDetection::Apex> chrom_apices, uint8_t c)
-// {
-//   std::unordered_map<uint, double> histo_mz;
-//       std::unordered_map<uint, double> histo_rt;
-
-//       for (uint i = 0; i < 60; ++i)
-//       {
-//         histo_mz[i] = 0;
-//         histo_rt[i] = 0;
-//       }
-
-//       double offset_rt = 2 * 60 * 5;
-//       for (uint i = 0; i < chrom_apices.size(); ++i)
-//       {
-//         OpenMS::MassTraceDetection::Apex m_it = chrom_apices[i];
-//         Size apex_scan_idx(m_it.scan_idx);
-//         Size apex_peak_idx(m_it.peak_idx);
-//         double currentApex_mz = work_exp[apex_scan_idx][apex_peak_idx].getMZ();
-//         double currentApex_rt = work_exp[apex_scan_idx].getRT();
-//         double offset_mz = 2 * findOffset_(currentApex_mz, mass_error_ppm_);
-        
-//         RangeRT search_rt{currentApex_rt - offset_rt, currentApex_rt + offset_rt};
-//         RangeMZ search_mz{currentApex_mz - offset_mz, currentApex_mz + offset_mz};
-        
-//         // checking for next left apex, and how far that is
-//         for (uint j = 1; (j<60) && (i+j<chrom_apices.size()); ++j)
-//         {
-//           MassTraceDetection::Apex next = chrom_apices[i+j];
-//           Size next_scan_idx(next.scan_idx);
-//           Size next_peak_idx(next.peak_idx);
-//           double nextApex_mz = work_exp[next_scan_idx][next_peak_idx].getMZ();
-//           double nextApex_rt = work_exp[next_scan_idx].getRT();
-
-//           bool not_foundmz = true;
-//           if (not_foundmz &&
-//               search_mz.containsMZ(nextApex_mz))
-//           {
-//             histo_mz[j]+=1;
-//             //not_foundmz = false;
-//           }
-//           if (search_rt.containsRT(nextApex_rt) &&
-//               search_mz.containsMZ(nextApex_mz))
-//           {
-//             histo_rt[j]+=1;
-//             //break;
-//           }
-//         }
-//       }
-
-//       for (uint i = 1; i < 60; ++i)
-//       {
-//         histo_rt[i] += histo_rt[i-1];
-//         histo_mz[i] += histo_mz[-1];
-//       }
-
-//       std::cout << "Gesamtzahl Apexe: " << chrom_apices.size() << "\n";
-//       std::cout << "Histogramme nur mz \n";
-//       std::cout << "x  :  y (nur werte die != 0 sind werden angezeigt)\n";
-//       std::cout << "xter Nachbar (nach links)\n bei y vielen gefunden \n";
-//       for (uint i = 0; i < chrom_apices.size(); ++i)
-//       {
-//         if (histo_mz[i] != 0)
-//         {
-//           std::cout << i << "   :   " << (histo_mz[i]/chrom_apices.size())*100 << "%\n";
-//         }
-//       }
-
-//       std::cout << "Histogramme mit rt \n";
-//       std::cout << "x  :  y  (nur werte die != 0 sind werden angezeigt)\n";
-//       std::cout << "xter Nachbar (nach links)\n bei y vielen gefunden \n";
-//       for (uint i = 0; i < chrom_apices.size(); ++i)
-//       {
-//         if (histo_rt[i] != 0)
-//         {
-//           std::cout << i << "   :   " << (histo_rt[i]/chrom_apices.size()*100) << "%\n";
-//         }
-//       }
-//   }
+// SA1_subset_verysmall 
