@@ -117,12 +117,12 @@ namespace OpenMS
       for (const double & i : lock_list_2_)
       {
         // std::cout << "Here2?\n";
-        // if (isInRange(i, a.getMZ() - (2 * findOffset_(a.getMZ(), mass_error_ppm_)), a.getMZ() + (2 * findOffset_(a.getMZ(), mass_error_ppm_))))
-        // {
-        //   // std::cout << "Here3?\n";
-        //   return true;
-        // }
-        if(i != 0) return true;
+        if (isInRange(i, a.getMZ() - (2 * findOffset_(a.getMZ(), mass_error_ppm_)), a.getMZ() + (2 * findOffset_(a.getMZ(), mass_error_ppm_))))
+        {
+          // std::cout << "Here3?\n";
+          return true;
+        }
+        // if(i != 0) return true;
       }
       return false;
     }
