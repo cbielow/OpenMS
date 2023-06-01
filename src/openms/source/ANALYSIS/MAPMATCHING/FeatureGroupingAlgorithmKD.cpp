@@ -167,10 +167,6 @@ namespace OpenMS
     // partition at boundaries -> this should be safe because there cannot be
     // any cluster reaching across boundaries
 
-
-    // Really? YES, because of mz tolerance
-    // disjunkte Partiotionen
-
     sort(massrange.begin(), massrange.end());
     int pts_per_partition = massrange.size() / (int)(param_.getValue("nr_partitions"));
 
