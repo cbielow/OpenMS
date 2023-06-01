@@ -69,27 +69,6 @@ public:
     setParameters(param);
     addMaps(maps);
   }
-  
-  /*
-  /// Constructor (const input maps variant)
-  KDTreeFeatureMaps(std::vector<std::vector<const BaseFeature*>>& maps, const Param& param) :
-    DefaultParamHandler("KDTreeFeatureMaps"), feature_data_type_(FEATURE_DATA_DEFAULT)
-  {
-    check_defaults_ = false;
-    setParameters(param);
-    addMapsConst(maps);
-  }
-
-  /// Constructor (MapType template)
-  template <typename MapType>
-  KDTreeFeatureMaps(const std::vector<MapType>& maps, const Param& param) :
-    DefaultParamHandler("KDTreeFeatureMaps"), feature_data_type_(FEATURE_DATA_DEFAULT)
-  {
-    check_defaults_ = false;
-    setParameters(param);
-    addMaps(maps);
-  }
-  */
 
   /// Destructor
   ~KDTreeFeatureMaps() override
