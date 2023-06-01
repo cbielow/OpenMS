@@ -50,7 +50,7 @@ namespace OpenMS
 
   FeatureGroupingAlgorithmUnlabeled::~FeatureGroupingAlgorithmUnlabeled() = default;
 
-  void FeatureGroupingAlgorithmUnlabeled::group(const std::vector<FeatureMap> & maps, ConsensusMap & out)
+  void FeatureGroupingAlgorithmUnlabeled::group(std::vector<FeatureMap>& maps, ConsensusMap& out)
   {
     // check that the number of maps is ok
     if (maps.size() < 2)

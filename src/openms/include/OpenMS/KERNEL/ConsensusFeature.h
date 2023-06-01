@@ -231,6 +231,8 @@ public:
     */
     void insert(UInt64 map_index, const BaseFeature& element);
 
+    void insert_move(UInt64 map_index, BaseFeature& element);
+
     /// Non-mutable access to the contained feature handles
     const HandleSetType& getFeatures() const;
 

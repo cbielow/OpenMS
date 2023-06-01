@@ -155,13 +155,15 @@ namespace OpenMS
 
       @param featureinfo Path to featureXML
       @param spectra Input of MSExperiment with spectra information
-      @param fm_info Emtpy - stores FeatureMaps and KDTreeMaps internally 
+      @param fm_info Emtpy - stores FeatureMaps pointer and KDTreeMaps internally 
       @param feature_mapping Empty FeatureToMs2Indices
+      @param feature_map Empty - stores loaded features
       */
       void preprocessingSirius(const String& featureinfo,
                                const MSExperiment& spectra,
                                FeatureMapping::FeatureMappingInfo& fm_info,
-                               FeatureMapping::FeatureToMs2Indices& feature_mapping) const;
+                               FeatureMapping::FeatureToMs2Indices& feature_mapping,
+                               FeatureMap& feature_map) const;
 
       /**
       @brief logs number of features and spectra used

@@ -54,7 +54,9 @@ namespace OpenMS
 	 : public FeatureGroupingAlgorithm
 	{
 		public:
-			void group(const vector< FeatureMap >&, ConsensusMap& map) override
+
+			void group(vector< FeatureMap >&, ConsensusMap& map) override
+
 			{
 			  map.getColumnHeaders()[0].filename = "bla";
 				map.getColumnHeaders()[0].size = 5;
@@ -78,7 +80,7 @@ START_SECTION((virtual ~FeatureGroupingAlgorithm()))
 	delete ptr;
 END_SECTION
 
-START_SECTION((virtual void group(const vector< FeatureMap > &maps, ConsensusMap &out)=0))
+START_SECTION((virtual void group(vector< FeatureMap > &maps, ConsensusMap &out)=0))
 	FGA fga;
 	vector< FeatureMap > in;
 	ConsensusMap map;

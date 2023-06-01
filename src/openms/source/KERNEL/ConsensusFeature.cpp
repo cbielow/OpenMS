@@ -129,6 +129,21 @@ namespace OpenMS
     peptides_.insert(peptides_.end(), ids.begin(), ids.end());
   }
 
+  void ConsensusFeature::insert_move(UInt64 map_index, BaseFeature& element)
+  {
+    insert(FeatureHandle(map_index, element));
+
+    std::vector<PeptideIdentification>& ids(element.getPeptideIdentifications());
+    for (PeptideIdentification& it : ids)
+    {
+      it.setMetaValue("map_index", map_index);
+    }
+
+    peptides_.insert(peptides_.end(), make_move_iterator(ids.begin()), make_move_iterator(ids.end()));
+    ids.clear();
+    ids.shrink_to_fit();
+  }
+
   void ConsensusFeature::setFeatures(HandleSetType h)
   {
     handles_ = std::move(h);

@@ -58,12 +58,26 @@ f2.setIntensity(1000);
 f2.setMZ(500);
 f2.setRT(2000);
 
-FeatureMap fmap;
-fmap.push_back(f1);
-fmap.push_back(f2);
+vector<BaseFeature*> fmap;
+fmap.push_back(&f1);
+fmap.push_back(&f2);
 
-vector<FeatureMap> fmaps;
+vector<vector<BaseFeature*>> fmaps;
 fmaps.push_back(fmap);
+
+vector<BaseFeature*> fmap2;
+fmap2.push_back(&f1);
+fmap2.push_back(&f2);
+
+vector<vector<BaseFeature*>> fmaps2;
+fmaps2.push_back(fmap2);
+
+vector<const BaseFeature*> fmap3;
+fmap3.push_back(&f1);
+fmap3.push_back(&f2);
+
+vector<vector<const BaseFeature*>> fmaps3;
+fmaps3.push_back(fmap3);
 
 Param p;
 p.setValue("rt_tol", 100);
@@ -73,7 +87,7 @@ p.setValue("mz_unit", "ppm");
 KDTreeFeatureMaps* ptr = nullptr;
 KDTreeFeatureMaps* nullPointer = nullptr;
 
-START_SECTION((KDTreeFeatureMaps()))
+START_SECTION((KDTreeFeatureMaps())) // passed
   ptr = new KDTreeFeatureMaps();
   TEST_NOT_EQUAL(ptr, nullPointer)
 END_SECTION
@@ -82,8 +96,8 @@ START_SECTION((virtual ~KDTreeFeatureMaps()))
   delete ptr;
 END_SECTION
 
-START_SECTION((KDTreeFeatureMaps(const std::vector<MapType>& maps, const Param& param)))
-  ptr = new KDTreeFeatureMaps(fmaps, p);
+START_SECTION((KDTreeFeatureMaps(std::vector<std::vector<BaseFeature*>>& maps, const Param& param)))
+  ptr = new KDTreeFeatureMaps(fmaps2, p);
   TEST_NOT_EQUAL(ptr, nullPointer);
   delete ptr;
 END_SECTION
@@ -108,13 +122,14 @@ START_SECTION((KDTreeFeatureMaps& operator=(const KDTreeFeatureMaps& rhs)))
 END_SECTION
 
 KDTreeFeatureMaps kd_data_3;
+KDTreeFeatureMaps kd_data_4(fmaps2, p);
 
-START_SECTION((void addMaps(const std::vector<MapType>& maps)))
+START_SECTION((void addMaps(std::vector<std::vector<BaseFeature*>>& maps)))
   kd_data_3.addMaps(fmaps);
   TEST_EQUAL(kd_data_3.size(), 2);
 END_SECTION
 
-START_SECTION((void addFeature(Size mt_map_index, const BaseFeature* feature)))
+START_SECTION((void addFeature(Size mt_map_index, BaseFeature* feature)))
   Feature f3;
   f3.setMZ(300);
   f3.setRT(500);
@@ -122,9 +137,9 @@ START_SECTION((void addFeature(Size mt_map_index, const BaseFeature* feature)))
   TEST_EQUAL(kd_data_3.size(), 3);
 END_SECTION
 
-START_SECTION((const BaseFeature* feature(Size i) const))
-  TEST_EQUAL(kd_data_1.feature(0), &(fmaps[0][0]))
-  TEST_EQUAL(kd_data_1.feature(1), &(fmaps[0][1]))
+START_SECTION((BaseFeature* feature(Size i) const))
+  TEST_EQUAL(kd_data_4.feature(0), fmaps2[0][0])
+  TEST_EQUAL(kd_data_4.feature(1), fmaps2[0][1])
 END_SECTION
 
 START_SECTION((double rt(Size i) const))

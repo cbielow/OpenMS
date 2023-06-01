@@ -62,7 +62,7 @@ namespace OpenMS
   {
   }
 
-  void FeatureGroupingAlgorithm::group(const vector<ConsensusMap>& maps, ConsensusMap& out)
+  void FeatureGroupingAlgorithm::group(vector<ConsensusMap>& maps, ConsensusMap& out)
   {
     OPENMS_LOG_WARN << "FeatureGroupingAlgorithm::group() does not support ConsensusMaps directly. Converting to FeatureMaps." << endl;
 

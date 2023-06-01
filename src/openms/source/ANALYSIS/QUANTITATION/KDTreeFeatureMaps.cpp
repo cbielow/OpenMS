@@ -40,17 +40,17 @@ using namespace std;
 namespace OpenMS
 {
 
-void KDTreeFeatureMaps::addFeature(Size mt_map_index, const BaseFeature* feature)
+void KDTreeFeatureMaps::addFeature(Size mt_map_index, BaseFeature* feature)
 {
   map_index_.push_back(mt_map_index);
   features_.push_back(feature);
   rt_.push_back(feature->getRT());
-
+  
   KDTreeFeatureNode mt_node(this, size() - 1);
   kd_tree_.insert(mt_node);
 }
 
-const BaseFeature* KDTreeFeatureMaps::feature(Size i) const
+BaseFeature* KDTreeFeatureMaps::feature(Size i) const
 {
   return features_[i];
 }

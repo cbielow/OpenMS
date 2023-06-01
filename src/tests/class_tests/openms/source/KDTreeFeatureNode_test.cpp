@@ -59,11 +59,11 @@ f2.setIntensity(1000);
 f2.setMZ(500);
 f2.setRT(2000);
 
-FeatureMap fmap;
-fmap.push_back(f1);
-fmap.push_back(f2);
+vector<BaseFeature*> fmap;
+fmap.push_back(&f1);
+fmap.push_back(&f2);
 
-vector<FeatureMap> fmaps;
+vector<vector<BaseFeature*>> fmaps;
 fmaps.push_back(fmap);
 
 Param p;

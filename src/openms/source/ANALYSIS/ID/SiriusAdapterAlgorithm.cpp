@@ -462,7 +462,8 @@ namespace OpenMS
     void SiriusAdapterAlgorithm::preprocessingSirius(const String& featureinfo,
                                                      const MSExperiment& spectra,
                                                      FeatureMapping::FeatureMappingInfo& fm_info,
-                                                     FeatureMapping::FeatureToMs2Indices& feature_mapping) const
+                                                     FeatureMapping::FeatureToMs2Indices& feature_mapping,
+                                                     FeatureMap& feature_map) const
     {
       // if fileparameter is given and should be not empty
       if (!featureinfo.empty())
@@ -470,7 +471,7 @@ namespace OpenMS
         if (File::exists(featureinfo) && !File::empty(featureinfo))
         {
           // read featureXML          
-          FeatureMap feature_map;
+          feature_map.clear(true);
           FileHandler().loadFeatures(featureinfo, feature_map);
 
           UInt num_masstrace_filter = getFilterByNumMassTraces();
@@ -491,10 +492,13 @@ namespace OpenMS
                                     return n_masstraces < num_masstrace_filter;
                                   });
           feature_map.erase(map_it, feature_map.end());
-  
-          fm_info.feature_maps.push_back(feature_map);
-          fm_info.kd_tree.addMaps(fm_info.feature_maps); // KDTree references into feature_map
-  
+
+          //add all feature pointer of feature_map to kd_tree with map index = kd_tree.numMaps.
+          for(Size i = 0; i < feature_map.size(); ++i)
+          {
+            fm_info.kd_tree.addFeature(fm_info.kd_tree.numMaps(), &(feature_map[i]));
+          }
+
           // mapping of MS2 spectra to features
           feature_mapping = FeatureMapping::assignMS2IndexToFeature(spectra,
                                                                     fm_info,

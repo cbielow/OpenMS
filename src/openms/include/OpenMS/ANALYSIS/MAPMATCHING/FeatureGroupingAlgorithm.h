@@ -57,12 +57,14 @@ public:
     ~FeatureGroupingAlgorithm() override;
 
     ///Applies the algorithm. The features in the input @p maps are grouped and the output is written to the consensus map @p out
-    virtual void group(const std::vector<FeatureMap > & maps, ConsensusMap & out) = 0;
+    ///The input maps might be changed.
+    virtual void group(std::vector<FeatureMap> & maps, ConsensusMap & out) = 0;
 
     ///Applies the algorithm. The consensus features in the input @p maps are grouped and the output is written to the consensus map @p out
     /// Algorithms not supporting ConsensusMap input should simply not override this method,
-    /// as the base implementation will forward the data to the FeatureMap version of group()
-    virtual void group(const std::vector<ConsensusMap> & maps, ConsensusMap & out);
+    /// as the base implementation will forward the data to the FeatureMap version of group().
+    ///The input maps might be changed.
+    virtual void group(std::vector<ConsensusMap> & maps, ConsensusMap & out);
 
     /// Transfers subelements (grouped features) from input consensus maps to the result consensus map
     void transferSubelements(const std::vector<ConsensusMap> & maps, ConsensusMap & out) const;
@@ -119,7 +121,7 @@ private:
     ///Assignment operator is not implemented -> private
     FeatureGroupingAlgorithm & operator=(const FeatureGroupingAlgorithm &);
 
-
+ 
 
   };
 

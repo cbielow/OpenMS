@@ -436,15 +436,16 @@ protected:
       algorithm.preprocessingSirius(id[file_counter],
                                     spectra,
                                     fm_info,
-                                    feature_mapping);
-    
+                                    feature_mapping,
+                                    feature_map); // feature_map is cleared
+
       // filter known_unkowns based on description (UNKNOWN) (AMS)
       std::map<const BaseFeature*, std::vector<size_t>> feature_ms2_spectra_map = feature_mapping.assignedMS2;
       std::map<const BaseFeature*, std::vector<size_t>> known_features;
       if (!use_known_unknowns)
       {
         for (auto it = feature_ms2_spectra_map.begin(); it != feature_ms2_spectra_map.end(); ++it)
-        {
+        { 
           const BaseFeature *feature = it->first;
           if (!(feature->getPeptideIdentifications().empty()) &&
               !(feature->getPeptideIdentifications()[0].getHits().empty()))
@@ -600,7 +601,7 @@ protected:
 
       }
       else // use heuristics
-      {
+      {        
         tmp_mta = MetaboTargetedAssay::extractMetaboTargetedAssay(spectra,
                                                                   feature_mapping,
                                                                   consensus_spectrum_precursor_rt_tolerance,

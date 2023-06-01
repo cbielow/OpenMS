@@ -204,10 +204,12 @@ protected:
     // run masstrace filter and feature mapping
     FeatureMapping::FeatureMappingInfo fm_info;
     FeatureMapping::FeatureToMs2Indices feature_mapping; // reference to *basefeature in Feature Maps stored in fm_info using a KDTree
+    FeatureMap feature_map;
     algorithm.preprocessingSirius(featureinfo,
                                   spectra,
                                   fm_info,
-                                  feature_mapping);
+                                  feature_mapping,
+                                  feature_map);
 
     // returns Log of feature and/or spectra number
     algorithm.logFeatureSpectraNumber(featureinfo, feature_mapping, spectra);

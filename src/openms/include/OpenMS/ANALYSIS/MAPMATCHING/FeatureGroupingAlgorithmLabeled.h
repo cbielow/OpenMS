@@ -58,7 +58,7 @@ public:
     ~FeatureGroupingAlgorithmLabeled() override;
 
     /**
-        @brief Applies the algorithm
+        @brief Applies the algorithm. The input maps might be changed.
 
         @note Exactly one @em input map has to be provided.
         @note The @em output map has to have two file descriptions, containing
@@ -66,7 +66,7 @@ public:
 
         @exception Exception::IllegalArgument is thrown if the input data is not valid.
     */
-    void group(const std::vector<FeatureMap > & maps, ConsensusMap & out) override;
+    void group(std::vector<FeatureMap>& maps, ConsensusMap& out) override;
 
     ///Creates a new instance of this class (for Factory)
     static FeatureGroupingAlgorithm * create()

@@ -74,13 +74,13 @@ namespace OpenMS
     postprocess_(maps, out);
   }
 
-  void FeatureGroupingAlgorithmQT::group(const std::vector<FeatureMap>& maps,
+  void FeatureGroupingAlgorithmQT::group(std::vector<FeatureMap>& maps,
                                          ConsensusMap& out)
   {
     group_(maps, out);
   }
 
-  void FeatureGroupingAlgorithmQT::group(const std::vector<ConsensusMap>& maps,
+  void FeatureGroupingAlgorithmQT::group(std::vector<ConsensusMap>& maps,
                                          ConsensusMap& out)
   {
     group_(maps, out);

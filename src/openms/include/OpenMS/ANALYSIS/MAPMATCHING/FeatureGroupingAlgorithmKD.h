@@ -189,18 +189,18 @@ public:
     ~FeatureGroupingAlgorithmKD() override;
 
     /**
-        @brief Applies the algorithm to feature maps
+        @brief Applies the algorithm to feature maps. The input maps might be changed after grouping.
 
         @exception IllegalArgument is thrown if less than two input maps are given.
     */
-    void group(const std::vector<FeatureMap>& maps, ConsensusMap& out) override;
+    void group(std::vector<FeatureMap>& maps, ConsensusMap& out) override;
 
     /**
-        @brief Applies the algorithm to consensus maps
+        @brief Applies the algorithm to consensus maps. The input maps might be changed after grouping.
 
         @exception IllegalArgument is thrown if less than two input maps are given.
     */
-    void group(const std::vector<ConsensusMap>& maps,
+    void group(std::vector<ConsensusMap>& maps,
                        ConsensusMap& out) override;
 
     /// Creates a new instance of this class (for Factory)
@@ -229,7 +229,7 @@ private:
         @exception IllegalArgument is thrown if less than two input maps are given.
     */
     template <typename MapType>
-    void group_(const std::vector<MapType>& input_maps, ConsensusMap& out);
+    void group_(std::vector<MapType>& input_maps, ConsensusMap& out);
 
     /// Run the actual clustering algorithm
     void runClustering_(const KDTreeFeatureMaps& kd_data, ConsensusMap& out);
@@ -257,6 +257,7 @@ private:
 
     /// Feature distance functor
     FeatureDistance feature_distance_;
+
   };
 
 } // namespace OpenMS

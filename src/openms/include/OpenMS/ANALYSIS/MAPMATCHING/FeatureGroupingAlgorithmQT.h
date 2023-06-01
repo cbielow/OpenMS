@@ -60,22 +60,22 @@ public:
     ~FeatureGroupingAlgorithmQT() override;
 
     /**
-        @brief Applies the algorithm to feature maps
+        @brief Applies the algorithm to feature maps. The input maps might be changed.
 
         @pre The data ranges of the input maps have to be up-to-date (use FeatureMap::updateRanges).
 
         @exception IllegalArgument is thrown if less than two input maps are given.
     */
-    void group(const std::vector<FeatureMap>& maps, ConsensusMap& out) override;
+    void group(std::vector<FeatureMap>& maps, ConsensusMap& out) override;
 
     /**
-        @brief Applies the algorithm to consensus maps
+        @brief Applies the algorithm to consensus maps. The input maps might be changed.
 
          @pre The data ranges of the input maps have to be up-to-date (use ConsensusMap::updateRanges).
 
         @exception IllegalArgument is thrown if less than two input maps are given.
     */
-    void group(const std::vector<ConsensusMap>& maps, 
+    void group(std::vector<ConsensusMap>& maps, 
                        ConsensusMap& out) override;
 
     /// Creates a new instance of this class (for Factory)

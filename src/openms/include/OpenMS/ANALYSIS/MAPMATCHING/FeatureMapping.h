@@ -50,7 +50,7 @@ namespace OpenMS
           class FeatureMappingInfo
           {
           public:
-            std::vector<FeatureMap> feature_maps; // feature data
+            std::vector<std::vector<BaseFeature*>> feature_maps; // pointers to feature data
             KDTreeFeatureMaps kd_tree; // KDTree references into feature_maps to provides fast spatial queries
           };
 

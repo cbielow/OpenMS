@@ -90,11 +90,11 @@ public:
     }
 
     /**
-        @brief Applies the algorithm
+        @brief Applies the algorithm. The input maps might be changed.
 
         @exception IllegalArgument is thrown if less than two input maps are given.
     */
-    void group(const std::vector<FeatureMap > & maps, ConsensusMap & out) override;
+    void group(std::vector<FeatureMap>& maps, ConsensusMap& out) override;
 
     /**
         @brief Adds one map to the group
