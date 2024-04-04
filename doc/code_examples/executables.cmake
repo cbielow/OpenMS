@@ -22,6 +22,8 @@ Tutorial_IdentificationClasses
 Tutorial_Labeled
 Tutorial_Logger
 Tutorial_MapAlignment
+Tutorial_IonMobility
+Tutorial_IsotopeDistribution
 Tutorial_MetaInfo
 Tutorial_MorphologicalFilter
 Tutorial_MSChromatogram
