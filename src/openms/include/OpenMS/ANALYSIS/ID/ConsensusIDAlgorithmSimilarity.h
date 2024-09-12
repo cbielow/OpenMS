@@ -45,7 +45,7 @@ namespace OpenMS
 
        @return Similarity between two sequences in the range [0, 1]
     */
-    virtual double getSimilarity_(AASequence seq1, AASequence seq2) = 0;
+    virtual double getSimilarity_(const AASequence& seq1, const  AASequence& seq2) = 0;
 
   private:
     /// Not implemented

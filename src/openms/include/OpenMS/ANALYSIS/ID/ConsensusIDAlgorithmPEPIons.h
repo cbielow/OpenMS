@@ -43,7 +43,7 @@ namespace OpenMS
     void updateMembers_() override;
 
     /// Sequence similarity based on matching ions
-    double getSimilarity_(AASequence seq1, AASequence seq2) override;
+    double getSimilarity_(const AASequence& seq1, const AASequence& seq2) override;
 
   };
 

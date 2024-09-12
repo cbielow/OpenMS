@@ -48,8 +48,8 @@ namespace OpenMS
     similarities_.clear();
   }
 
-  double ConsensusIDAlgorithmPEPMatrix::getSimilarity_(AASequence seq1,
-                                                       AASequence seq2)
+  double ConsensusIDAlgorithmPEPMatrix::getSimilarity_(const AASequence& seq1,
+                                                       const AASequence& seq2)
   {
     // here we cannot take modifications into account:
     String unmod_seq1 = seq1.toUnmodifiedString();
