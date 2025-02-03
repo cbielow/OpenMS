@@ -55,6 +55,9 @@ include(source/PROCESSING/CENTROIDING/sources.cmake)
 include(source/PROCESSING/SPECTRAMERGING/sources.cmake)
 include(source/PROCESSING/SCALING/sources.cmake)
 
+include(source/SIMULATION/sources.cmake)
+include(source/SIMULATION/LABELING/sources.cmake)
+
 include(source/FEATUREFINDER/sources.cmake)
 include(source/COMPARISON/sources.cmake)
 include(source/QC/sources.cmake)
@@ -126,6 +129,9 @@ include(include/OpenMS/PROCESSING/SCALING/sources.cmake)
 include(include/OpenMS/FEATUREFINDER/sources.cmake)
 include(include/OpenMS/PROCESSING/CENTROIDING/sources.cmake)
 include(include/OpenMS/PROCESSING/SPECTRAMERGING/sources.cmake)
+
+include(include/OpenMS/SIMULATION/sources.cmake)
+include(include/OpenMS/SIMULATION/LABELING/sources.cmake)
 
 include(include/OpenMS/QC/sources.cmake)
 if(NOT DISABLE_OPENSWATH)

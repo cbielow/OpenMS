@@ -79,6 +79,7 @@ MRMMapper
 MRMPairFinder
 MSGFPlusAdapter
 MSFraggerAdapter
+MSSimulator
 MSstatsConverter
 MultiplexResolver
 MzMLSplitter
