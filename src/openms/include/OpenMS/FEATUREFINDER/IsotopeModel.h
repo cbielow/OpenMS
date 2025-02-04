@@ -50,6 +50,18 @@ public:
 
     /// assignment operator
     virtual IsotopeModel & operator=(const IsotopeModel & source);
+    
+    /// create new IsotopeModel object (needed by Factory)
+    static BaseModel<1>* create()
+    {
+      return new IsotopeModel();
+    }
+
+    /// name of the model (needed by Factory)
+    static const String getProductName()
+    {
+      return "IsotopeModel";
+    }
 
     UInt getCharge() const;
 

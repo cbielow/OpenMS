@@ -16,6 +16,7 @@ LogStream.cpp
 PrecisionWrapper.cpp
 ProgressLogger.cpp
 RAIICleanup.cpp
+SingletonRegistry.cpp
 StreamHandler.cpp
 Types.cpp
 UniqueIdGenerator.cpp

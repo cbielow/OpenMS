@@ -48,6 +48,18 @@ public:
     /// assignment operator
     virtual ExtendedIsotopeModel & operator=(const ExtendedIsotopeModel & source);
 
+    /// create new ExtendedIsotopeModel object (needed by Factory)
+    static BaseModel<1>* create()
+    {
+      return new ExtendedIsotopeModel();
+    }
+
+    /// name of the model (needed by Factory)
+    static const String getProductName()
+    {
+      return "ExtendedIsotopeModel";
+    }
+
     UInt getCharge() const;
 
     /** @brief set the offset of the model

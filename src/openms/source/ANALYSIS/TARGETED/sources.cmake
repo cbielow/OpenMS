@@ -7,6 +7,11 @@ MetaboTargetedAssay.cpp
 MetaboTargetedTargetDecoy.cpp
 MRMMapping.cpp
 IncludeExcludeTarget.cpp
+OfflinePrecursorIonSelection.cpp
+PrecursorIonSelectionPreprocessing.cpp
+PrecursorIonSelection.cpp
+PSLPFormulation.cpp
+PSProteinInference.cpp
 TargetedExperiment.cpp
 TargetedExperimentHelper.cpp
 )

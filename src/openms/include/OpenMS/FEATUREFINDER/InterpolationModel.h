@@ -26,7 +26,7 @@ namespace OpenMS
 
     */
   class OPENMS_DLLAPI InterpolationModel :
-    public BaseModel
+    public BaseModel<1>
   {
 
 public:
@@ -38,7 +38,7 @@ public:
 
     /// Default constructor
     InterpolationModel() :
-      BaseModel(),
+      BaseModel<1>(),
       interpolation_()
     {
       this->defaults_.setValue("interpolation_step", 0.1, "Sampling rate for the interpolation of the model function ");
@@ -48,7 +48,7 @@ public:
 
     /// copy constructor
     InterpolationModel(const InterpolationModel & source) :
-      BaseModel(source),
+      BaseModel<1>(source),
       interpolation_(source.interpolation_),
       interpolation_step_(source.interpolation_step_),
       scaling_(source.scaling_)
@@ -64,7 +64,7 @@ public:
     {
       if (&source == this) return *this;
 
-      BaseModel::operator=(source);
+      BaseModel<1>::operator=(source);
       interpolation_step_ = source.interpolation_step_;
       interpolation_ = source.interpolation_;
       scaling_ = source.scaling_;
@@ -116,7 +116,7 @@ public:
     void getSamples(SamplesType & cont) const override
     {
       cont.clear();
-      using PeakT = BaseModel::PeakType;
+      using PeakT = BaseModel<1>::PeakType;
       PeakT peak;
       for (Size i = 0; i < interpolation_.getData().size(); ++i)
       {
@@ -162,7 +162,7 @@ protected:
 
     void updateMembers_() override
     {
-      BaseModel::updateMembers_();
+      BaseModel<1>::updateMembers_();
       interpolation_step_ = this->param_.getValue("interpolation_step");
       scaling_ = this->param_.getValue("intensity_scaling");
     }

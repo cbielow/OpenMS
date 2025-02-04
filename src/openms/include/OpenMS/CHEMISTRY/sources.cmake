@@ -12,6 +12,7 @@ Element.h
 ElementDB.h
 EmpiricalFormula.h
 EnzymaticDigestion.h
+EnzymaticDigestionLogModel.h
 DigestionEnzyme.h
 DigestionEnzymeProtein.h
 DigestionEnzymeRNA.h
@@ -34,6 +35,8 @@ Ribonucleotide.h
 RibonucleotideDB.h
 SimpleTSGXLMS.h
 SpectrumAnnotator.h
+SvmTheoreticalSpectrumGenerator.h
+SvmTheoreticalSpectrumGeneratorSet.h
 Tagger.h
 TheoreticalSpectrumGenerator.h
 TheoreticalSpectrumGeneratorXLMS.h

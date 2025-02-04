@@ -36,7 +36,7 @@
 
 #define DEBUG_FEATUREFINDER
 
-#include <OpenMS/TRANSFORMATIONS/FEATUREFINDER/LevMarqFitter1D.h>
+#include <OpenMS/FEATUREFINDER/LevMarqFitter1D.h>
 
 namespace OpenMS
 {

@@ -12,6 +12,7 @@ Element.cpp
 ElementDB.cpp
 EmpiricalFormula.cpp
 EnzymaticDigestion.cpp
+EnzymaticDigestionLogModel.cpp
 DigestionEnzyme.cpp
 DigestionEnzymeProtein.cpp
 DigestionEnzymeRNA.cpp
@@ -34,6 +35,8 @@ Ribonucleotide.cpp
 RibonucleotideDB.cpp
 SpectrumAnnotator.cpp
 SimpleTSGXLMS.cpp
+SvmTheoreticalSpectrumGenerator.cpp
+SvmTheoreticalSpectrumGeneratorSet.cpp
 Tagger.cpp
 TheoreticalSpectrumGenerator.cpp
 TheoreticalSpectrumGeneratorXLMS.cpp

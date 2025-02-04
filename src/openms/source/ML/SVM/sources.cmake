@@ -3,7 +3,9 @@ set(directory source/ML/SVM)
 
 ### list all filenames of the directory here
 set(sources_list
+LibSVMEncoder.cpp
 SimpleSVM.cpp
+SVMWrapper.cpp
 )
 
 ### add path to the filenames

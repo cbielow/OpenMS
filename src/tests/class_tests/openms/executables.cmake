@@ -2,8 +2,11 @@ set(concept_executables_list
   ClassTest_test
   Colorizer_test
   Exception_Base_test
+  Factory_test
+  FactoryBase_test
   FuzzyStringComparator_test
   #GlobalExceptionHandler_test
+  SingletonRegistry_test
   StreamHandler_test
   VersionInfo_test
   LogConfigHandler_test
@@ -379,6 +382,7 @@ set(chemistry_executables_list
   Element_test
   EmpiricalFormula_test
   EnzymaticDigestion_test
+  EnzymaticDigestionLogModel_test
   FineIsotopeDistribution_test
   IMSAlphabetParser_test
   IMSAlphabetTextParser_test
@@ -498,6 +502,7 @@ set(analysis_executables_list
   ModifiedPeptideGenerator_test
   NeedlemanWunsch_test
   NeighborSeq_test
+  OfflinePrecursorIonSelection_test  
   PeptideIndexing_test
   PeptideAndProteinQuant_test
   PeptideProteinResolution_test
@@ -511,12 +516,17 @@ set(analysis_executables_list
   OPXLSpectrumProcessingAlgorithms_test
   PoseClusteringAffineSuperimposer_test
   PoseClusteringShiftSuperimposer_test
+  PrecursorIonSelectionPreprocessing_test
+  PrecursorIonSelection_test
   PrecursorPurity_test
+  PSLPFormulation_test
+  PSProteinInference_test
   QTClusterFinder_test
   ReactionMonitoringTransition_test
   SimpleSearchEngineAlgorithm_test
-  SimpleSVM_test
   StablePairFinder_test
+  SvmTheoreticalSpectrumGenerator_test
+  SvmTheoreticalSpectrumGeneratorSet_test
   PercolatorFeatureSetHelper_test
   TransformationDescription_test
   TransformationModel_test
@@ -526,6 +536,12 @@ set(analysis_executables_list
   TransformationModelLinear_test
   XFDRAlgorithm_test
   XQuestScores_test
+)
+
+set(machinelearning_list
+  SimpleSVM_test
+  SVMWrapper_test
+  LibSVMEncoder_test
 )
 
 set(applications_executables_list
@@ -566,6 +582,7 @@ set(transformations_executables_list
   PeakPickerHiRes_test
   PeakPickerIterative_test
   PeakWidthEstimator_test
+  ProductModel_test
   SeedListGenerator_test
   TraceFitter_test
 )
@@ -676,6 +693,7 @@ set(TEST_executables
     ${filtering_executables_list}
     ${comparison_executables_list}
     ${chemistry_executables_list}
+    ${machinelearning_list}
     ${analysis_executables_list}
     ${applications_executables_list}
     ${transformations_executables_list}

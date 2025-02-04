@@ -44,6 +44,7 @@ MultiplexIsotopicPeakPattern.h
 MultiplexSatelliteCentroided.h
 MultiplexSatelliteProfile.h
 PeakWidthEstimator.h
+ProductModel.h
 SeedListGenerator.h
 TraceFitter.h
 )

@@ -1,31 +1,5 @@
-// --------------------------------------------------------------------------
-//                   OpenMS -- Open-Source Mass Spectrometry
-// --------------------------------------------------------------------------
-// Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
-// ETH Zurich, and Freie Universitaet Berlin 2002-2022.
-//
-// This software is released under a three-clause BSD license:
-//  * Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-//  * Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-//  * Neither the name of any author or any participating institution
-//    may be used to endorse or promote products derived from this software
-//    without specific prior written permission.
-// For a full list of authors, refer to the file AUTHORS.
-// --------------------------------------------------------------------------
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL ANY OF THE AUTHORS OR THE CONTRIBUTING
-// INSTITUTIONS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Copyright (c) 2002-present, OpenMS Inc. -- EKU Tuebingen, ETH Zurich, and FU Berlin
+// SPDX-License-Identifier: BSD-3-Clause
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Chris Bielow $
@@ -36,7 +10,7 @@
 
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/CHEMISTRY/ModificationsDB.h>
-#include <OpenMS/DATASTRUCTURES/Utils/MatrixUtils.h>
+//#include <OpenMS/DATASTRUCTURES/UTILS/MatrixUtils.h>
 
 #include <Eigen/Dense>
 
@@ -61,8 +35,8 @@ namespace OpenMS
 
     // this needs to come first!
     isotope_corrections_.resize(2);
-    isotope_corrections_[0].setMatrix<4, 4>(ItraqConstants::ISOTOPECORRECTIONS_FOURPLEX);
-    isotope_corrections_[1].setMatrix<8, 4>(ItraqConstants::ISOTOPECORRECTIONS_EIGHTPLEX);
+    isotope_corrections_[0].setMatrix<double, 4, 4>(ItraqConstants::ISOTOPECORRECTIONS_FOURPLEX);
+    isotope_corrections_[1].setMatrix<double, 8, 4>(ItraqConstants::ISOTOPECORRECTIONS_EIGHTPLEX);
 
     // iTRAQ
     defaults_.setValue("iTRAQ", "4plex", "4plex or 8plex iTRAQ?");
@@ -228,12 +202,12 @@ namespace OpenMS
 
 
     OPENMS_PRECONDITION(fm.size() == 1, "More than one feature map given in ITRAQLabeler::postRawTandemMSHook()!")
-    EigenMatrixXdPtr channel_frequency = convertOpenMSMatrix2EigenMatrixXd(ItraqConstants::translateIsotopeMatrix(itraq_type_, isotope_corrections_));
+    auto channel_frequency = ItraqConstants::translateIsotopeMatrix(itraq_type_, isotope_corrections_).getEigenMatrix();
     Eigen::MatrixXd itraq_intensity_sum(ItraqConstants::CHANNEL_COUNT[itraq_type_], 1);
 
     std::vector<Matrix<Int> > channel_names(2);
-    channel_names[0].setMatrix<4, 1>(ItraqConstants::CHANNELS_FOURPLEX);
-    channel_names[1].setMatrix<8, 1>(ItraqConstants::CHANNELS_EIGHTPLEX);
+    channel_names[0].setMatrix<int, 4, 1>(ItraqConstants::CHANNELS_FOURPLEX);
+    channel_names[1].setMatrix<int, 8, 1>(ItraqConstants::CHANNELS_EIGHTPLEX);
 
     boost::uniform_real<double> udist(0.0, 1.0);
 
@@ -253,11 +227,11 @@ namespace OpenMS
       for (Size i_f = 0; i_f < parent_fs.size(); ++i_f)
       {
         // get RT scaled iTRAQ intensities
-        EigenMatrixXdPtr row = getItraqIntensity_(fm[0][parent_fs[i_f]], spec.getRT());
+        auto row = getItraqIntensity_(fm[0][parent_fs[i_f]], spec.getRT());
 
         // apply isotope matrix to active channels
         // row * channel_frequency_old = observed iTRAQ intensities
-        Eigen::MatrixXd itraq_intensity_observed = (*channel_frequency) * (*row);
+        Eigen::MatrixXd itraq_intensity_observed = channel_frequency * row;
         // add result to sum
         itraq_intensity_sum += itraq_intensity_observed;
       }
@@ -369,15 +343,15 @@ namespace OpenMS
     return elution_ints[index];
   }
 
-  EigenMatrixXdPtr ITRAQLabeler::getItraqIntensity_(const Feature& f, const double MS2_RT_time) const
+  Eigen::MatrixXd ITRAQLabeler::getItraqIntensity_(const Feature& f, const double MS2_RT_time) const
   {
 
     double factor = getRTProfileIntensity_(f, MS2_RT_time);
 
     //std::cerr << "\n\nfactor is: " << factor << "\n";
     // fill map with values present (all missing ones remain 0)
-    MutableEigenMatrixXdPtr m(new Eigen::MatrixXd(ItraqConstants::CHANNEL_COUNT[itraq_type_], 1));
-    m->setZero();
+    Eigen::MatrixXd m(ItraqConstants::CHANNEL_COUNT[itraq_type_], 1);
+    m.setZero();
     Size ch(0);
     Size ch_internal(0);
     for (ChannelMapType::const_iterator it = channel_map_.begin(); it != channel_map_.end(); ++it)
@@ -388,7 +362,7 @@ namespace OpenMS
         intensity = (double) f.getMetaValue(getChannelIntensityName(ch_internal));
         ++ch_internal;
       }
-      (* m)(ch, 0) = intensity * factor;
+      m(ch, 0) = intensity * factor;
       ++ch;
     }
 

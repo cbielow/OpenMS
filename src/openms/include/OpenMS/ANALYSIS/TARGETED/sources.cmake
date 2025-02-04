@@ -7,6 +7,11 @@ IncludeExcludeTarget.h
 MRMMapping.h
 MetaboTargetedAssay.h
 MetaboTargetedTargetDecoy.h
+OfflinePrecursorIonSelection.h
+PrecursorIonSelectionPreprocessing.h
+PrecursorIonSelection.h
+PSLPFormulation.h
+PSProteinInference.h
 TargetedExperiment.h
 TargetedExperimentHelper.h
 )

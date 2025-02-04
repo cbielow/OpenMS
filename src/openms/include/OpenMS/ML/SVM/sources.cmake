@@ -3,7 +3,9 @@ set(directory include/OpenMS/ML/SVM)
 
 ### list all header files of the directory here
 set(sources_list_h
+LibSVMEncoder.h
 SimpleSVM.h
+SVMWrapper.h
 )
 
 ### add path to the filenames
