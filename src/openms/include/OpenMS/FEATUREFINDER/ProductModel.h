@@ -54,17 +54,17 @@ public:
       BaseModel<D>(),
       distributions_(D, nullptr)
     {
-      this->setName(this->getProductName());
+      DefaultParamHandler::setName(getProductName());
 
-      //Register model info
+      // Register model info (GaussModel for both dimensions)
       for (UInt dim = 0; dim < D; ++dim)
       {
-        String name = Peak2D::shortDimensionName(dim);
+        String name = Peak2D::shortDimensionName(dim); // 'RT' or 'MZ'
         this->subsections_.push_back(name);
-        this->defaults_.setValue(name, "GaussModel", "Name of the model used for this dimension");
+        this->defaults_.setValue(String(dim) + 'D', "GaussModel", "Name of the model used for this dimension");
       }
 
-      //defaults
+      // defaults
       this->defaults_.setValue("intensity_scaling", 1.0, "Scaling factor used to adjust the model distribution to the intensities of the data");
       this->defaultsToParam_();
     }
@@ -167,11 +167,12 @@ public:
       delete distributions_[dim];
       distributions_[dim] = dist;
 
-      // Update model info
+      // Update param with model info
       String name = Peak2D::shortDimensionName(dim);
       this->param_.removeAll(name + ':');
       this->param_.insert(name + ':', distributions_[dim]->getParameters());
-      this->param_.setValue(name, distributions_[dim]->getName());
+      // current model name
+      this->param_.setValue(String(dim) + 'D', distributions_[dim]->getName());
 
       return *this;
     }
@@ -238,20 +239,17 @@ protected:
     void updateMembers_() override
     {
       BaseModel<D>::updateMembers_();
-      scale_ = (double)(this->param_.getValue("intensity_scaling"));
+      scale_ = (double)(param_.getValue("intensity_scaling"));
+
       for (UInt dim = 0; dim < D; ++dim)
       {
         String name = Peak2D::shortDimensionName(dim);
-        if (this->param_.exists(name))
+        delete distributions_[dim];
+        distributions_[dim] = Factory<BaseModel<1>>::create(param_.getValue(String(dim) + 'D').toString());
+        distributions_[dim]->setParameters(param_.copy(name + ":", true));
+        if (distributions_[dim]->getName().hasSubstring("IsotopeModel"))
         {
-          delete distributions_[dim];
-          distributions_[dim] = Factory<BaseModel<1> >::create(this->param_.getValue(name).toString());
-          Param copy = this->param_.copy(name + ":", true);
-          distributions_[dim]->setParameters(copy);
-          if (distributions_[dim]->getName().hasSubstring("IsotopeModel"))
-          {
-            static_cast<IsotopeModel *>(distributions_[dim])->setSamples(static_cast<IsotopeModel *>(distributions_[dim])->getFormula());
-          }
+          static_cast<IsotopeModel *>(distributions_[dim])->setSamples(static_cast<IsotopeModel *>(distributions_[dim])->getFormula());
         }
       }
     }
