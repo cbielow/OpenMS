@@ -50,6 +50,7 @@ set(CMAKE_AUTOMOC_COMPILER_PREDEFINES OFF)
 #------------------------------------------------------------------------------
 SET(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true)
 
+# line hinzugefügt:
 add_library(WrapAtomic::WrapAtomic INTERFACE IMPORTED)
 #------------------------------------------------------------------------------
 ## CMake sanity check: sometimes CMAKE_SIZEOF_VOID_P just vanishes when
