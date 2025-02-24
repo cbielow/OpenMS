@@ -225,7 +225,9 @@ namespace OpenMS
       // Converts from a wide-character string to a narrow-character string.
       inline static String toNative_(const XMLCh* str)
       {
-        return String(unique_xerces_ptr<char>(xercesc::XMLString::transcode(str)).get());
+        String r;
+        appendASCII(str, xercesc::XMLString::stringLen(str), r);
+        return r;
       }
 
       // Converts from a wide-character string to a narrow-character string.
