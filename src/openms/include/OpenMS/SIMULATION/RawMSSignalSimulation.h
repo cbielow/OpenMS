@@ -59,7 +59,7 @@ public:
     /// You do not have to call this function before calling generateRawSignals(), but it might
     /// be useful to check if the contaminant file is valid
     void loadContaminants();
-
+ 
     /// fill experiment with signals and noise
     void generateRawSignals(SimTypes::FeatureMapSim& features,
                             SimTypes::MSSimExperiment& experiment,

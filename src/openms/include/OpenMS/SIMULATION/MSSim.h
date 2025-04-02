@@ -34,140 +34,146 @@
 
 #pragma once
 
-#include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
-#include <OpenMS/SIMULATION/SimTypes.h>
-#include <OpenMS/KERNEL/ConsensusMap.h>
-
 #include <OpenMS/CONCEPT/ProgressLogger.h>
+#include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
+#include <OpenMS/KERNEL/ConsensusMap.h>
+#include <OpenMS/SIMULATION/SimTypes.h>
+
+// JB  includes für IM2Deep
+#include <OpenMS/SYSTEM/File.h>
 
 namespace OpenMS
 {
 
-  class BaseLabeler;
+class BaseLabeler;
 
-  /**
-   @brief Central class for simulation of mass spectrometry experiments
+/**
+ @brief Central class for simulation of mass spectrometry experiments
 
-   This implementation is an extended and rewritten version of the concepts and ideas presented in:<br>
-   <p>
-    Ole Schulz-Trieglaff, Nico Pfeifer, Clemens Gropl, Oliver Kohlbacher, and Knut Reinert.<br>
-    LC-MSsim - A simulation software for liquid chromatography mass spectrometry data.<br>
-    <em>BMC Bioinformatics</em> 9:423, 2008.
-   </p>
+ This implementation is an extended and rewritten version of the concepts and ideas presented in:<br>
+ <p>
+  Ole Schulz-Trieglaff, Nico Pfeifer, Clemens Gropl, Oliver Kohlbacher, and Knut Reinert.<br>
+  LC-MSsim - A simulation software for liquid chromatography mass spectrometry data.<br>
+  <em>BMC Bioinformatics</em> 9:423, 2008.
+ </p>
 
-   @htmlinclude OpenMS_MSSim.parameters
+ @htmlinclude OpenMS_MSSim.parameters
 
-   @see DetectabilitySimulation
-   @see DigestSimulation
-   @see IonizationSimulation
-   @see RawMSSignalSimulation
-   @see RTSimulation
+ @see DetectabilitySimulation
+ @see DigestSimulation
+ @see IonizationSimulation
+ @see RawMSSignalSimulation
+ @see RTSimulation
 
-   @ingroup Simulation
-  */
-  class OPENMS_DLLAPI MSSim :
-    public DefaultParamHandler,
-    public ProgressLogger
-  {
+ @ingroup Simulation
+*/
+class OPENMS_DLLAPI MSSim : public DefaultParamHandler, public ProgressLogger
+{
 
 public:
-    /** @name Constructors and Destructors
-      */
-    //@{
-    /// Default constructor
-    MSSim();
+  /** @name Constructors and Destructors
+   */
+  //@{
+  /// Default constructor
+  MSSim();
 
-    /// Destructor
-    ~MSSim() override;
-    //@}
+  /// Destructor
+  ~MSSim() override;
+  //@}
 
-    /**
-     @brief General purpose function to simulate a mass spectrometry run
+  /**
+   @brief General purpose function to simulate a mass spectrometry run
 
-     @param rnd_gen random number generator which will be passed to the different classes
-     @param peptides List of peptides and abundances that will be simulated
-     */
-    void simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen, SimTypes::SampleChannels& peptides);
+   @param rnd_gen random number generator which will be passed to the different classes
+   @param peptides List of peptides and abundances that will be simulated
+   */
+  void simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen, SimTypes::SampleChannels& peptides);
 
-    /// Access the simulated experiment
-    const SimTypes::MSSimExperiment& getExperiment() const;
+  /// Access the simulated experiment
+  const SimTypes::MSSimExperiment& getExperiment() const;
 
-    /// Access the simulated features
-    const SimTypes::FeatureMapSim& getSimulatedFeatures() const;
+  /// Access the simulated features
+  const SimTypes::FeatureMapSim& getSimulatedFeatures() const;
 
-    /// Access the charge consensus map of simulated features
-    ConsensusMap& getChargeConsensus();
+  /// Access the charge consensus map of simulated features
+  ConsensusMap& getChargeConsensus();
 
-    /// Access the contaminants feature map of simulated features
-    const SimTypes::FeatureMapSim& getContaminants() const;
+  /// Access the contaminants feature map of simulated features
+  const SimTypes::FeatureMapSim& getContaminants() const;
 
-    /// Access the labeling consensus map of simulated features
-    ConsensusMap& getLabelingConsensus();
+  /// Access the labeling consensus map of simulated features
+  ConsensusMap& getLabelingConsensus();
 
-    /// Access the picked (centroided) experiment
-    const SimTypes::MSSimExperiment& getPeakMap() const;
+  /// Access the picked (centroided) experiment
+  const SimTypes::MSSimExperiment& getPeakMap() const;
 
-    /**
-      @brief Access the simulated identifications (proteins and peptides)
+  /**
+    @brief Access the simulated identifications (proteins and peptides)
 
-      If an MS2 signal has been simulated, identifications are generated based on
-      their corresponding MS2 spectra. If MS2 simulation has been disabled,
-      peptide IDs are generated from feature annotations. Otherwise, the -out_id
-      idXML file would be empty if MS2 simulation is disabled (which is the default).
+    If an MS2 signal has been simulated, identifications are generated based on
+    their corresponding MS2 spectra. If MS2 simulation has been disabled,
+    peptide IDs are generated from feature annotations. Otherwise, the -out_id
+    idXML file would be empty if MS2 simulation is disabled (which is the default).
 
-      @param proteins Will be filled with a single ProteinIdentification holding all ProteinHits.
-      @param peptides Will be filled with PeptideIdentifications.
-    */
-    void getIdentifications(std::vector<ProteinIdentification>& proteins, std::vector<PeptideIdentification>& peptides) const;
+    @param proteins Will be filled with a single ProteinIdentification holding all ProteinHits.
+    @param peptides Will be filled with PeptideIdentifications.
+  */
+  void getIdentifications(std::vector<ProteinIdentification>& proteins, std::vector<PeptideIdentification>& peptides) const;
 
-    /**
-      @brief Access the simulated MS2 identifications (proteins and peptides)
+  /**
+    @brief Access the simulated MS2 identifications (proteins and peptides)
 
-      @param proteins Will be filled with a single ProteinIdentification holding all ProteinHits used in the simulated MS2 spectra.
-      @param peptides Will be filled with PeptideIdentifications for each simulated MS2 spectra holding all contributing peptides scored by their intensity contribution.
-    */
-    void getMS2Identifications(std::vector<ProteinIdentification>& proteins, std::vector<PeptideIdentification>& peptides) const;
+    @param proteins Will be filled with a single ProteinIdentification holding all ProteinHits used in the simulated MS2 spectra.
+    @param peptides Will be filled with PeptideIdentifications for each simulated MS2 spectra holding all contributing peptides scored by their
+    intensity contribution.
+  */
+  void getMS2Identifications(std::vector<ProteinIdentification>& proteins, std::vector<PeptideIdentification>& peptides) const;
 
-    /**
-      @brief Access the simulated identifications (proteins and peptides) from feature annotations
+  /**
+    @brief Access the simulated identifications (proteins and peptides) from feature annotations
 
-      @param proteins Will be filled with a single ProteinIdentification holding all ProteinHits.
-      @param peptides Will be filled with PeptideIdentifications for all simulated features.
-    */
-    void getFeatureIdentifications(std::vector<ProteinIdentification>& proteins, std::vector<PeptideIdentification>& peptides) const;
+    @param proteins Will be filled with a single ProteinIdentification holding all ProteinHits.
+    @param peptides Will be filled with PeptideIdentifications for all simulated features.
+  */
+  void getFeatureIdentifications(std::vector<ProteinIdentification>& proteins, std::vector<PeptideIdentification>& peptides) const;
 
-    /// Returns the default parameters for simulation including the labeling technique with name @p labeling_name
-    Param getParameters() const;
+  /// Returns the default parameters for simulation including the labeling technique with name @p labeling_name
+  Param getParameters() const;
+
+  // JB Funktion für erstellen der Inputdatei für IM2Deep
+  void createIM2DeepInputCSV();
+
+  // JB Funktion für ausführen von IM2Deep
+  void runIM2Deep();
 
 protected:
-    /// handle global params
-    void syncParams_(Param& p, bool to_outer);
+  /// handle global params
+  void syncParams_(Param& p, bool to_outer);
 
-    /// Convert a list of peptides with given abundance values into a FeatureMap
-    void createFeatureMap_(const SimTypes::SampleProteins& peptides, SimTypes::FeatureMapSim& features, Size map_index);
+  /// Convert a list of peptides with given abundance values into a FeatureMap
+  void createFeatureMap_(const SimTypes::SampleProteins& peptides, SimTypes::FeatureMapSim& features, Size map_index);
 
-    /// Synchronize members with param class
-    void updateMembers_() override;
+  /// Synchronize members with param class
+  void updateMembers_() override;
 
 private:
-    /// Holds the simulated data
-    SimTypes::MSSimExperiment experiment_;
+  /// Holds the simulated data
+  SimTypes::MSSimExperiment experiment_;
 
-    /// Holds the ground-truth on generated peaks positions and intensities
-    SimTypes::MSSimExperiment peak_map_;
+  /// Holds the ground-truth on generated peaks positions and intensities
+  SimTypes::MSSimExperiment peak_map_;
 
-    /// Holds the ground-truth on generated features
-    SimTypes::FeatureMapSimVector feature_maps_;
+  /// Holds the ground-truth on generated features
+  SimTypes::FeatureMapSimVector feature_maps_;
 
-    /// Holds consensus ground-truth about the charge associations
-    ConsensusMap consensus_map_;
+  /// Holds consensus ground-truth about the charge associations
+  ConsensusMap consensus_map_;
 
-    /// Holds the ground-truth on generated contaminants
-    SimTypes::FeatureMapSim contaminants_map_;
+  /// Holds the ground-truth on generated contaminants
+  SimTypes::FeatureMapSim contaminants_map_;
 
-    /// Labeling functionality
-    BaseLabeler* labeler_;
-  };
+  /// Labeling functionality
+  BaseLabeler* labeler_;
+};
 
-}
-
+} // namespace OpenMS
