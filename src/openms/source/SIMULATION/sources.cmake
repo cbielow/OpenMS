@@ -8,6 +8,7 @@ DigestSimulation.cpp
 EGHModel.cpp
 EGHFitter1D.cpp
 IonizationSimulation.cpp
+IonMobilitySimulation.cpp
 MSSim.cpp
 RTSimulation.cpp
 RawMSSignalSimulation.cpp

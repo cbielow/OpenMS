@@ -1,4 +1,4 @@
- // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
 //                   OpenMS -- Open-Source Mass Spectrometry
 // --------------------------------------------------------------------------
 // Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
@@ -40,56 +40,53 @@
 namespace OpenMS
 {
 
-  /**
-    @brief Simulates protein digestion
+/**
+  @brief Simulates protein digestion
 
-    Supports all enzymes supported by EnzymaticDigestion.h
-    and additionally incorporates abundance values, which
-    are distributed evenly among digestion products of each
-    protein.
+  Supports all enzymes supported by EnzymaticDigestion.h
+  and additionally incorporates abundance values, which
+  are distributed evenly among digestion products of each
+  protein.
 
-    @htmlinclude OpenMS_DigestSimulation.parameters
+  @htmlinclude OpenMS_DigestSimulation.parameters
 
-    @ingroup Simulation
-  */
-  class OPENMS_DLLAPI DigestSimulation :
-    public DefaultParamHandler
-  {
+  @ingroup Simulation
+*/
+class OPENMS_DLLAPI DigestSimulation : public DefaultParamHandler
+{
 
 public:
-    /** @name Constructors and Destructors
-      */
-    //@{
-    /// Default constructor
-    DigestSimulation();
+  /** @name Constructors and Destructors
+   */
+  //@{
+  /// Default constructor
+  DigestSimulation();
 
-    /// Copy constructor
-    DigestSimulation(const DigestSimulation& source);
+  /// Copy constructor
+  DigestSimulation(const DigestSimulation& source);
 
-    /// Destructor
-    ~DigestSimulation() override;
-    //@}
+  /// Destructor
+  ~DigestSimulation() override;
+  //@}
 
-    /// Assignment operator
-    DigestSimulation& operator=(const DigestSimulation& source);
+  /// Assignment operator
+  DigestSimulation& operator=(const DigestSimulation& source);
 
 
-    /**
-        @brief Digest a set of proteins into peptides
+  /**
+      @brief Digest a set of proteins into peptides
 
-        Digest proteins to peptides, with protein abundance distributes equally among
-        created sibling peptides (this also applies for peptides with missed cleavages).
-        Should a peptide be non-unique the abundances of its instances from proteins are summed up.
+      Digest proteins to peptides, with protein abundance distributes equally among
+      created sibling peptides (this also applies for peptides with missed cleavages).
+      Should a peptide be non-unique the abundances of its instances from proteins are summed up.
 
-        @param feature_map Input FeatureMap containing the proteins that should be digested as ProteinIdentification
-    **/
-    void digest(SimTypes::FeatureMapSim& feature_map);
+      @param feature_map Input FeatureMap containing the proteins that should be digested as ProteinIdentification
+  **/
+  void digest(SimTypes::FeatureMapSim& feature_map);
 
 private:
-    /// set defaults
-    void setDefaultParams_();
+  /// set defaults
+  void setDefaultParams_();
+};
 
-  };
-
-}
-
+} // namespace OpenMS

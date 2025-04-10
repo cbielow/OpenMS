@@ -44,6 +44,7 @@
 
 // JB Klasse für temporäreDatei für IM2Deep csv
 #include <OpenMS/KERNEL/MSSpectrum.h>
+#include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 #include <OpenMS/SYSTEM/ExternalProcess.h>
 #include <OpenMS/SYSTEM/File.h>
 #include <fstream> // für Datei
@@ -154,143 +155,6 @@ Param MSSim::getParameters() const
   return tmp;
 }
 
-// JB Funktion um Inputdatei für IM2Deep zu erstellen
-void MSSim::createIM2DeepInputCSV()
-{
-  std::ofstream file;
-  // im append-Modus öffnen -> neue Daten werden an Ende von Datei gehängt
-  file.open(File::getTemporaryFile("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv").c_str(), std::ios::app);
-
-  if (! file)
-  {
-    std::cerr << "Fehler: Datei konnte nicht geöffnet werden!" << std::endl;
-    return;
-  }
-
-  // Headerzeile hinzufügen
-  file << "seq,modifications,charge,CCS\n";
-
-  // für IM2Deep extrahieren von peptidsequenz und charge
-  for (Size i = 0; i < feature_maps_[0].size(); ++i)
-  {
-    const Feature& feat = feature_maps_[0][i];
-    const PeptideIdentification& pi = feat.getPeptideIdentifications()[0];
-
-    if (! pi.getHits().empty())
-    {
-      const PeptideHit& hit = pi.getHits()[0];
-      const String sequence = hit.getSequence().toString();
-      const int charge = hit.getCharge();
-      file << sequence << ",," << charge << ",\n";
-    }
-  }
-  file.close();
-}
-
-// JB Funktionen für IM2Deep Output
-void stdoutCallback(const OpenMS::String& output)
-{
-  std::cout << "stdout: " << output << std::endl;
-}
-
-void stderrCallback(const OpenMS::String& output)
-{
-  std::cerr << "stderr: " << output << std::endl;
-}
-
-// JB Funktion zum ausführen von IM2Deep
-void MSSim::runIM2Deep()
-{
-  QString exe = "im2deep";
-  QStringList args;
-  args << "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv"
-       << "-o"
-       << "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
-
-  QString working_dir = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep";
-  String error_msg = "Beim Aufruf von IM2Deep ist etwas schiefgelaufen :(";
-
-  ExternalProcess im2deepCall(stdoutCallback, stderrCallback);
-  ExternalProcess::RETURNSTATE result = im2deepCall.run(exe, args, working_dir, true, error_msg);
-
-  // Überprüfen, ob der Prozess erfolgreich war
-  if (result == ExternalProcess::RETURNSTATE::SUCCESS) { OPENMS_LOG_INFO << "IM2Deep erfolgreich ausgeführt!\n"; }
-  else { std::cerr << "Fehler beim Ausführen von IM2Deep " << error_msg << std::endl; }
-}
-
-// JB Funktion um IM2Deep Output in Variablen zu speichern
-std::map<std::pair<String, int>, double> MSSim::saveIM2DeepOutput(const String& filename)
-{
-  std::map<std::pair<String, int>, double> ccs_map;
-
-  std::ifstream input_file(filename);
-  if (! input_file.is_open()) { throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, filename); }
-
-  String line;
-  std::getline(input_file, line); // erste zeile wird eingelesen -> Header wird dann in while-Schleife übersprungen
-
-  while (std::getline(input_file, line))
-  {
-    std::vector<String> parts;
-    String(line).split(',', parts);
-    if (parts.size() != 3) continue;
-
-    String mod_seq = parts[0];
-    String seq;
-
-    if (mod_seq.hasSubstring("/"))
-    {
-      seq = mod_seq.prefix('/'); // alles vor dem '/'
-    }
-
-    int charge = parts[1].toInt();
-    double ccs = parts[2].toDouble();
-
-    ccs_map[{seq, charge}] = ccs;
-  }
-
-  return ccs_map;
-}
-
-/*
-// JB Funktion um CCS in FeatureMap zu speichern
-void MSSim::addCCSToFeature(std::vector<FeatureMap>& feature_maps, const std::map<std::pair<String, int>, double>& ccs_map)
-{
-  std::vector<float> ccs_values;
-
-  // CCS-Werte aus der FeatureMap extrahieren
-  for (const auto& feat : feature_maps[0])
-  {
-    if (feat.getPeptideIdentifications().empty()) continue;
-    const auto& hit = feat.getPeptideIdentifications()[0].getHits()[0];
-    String seq = hit.getSequence().toString();
-    int charge = hit.getCharge();
-
-    auto it = ccs_map.find({seq, charge});
-    if (it != ccs_map.end()) { ccs_values.push_back(static_cast<float>(it->second)); }
-    else
-    {
-      std::cerr << "Warnung: Kein CCS-Wert für " << seq << " (charge " << charge << ")\n";
-      ccs_values.push_back(-1.0f); // oder std::numeric_limits<float>::quiet_NaN();
-    }
-  }
-
-  // CCS-Werte in FloatDataArray am Spektrum speichern
-  MSSpectrum& spectrum = peak_map_[0]; // Annahme: du willst ins erste MS1-Spektrum schreiben
-  OPENMS_LOG_INFO << "Anzahl Spektren in peak_map_: " << peak_map_.size() << std::endl;
-
-  MSSpectrum::FloatDataArrays& fda = spectrum.getFloatDataArrays();
-  fda.resize(1);
-  fda[0].setName("ccs");
-
-
-  for (float val : ccs_values)
-  {
-    fda[0].push_back(val);
-  }
-}*/
-
-
 void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen, SimTypes::SampleChannels& channels)
 {
   /*todo: move to a global config file or into INI file */
@@ -327,6 +191,8 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   IonizationSimulation ion_sim(rnd_gen);
   ion_sim.setParameters(param_.copy("Ionization:", true));
   ion_sim.setLogType(this->getLogType());
+  // JB Ionmobility Klassenobjekt erstellen
+  IonMobilitySimulation ims;
   RawMSSignalSimulation raw_sim(rnd_gen);
   raw_sim.setParameters(param_.copy("RawSignal:", true));
   raw_sim.setLogType(this->getLogType());
@@ -401,16 +267,15 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   // debug
   verbosePrintFeatureMap(feature_maps_, "ION sim done");
 
-  // JB Erstellen der Input datei für IM2Deep
-  createIM2DeepInputCSV();
+  // JB IonMobilitySimulation
+  String im_input = File::getTemporaryFile("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv");
+  String im_output = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
 
-  // JB IM2Deep ausführen
-  runIM2Deep();
+  ims.setPaths(im_input, im_output);
+  ims.setFeatureMap(feature_maps_.front());
+  ims.run();
 
-
-  // JB Peptidsequenz, charge und CCS in FeatureMap speichern
-  std::map<std::pair<String, int>, double> ccs_map
-    = saveIM2DeepOutput("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv");
+  auto ccs_map = ims.getCCSMap();
 
   // JB CCS Map übergeben
   raw_sim.setCCSMap(ccs_map);
