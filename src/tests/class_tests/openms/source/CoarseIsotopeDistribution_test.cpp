@@ -152,11 +152,12 @@ END_SECTION
 
 START_SECTION(CoarseIsotopePatternGenerator& convolvePow_(Size factor))
 {
-  // IsotopeDistribution iso = EmpiricalFormula("C60H97N15O19").getIsotopeDistribution(CoarseIsotopePatternGenerator());
-  // for(auto elem : iso.getContainer())
-  // {
-    // std::cout << elem.getMZ() << " " << elem.getIntensity() << std::endl;
-  // }
+  //IsotopeDistribution iso = EmpiricalFormula("C60H97N15O19").getIsotopeDistribution(CoarseIsotopePatternGenerator());
+  IsotopeDistribution iso = EmpiricalFormula("C186H301N55O51S2").getIsotopeDistribution(CoarseIsotopePatternGenerator());
+  for(auto elem : iso.getContainer())
+    {
+    std::cout << elem.getMZ() << " " << elem.getIntensity() << std::endl;
+    }
 
     EmpiricalFormula ef("C222N190O110");
     IsotopeDistribution id = ef.getIsotopeDistribution(CoarseIsotopePatternGenerator(11));

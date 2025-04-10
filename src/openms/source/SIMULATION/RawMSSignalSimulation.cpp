@@ -46,6 +46,9 @@
 #include <boost/random/uniform_real.hpp>
 #include <utility>
 
+// JB
+#include <OpenMS/KERNEL/MSSpectrum.h>
+
 #ifdef _OPENMP
 #include <omp.h>
 
@@ -203,6 +206,10 @@ namespace OpenMS
     defaults_.setSectionDescription("noise:detector", "Parameters of Gaussian distribution for detector noise modeling (set :mean AND :stddev = 0 to disable). If enabled, ALL possible m/z positions (up to sampling frequency of detector) will receive an intensity increase/decrease according to the specified Gaussian intensity distribution (similar to a noisy baseline)");
 
     defaults_.setSectionDescription("noise", "Parameters modeling noise in mass spectrometry measurements");
+    
+    //JB Default Werte für Isotope_pattern_mode
+    defaults_.setValue("isotope_pattern_mode", "fine", "Choose the isotope pattern generator mode: coarse or fine.");
+    defaults_.setValidStrings("isotope_pattern_mode", {"coarse","fine"});
 
     defaultsToParam_();
   }
@@ -583,72 +590,65 @@ namespace OpenMS
   }
 
   void RawMSSignalSimulation::add2DSignal_(Feature& active_feature, SimTypes::MSSimExperiment& experiment, SimTypes::MSSimExperiment& experiment_ct)
+{
+  SimTypes::SimIntensityType scale = getFeatureScaledIntensity_(active_feature.getIntensity(), 1.0);
+  SimTypes::SimChargeType q = active_feature.getCharge();
+  EmpiricalFormula ef;
+  if (active_feature.metaValueExists("sum_formula")) { ef = EmpiricalFormula(active_feature.getMetaValue("sum_formula")); }
+  else { ef = EmpiricalFormula(active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().getFormula()); }
+  ef += EmpiricalFormula(active_feature.getMetaValue("charge_adducts")); // adducts
+  ef -= EmpiricalFormula(String("H") + String(q));
+  ef.setCharge(q); // effectively subtract q electrons
+
+  Param p1;
+  p1.setValue("statistics:mean", ef.getAverageWeight() / q);
+  p1.setValue("interpolation_step", 0.001);
+  p1.setValue("isotope:mode:mode", param_.getValue("peak_shape"));
+  // JB fine als Option für den Isotope Modus
+  p1.setValue("isotope:pattern_mode", param_.getValue("isotope_pattern_mode"));
+  p1.setValue("intensity_scaling", 0.001); // this removes the problem of to big isotope-model values
+  p1.setValue("charge", q);
+  double fwhm;
+  if (param_.getValue("peak_shape") == "Gaussian")
   {
-    SimTypes::SimIntensityType scale = getFeatureScaledIntensity_(active_feature.getIntensity(), 1.0);
-
-    SimTypes::SimChargeType q = active_feature.getCharge();
-    EmpiricalFormula ef;
-    if (active_feature.metaValueExists("sum_formula"))
-    {
-      ef = EmpiricalFormula(active_feature.getMetaValue("sum_formula"));
-    }
-    else
-    {
-      ef = EmpiricalFormula(active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().getFormula());
-    }
-    ef += EmpiricalFormula(active_feature.getMetaValue("charge_adducts")); // adducts
-    ef -= EmpiricalFormula(String("H") + String(q));
-    ef.setCharge(q); // effectively subtract q electrons
-
-    Param p1;
-    p1.setValue("statistics:mean", ef.getAverageWeight() / q);
-    p1.setValue("interpolation_step", 0.001);
-    p1.setValue("isotope:mode:mode", param_.getValue("peak_shape"));
-    p1.setValue("intensity_scaling", 0.001); // this removes the problem of to big isotope-model values
-    p1.setValue("charge", q);
-    double fwhm;
-    if (param_.getValue("peak_shape") == "Gaussian")
-    {
-      fwhm = getPeakWidth_(active_feature.getMZ(), true);
-      p1.setValue("isotope:mode:GaussianSD", fwhm);
-    }
-    else
-    {
-      fwhm = getPeakWidth_(active_feature.getMZ(), false);
-      p1.setValue("isotope:mode:LorentzFWHM", fwhm);
-    }
-
-    IsotopeModel* isomodel = new IsotopeModel();
-    isomodel->setParameters(p1); // this needs to come BEFORE setSamples() - otherwise the default setSamples() is called here!
-    isomodel->setSamples(ef); // this already includes adducts
-
-    if (experiment.size() < 2)
-    {
-      throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, experiment.size());
-    }
-    double rt_sampling_rate = experiment[1].getRT() - experiment[0].getRT();
-    EGHModel* elutionmodel = new EGHModel();
-    chooseElutionProfile_(elutionmodel, active_feature, 1.0, rt_sampling_rate, experiment);
-    ProductModel<2> pm;
-    pm.setModel(0, elutionmodel); // new models will be deleted by the pm! no need to delete them manually
-    pm.setModel(1, isomodel); // new models will be deleted by the pm! no need to delete them manually
-    pm.setScale(scale); // scale
-
-    // start and end points of the sampling
-    SimTypes::SimCoordinateType rt_start(elutionmodel->getInterpolation().supportMin());
-    SimTypes::SimCoordinateType rt_end(elutionmodel->getInterpolation().supportMax());
-    if (active_feature.metaValueExists("RT_width_start") && active_feature.metaValueExists("RT_width_end")) // this is a contaminant with sampling restrictions
-    {
-      rt_start = active_feature.getMetaValue("RT_width_start");
-      rt_end = active_feature.getMetaValue("RT_width_end");
-    }
-    SimTypes::SimCoordinateType mz_start(isomodel->getInterpolation().supportMin());
-    SimTypes::SimCoordinateType mz_end(isomodel->getInterpolation().supportMax());
-
-    // add peptide to GLOBAL MS map
-    // add CH and new intensity to feature
-    samplePeptideModel2D_(pm, mz_start, mz_end, rt_start, rt_end, experiment, experiment_ct, active_feature);
+    fwhm = getPeakWidth_(active_feature.getMZ(), true);
+    p1.setValue("isotope:mode:GaussianSD", fwhm);
   }
+  else
+  {
+    fwhm = getPeakWidth_(active_feature.getMZ(), false);
+    p1.setValue("isotope:mode:LorentzFWHM", fwhm);
+  }
+
+  IsotopeModel* isomodel = new IsotopeModel();
+  isomodel->setParameters(p1); // this needs to come BEFORE setSamples() - otherwise the default setSamples() is called here!
+  isomodel->setSamples(ef);    // this already includes adducts
+
+  if (experiment.size() < 2) { throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, experiment.size()); }
+  double rt_sampling_rate = experiment[1].getRT() - experiment[0].getRT();
+  EGHModel* elutionmodel = new EGHModel();
+  chooseElutionProfile_(elutionmodel, active_feature, 1.0, rt_sampling_rate, experiment);
+  ProductModel<2> pm;
+  pm.setModel(0, elutionmodel); // new models will be deleted by the pm! no need to delete them manually
+  pm.setModel(1, isomodel);     // new models will be deleted by the pm! no need to delete them manually
+  pm.setScale(scale);           // scale
+
+  // start and end points of the sampling
+  SimTypes::SimCoordinateType rt_start(elutionmodel->getInterpolation().supportMin());
+  SimTypes::SimCoordinateType rt_end(elutionmodel->getInterpolation().supportMax());
+  if (active_feature.metaValueExists("RT_width_start")
+      && active_feature.metaValueExists("RT_width_end")) // this is a contaminant with sampling restrictions
+  {
+    rt_start = active_feature.getMetaValue("RT_width_start");
+    rt_end = active_feature.getMetaValue("RT_width_end");
+  }
+  SimTypes::SimCoordinateType mz_start(isomodel->getInterpolation().supportMin());
+  SimTypes::SimCoordinateType mz_end(isomodel->getInterpolation().supportMax());
+
+  // add peptide to GLOBAL MS map
+  // add CH and new intensity to feature
+  samplePeptideModel2D_(pm, mz_start, mz_end, rt_start, rt_end, experiment, experiment_ct, active_feature);
+}
 
   void RawMSSignalSimulation::samplePeptideModel1D_(const IsotopeModel& pm,
                                                     const SimTypes::SimCoordinateType mz_start,
@@ -697,184 +697,210 @@ namespace OpenMS
     active_feature.setIntensity(intensity_sum);
   }
 
+  // JB ccs map als Membervariable speichern
+  void RawMSSignalSimulation::setCCSMap(const std::map<std::pair<String, int>, double>& map)
+{
+  ccs_map_ = map;
+}
+
   void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
-                                                    const SimTypes::SimCoordinateType mz_start,
-                                                    const SimTypes::SimCoordinateType mz_end,
-                                                    SimTypes::SimCoordinateType rt_start,
-                                                    SimTypes::SimCoordinateType rt_end,
-                                                    SimTypes::MSSimExperiment& experiment,
-                                                    SimTypes::MSSimExperiment& experiment_ct,
-                                                    Feature& active_feature)
-  {
-    if (rt_start <= 0)
-    {
-      rt_start = 0;
-    }
-    SimTypes::MSSimExperiment::iterator exp_start = experiment.RTBegin(rt_start);
-    SimTypes::MSSimExperiment::iterator exp_ct_start = experiment_ct.RTBegin(rt_start);
+    const SimTypes::SimCoordinateType mz_start,
+    const SimTypes::SimCoordinateType mz_end,
+    SimTypes::SimCoordinateType rt_start,
+    SimTypes::SimCoordinateType rt_end,
+    SimTypes::MSSimExperiment& experiment,
+    SimTypes::MSSimExperiment& experiment_ct,
+    Feature& active_feature)
+{
+if (rt_start <= 0) { rt_start = 0; }
+SimTypes::MSSimExperiment::iterator exp_start = experiment.RTBegin(rt_start);
+SimTypes::MSSimExperiment::iterator exp_ct_start = experiment_ct.RTBegin(rt_start);
 
-    if (exp_start == experiment.end())
-    {
-      throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, 0);
-    }
+if (exp_start == experiment.end()) { throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, 0); }
 
-    SimTypes::SimIntensityType intensity_sum(0.0);
+SimTypes::SimIntensityType intensity_sum(0.0);
 
 #ifdef OPENMS_ASSERTIONS
-    Int end_scan = std::numeric_limits<Int>::min(); // only used in Debug build
+Int end_scan = std::numeric_limits<Int>::min(); // only used in Debug build
 #endif
 
-    IsotopeModel* isomodel = static_cast<IsotopeModel*>(pm.getModel(1));
-    IsotopeDistribution iso_dist = isomodel->getIsotopeDistribution();
-    SimTypes::SimCoordinateType mz_mono = active_feature.getMZ();
-    SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
-    Int q = active_feature.getCharge();
+IsotopeModel* isomodel = static_cast<IsotopeModel*>(pm.getModel(1));
+IsotopeDistribution iso_dist = isomodel->getIsotopeDistribution();
+SimTypes::SimCoordinateType mz_mono = active_feature.getMZ();
+SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
+Int q = active_feature.getCharge();
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Sample the model ...
-    SimTypes::SimCoordinateType rt(0);
-    SimTypes::MSSimExperiment::iterator exp_iter = exp_start;
-    SimTypes::MSSimExperiment::iterator exp_ct_iter = exp_ct_start;
-    for (; rt < rt_end && exp_iter != experiment.end(); ++exp_iter, ++exp_ct_iter)
-    {
-      rt = exp_iter->getRT();
-      double distortion = double(exp_iter->getMetaValue("distortion"));
-      double rt_intensity = ((EGHModel*)pm.getModel(0))->getIntensity(rt);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Sample the model ...
+SimTypes::SimCoordinateType rt(0);
+SimTypes::MSSimExperiment::iterator exp_iter = exp_start;
+SimTypes::MSSimExperiment::iterator exp_ct_iter = exp_ct_start;
+for (; rt < rt_end && exp_iter != experiment.end(); ++exp_iter, ++exp_ct_iter)
+{
+rt = exp_iter->getRT();
+double distortion = double(exp_iter->getMetaValue("distortion"));
+double rt_intensity = ((EGHModel*)pm.getModel(0))->getIntensity(rt);
 
-      // centroided GT
-      Size iso_pos(0);
-      SimTypes::SimPointType point;
-      for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
-      {
-        point.setMZ(mz_mono + (iso_pos * iso_peakdist / q));
-        point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
+// centroided GT
+Size iso_pos(0);
+SimTypes::SimPointType point;
 
-        if (point.getIntensity() <= 0.0)
-        {
-          continue;
-        }
-        exp_ct_iter->push_back(point);
-      }
+// JB hier ändern stattdessen iter.getMZ, warum wurde das so gemacht
+for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
+{
+double iso_mass = iter->getMZ(); // Masse von Isotop speichern
+double mz = iso_mass / q;
+// OPENMS_LOG_INFO << "mz: " << mz << " iso_mass: " << iso_mass << " q: " << q << "protomass:" << Constants::PROTON_MASS_U << std::endl;
+point.setMZ(mz);
+point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-      // RAW signal (sample it on the grid)
-      std::vector<SimTypes::SimCoordinateType>::const_iterator it_grid = lower_bound(grid_.begin(), grid_.end(), mz_start);
-      for (; it_grid != grid_.end() && (*it_grid) < mz_end; ++it_grid)
-      {
-        ProductModel<2>::IntensityType intensity = pm.getIntensity(DPosition<2>(rt, *it_grid)) * distortion;
-        if (intensity <= 0.0)
-          continue; // intensity cutoff (below that we don't want to see a signal)
+if (point.getIntensity() <= 0.0) continue;
+exp_ct_iter->push_back(point);
+}
 
-        point.setMZ(*it_grid);
-        point.setIntensity(intensity);
+/*
+{
+point.setMZ(mz_mono + (iso_pos * iso_peakdist / q));
+point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-        //OPENMS_LOG_ERROR << "Sampling " << rt << " , " << mz << " -> " << point.getIntensity() << std::endl;
+if (point.getIntensity() <= 0.0) { continue; }
+exp_ct_iter->push_back(point);
+}
+*/
 
-        // add Gaussian distributed m/z error
+// RAW signal (sample it on the grid)
+std::vector<SimTypes::SimCoordinateType>::const_iterator it_grid = lower_bound(grid_.begin(), grid_.end(), mz_start);
+for (; it_grid != grid_.end() && (*it_grid) < mz_end; ++it_grid)
+{
+ProductModel<2>::IntensityType intensity = pm.getIntensity(DPosition<2>(rt, *it_grid)) * distortion;
+if (intensity <= 0.0) continue; // intensity cutoff (below that we don't want to see a signal)
+
+point.setMZ(*it_grid);
+point.setIntensity(intensity);
+
+// OPENMS_LOG_ERROR << "Sampling " << rt << " , " << mz << " -> " << point.getIntensity() << std::endl;
+
+// add Gaussian distributed m/z error
 #ifdef _OPENMP
-        int CURRENT_THREAD = omp_get_thread_num();
-        // check if we need to refill the random number pool for this thread
-        if (threaded_random_numbers_index_[CURRENT_THREAD] == THREADED_RANDOM_NUMBER_POOL_SIZE_)
-        {
-          if (mz_error_stddev_ != 0.0)
-          {
+int CURRENT_THREAD = omp_get_thread_num();
+// check if we need to refill the random number pool for this thread
+if (threaded_random_numbers_index_[CURRENT_THREAD] == THREADED_RANDOM_NUMBER_POOL_SIZE_)
+{
+if (mz_error_stddev_ != 0.0)
+{
 #pragma omp critical(generate_random_number_for_thread)
-            {
-              boost::normal_distribution<double> ndist(mz_error_mean_, mz_error_stddev_);
-              for (Size i = 0; i < THREADED_RANDOM_NUMBER_POOL_SIZE_; ++i)
-              {
-                threaded_random_numbers_[CURRENT_THREAD][i] = ndist(rnd_gen_->getTechnicalRng());
-              }
-            }
-          }
-          else
-          {
-            // we do not need to care about concurrency here
-            fill(threaded_random_numbers_[CURRENT_THREAD].begin(), threaded_random_numbers_[CURRENT_THREAD].end(), mz_error_mean_);
-          }
-          // reset index for this thread to first position
-          threaded_random_numbers_index_[CURRENT_THREAD] = 0;
-        }
+{
+boost::normal_distribution<double> ndist(mz_error_mean_, mz_error_stddev_);
+for (Size i = 0; i < THREADED_RANDOM_NUMBER_POOL_SIZE_; ++i)
+{
+threaded_random_numbers_[CURRENT_THREAD][i] = ndist(rnd_gen_->getTechnicalRng());
+}
+}
+}
+else
+{
+// we do not need to care about concurrency here
+fill(threaded_random_numbers_[CURRENT_THREAD].begin(), threaded_random_numbers_[CURRENT_THREAD].end(), mz_error_mean_);
+}
+// reset index for this thread to first position
+threaded_random_numbers_index_[CURRENT_THREAD] = 0;
+}
 
-        const double mz_err = threaded_random_numbers_[CURRENT_THREAD][threaded_random_numbers_index_[CURRENT_THREAD]++];
+const double mz_err = threaded_random_numbers_[CURRENT_THREAD][threaded_random_numbers_index_[CURRENT_THREAD]++];
 #else
-        // we can use the normal Gaussian ran-gen if we do not use OPENMP
-        boost::normal_distribution<double> ndist(mz_error_mean_, mz_error_stddev_);
-        const double mz_err = ndist(rnd_gen_->getTechnicalRng());
+// we can use the normal Gaussian ran-gen if we do not use OPENMP
+boost::normal_distribution<double> ndist(mz_error_mean_, mz_error_stddev_);
+const double mz_err = ndist(rnd_gen_->getTechnicalRng());
 #endif
-        point.setMZ(std::fabs(point.getMZ() + mz_err));
-        exp_iter->push_back(point);
+point.setMZ(std::fabs(point.getMZ() + mz_err));
 
-        intensity_sum += point.getIntensity();
-      }
-      //update last scan affected
+// JB ccs speichern beim schreiben der peaks
+MSSpectrum::FloatDataArrays& fda = exp_iter->getFloatDataArrays();
+// Platz für Eintrag erstellen
+if (fda.empty() || fda[0].getName() != "ccs")
+{
+fda.resize(1);
+fda[0].setName("ccs"); // hier dieser MSWert?
+}
+
+// CCS suchen für dieses Peptid
+float ccs = -1.0f; // negative Zahl kann erkannt werden als ungültiger ccs Eintrag im nachhenein
+if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
+{
+String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
+int charge = active_feature.getCharge();
+auto it = ccs_map_.find({seq, charge});
+if (it != ccs_map_.end()) { ccs = static_cast<float>(it->second); }
+}
+
+fda[0].push_back(ccs);
+
+
+exp_iter->push_back(point);
+
+intensity_sum += point.getIntensity();
+}
+// update last scan affected
 #ifdef OPENMS_ASSERTIONS
-      end_scan = exp_iter - experiment.begin();
+end_scan = exp_iter - experiment.begin();
 #endif
-    }
+}
 
-    OPENMS_POSTCONDITION(end_scan != std::numeric_limits<Int>::min(), "RawMSSignalSimulation::samplePeptideModel2D_(): setting RT bounds failed!");
+OPENMS_POSTCONDITION(end_scan != std::numeric_limits<Int>::min(), "RawMSSignalSimulation::samplePeptideModel2D_(): setting RT bounds failed!");
 
-    // new intensity is AREA==SUM of all peaks
-    active_feature.setIntensity(intensity_sum);
+// new intensity is AREA==SUM of all peaks
+active_feature.setIntensity(intensity_sum);
 
-    // -------------------------
-    // --- store convex hull ---
-    // -------------------------
-    active_feature.getConvexHulls().clear();
+// -------------------------
+// --- store convex hull ---
+// -------------------------
+active_feature.getConvexHulls().clear();
 
-    // use isotope model (to determine mass traces)
+// use isotope model (to determine mass traces)
 
-    DoubleList isotope_intensities;
-    for (Peak1D& dist : iso_dist)
-    {
-      const SimTypes::SimCoordinateType mz = mz_mono + double(dist.getMZ() - iso_dist.begin()->getMZ()) / q; // this is only an approximated trace' m/z position (as we do assume 1Da space between them)
+DoubleList isotope_intensities;
+for (Peak1D& dist : iso_dist)
+{
+const SimTypes::SimCoordinateType mz = mz_mono
++ double(dist.getMZ() - iso_dist.begin()->getMZ())
+ / q; // this is only an approximated trace' m/z position (as we do assume 1Da space between them)
 
-      SimTypes::SimCoordinateType rt_min =  std::numeric_limits<SimTypes::SimCoordinateType>::max();
-      SimTypes::SimCoordinateType rt_max = -std::numeric_limits<SimTypes::SimCoordinateType>::max();
-      bool has_data = false;
+SimTypes::SimCoordinateType rt_min = std::numeric_limits<SimTypes::SimCoordinateType>::max();
+SimTypes::SimCoordinateType rt_max = -std::numeric_limits<SimTypes::SimCoordinateType>::max();
+bool has_data = false;
 
-      // for each trace, sample the model again and see how far it extends
-      SimTypes::SimCoordinateType rt(0);
-      for (exp_iter = exp_start; rt < rt_end && exp_iter != experiment.end(); ++exp_iter)
-      {
-        rt = exp_iter->getRT();
-        double distortion = double(exp_iter->getMetaValue("distortion"));
-        ProductModel<2>::IntensityType intensity = pm.getIntensity(DPosition<2>(rt, mz)) * distortion;
-        if (intensity <= 0.0)
-        {
-          continue; // intensity cutoff (below that we don't want to see a signal)
-        }
-        // update min&max
-        if (rt_min > rt)
-        {
-          rt_min = rt;
-        }
-        if (rt_max < rt)
-        {
-          rt_max = rt;
-        }
-        has_data = true;
-      }
-      if (!has_data)
-      {
-        continue;
-      }
-      // add four edge points of mass trace
-      ConvexHull2D hull;
-      std::vector<DPosition<2> > points;
-      points.emplace_back(rt_min, mz - 0.001);
-      points.emplace_back(rt_min, mz + 0.001);
-      points.emplace_back(rt_max, mz - 0.001);
-      points.emplace_back(rt_max, mz + 0.001);
-      hull.addPoints(points);
-      active_feature.getConvexHulls().push_back(hull);
+// for each trace, sample the model again and see how far it extends
+SimTypes::SimCoordinateType rt(0);
+for (exp_iter = exp_start; rt < rt_end && exp_iter != experiment.end(); ++exp_iter)
+{
+rt = exp_iter->getRT();
+double distortion = double(exp_iter->getMetaValue("distortion"));
+ProductModel<2>::IntensityType intensity = pm.getIntensity(DPosition<2>(rt, mz)) * distortion;
+if (intensity <= 0.0)
+{
+continue; // intensity cutoff (below that we don't want to see a signal)
+}
+// update min&max
+if (rt_min > rt) { rt_min = rt; }
+if (rt_max < rt) { rt_max = rt; }
+has_data = true;
+}
+if (! has_data) { continue; }
+// add four edge points of mass trace
+ConvexHull2D hull;
+std::vector<DPosition<2>> points;
+points.emplace_back(rt_min, mz - 0.001);
+points.emplace_back(rt_min, mz + 0.001);
+points.emplace_back(rt_max, mz - 0.001);
+points.emplace_back(rt_max, mz + 0.001);
+hull.addPoints(points);
+active_feature.getConvexHulls().push_back(hull);
 
-      isotope_intensities.push_back(dist.getIntensity());
-    }
+isotope_intensities.push_back(dist.getIntensity());
+}
 
-    active_feature.setMetaValue("isotope_intensities", isotope_intensities);
-
-  }
+active_feature.setMetaValue("isotope_intensities", isotope_intensities);
+}
 
   void RawMSSignalSimulation::chooseElutionProfile_(EGHModel* const elutionmodel, Feature& feature, const double scale, const double rt_sampling_rate, const SimTypes::MSSimExperiment& experiment)
   {

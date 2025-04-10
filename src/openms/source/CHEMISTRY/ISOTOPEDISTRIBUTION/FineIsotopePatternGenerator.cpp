@@ -7,29 +7,33 @@
 // --------------------------------------------------------------------------
 
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h>
-
-#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h>
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsoSpecWrapper.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h>
 
 namespace OpenMS
 {
 
-  IsotopeDistribution FineIsotopePatternGenerator::run(const EmpiricalFormula& formula) const
+IsotopeDistribution FineIsotopePatternGenerator::run(const EmpiricalFormula& formula) const
+{
+
+  if (probabilityMode_ == ProbabilityMode::total_prob)
   {
-
-    if (use_total_prob_)
-    {
-        IsotopeDistribution result(IsoSpecTotalProbWrapper(formula, 1.0-stop_condition_, true).run());
-        result.sortByMass();
-        return result;
-    }
-    else
-    {
-        IsotopeDistribution result(IsoSpecThresholdWrapper(formula, stop_condition_, absolute_).run());
-        result.sortByMass();
-        return result;
-    }
+    IsotopeDistribution result(IsoSpecTotalProbWrapper(formula, 1.0 - stop_condition_, true).run());
+    result.sortByMass();
+    return result;
   }
-
+  else if (probabilityMode_ == ProbabilityMode::absolute)
+  {
+    IsotopeDistribution result(IsoSpecThresholdWrapper(formula, stop_condition_, true).run());
+    result.sortByMass();
+    return result;
+  }
+  else
+  {
+    IsotopeDistribution result(IsoSpecThresholdWrapper(formula, stop_condition_, false).run());
+    result.sortByMass();
+    return result;
+  }
 }
 
+} // namespace OpenMS

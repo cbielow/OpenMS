@@ -146,6 +146,12 @@ public:
   // JB Funktion für ausführen von IM2Deep
   void runIM2Deep();
 
+  // JB Funktion zum speichern der IM2Deep Ausgabe
+  std::map<std::pair<String, int>, double> saveIM2DeepOutput(const String& filename);
+
+  // JB Funktion um CCS in FeatureMap zu speichern
+  void addCCSToFeature(std::vector<FeatureMap>& feature_maps, const std::map<std::pair<String, int>, double>& ccs_map);
+
 protected:
   /// handle global params
   void syncParams_(Param& p, bool to_outer);
