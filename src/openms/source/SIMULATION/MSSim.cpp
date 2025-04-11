@@ -193,6 +193,7 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   ion_sim.setLogType(this->getLogType());
   // JB Ionmobility Klassenobjekt erstellen
   IonMobilitySimulation ims;
+  ims.setParameters(param_.copy("IonMobility:", true));
   RawMSSignalSimulation raw_sim(rnd_gen);
   raw_sim.setParameters(param_.copy("RawSignal:", true));
   raw_sim.setLogType(this->getLogType());
@@ -268,10 +269,6 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   verbosePrintFeatureMap(feature_maps_, "ION sim done");
 
   // JB IonMobilitySimulation
-  String im_input = File::getTemporaryFile("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv");
-  String im_output = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
-
-  ims.setPaths(im_input, im_output);
   ims.setFeatureMap(feature_maps_.front());
   ims.run();
 

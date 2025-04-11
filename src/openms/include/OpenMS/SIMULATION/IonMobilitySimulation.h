@@ -22,6 +22,7 @@ private:
   String output_path_;                               // z. B. "/path/to/im2deep/output.csv"
   std::map<std::pair<String, int>, double> ccs_map_; // Map für CCS-Werte
   const FeatureMap* feature_map_;
+  String im2deep_working_dir_; // Arbeitsverzeichnis für IM2Deep
 
 
 public:
@@ -42,12 +43,11 @@ public:
   /// Assignment operator
   IonMobilitySimulation& operator=(const IonMobilitySimulation& source);
 
-  /// Set the paths for input and output files
-  void setPaths(const String& in, const String& out)
-  {
-    input_path_ = in;
-    output_path_ = out;
-  }
+  /// Set default parameters
+  void setDefaultParams_();
+
+  // Save param_ values as members
+  void updateMembers_();
 
   void setFeatureMap(const FeatureMap& fmap)
   {
@@ -64,7 +64,7 @@ public:
   void runIM2Deep();
 
   /// Save IM2Deep output to a file
-  void saveIM2DeepOutput(const String& filename);
+  void saveIM2DeepOutput();
 
   // CCS Map getter
   const std::map<std::pair<String, int>, double>& getCCSMap() const

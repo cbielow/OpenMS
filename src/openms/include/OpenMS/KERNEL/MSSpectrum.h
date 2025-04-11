@@ -541,6 +541,9 @@ public:
     */
     ConstIterator PosEnd(ConstIterator begin, CoordinateType mz, ConstIterator end) const;
 
+    // JB add CCS to FloatDataArray
+    void addCCSToFloatDataArray(float ccs_value);
+
     /// do the names of internal float metadata arrays contain any hint of ion mobility data, i.e. they are a child of 'MS:1002893 ! ion mobility array'?
     /// (for spectra which represent an IM-frame)
     bool containsIMData() const;

@@ -210,6 +210,10 @@ namespace OpenMS
       case DriftTimeUnit::VSSC:
         term = &cv.getTerm("MS:1003008");
         break;
+      // JB cv Term für CCS hinzugefügt
+      case DriftTimeUnit::CCS_ANGSTROM_SQUARED:
+        term = &cv.getTerm("MS:1002476");
+        break;
       default:
         throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Unit cannot be converted into CV term.", toString(unit));
     }
@@ -292,6 +296,10 @@ namespace OpenMS
       case DriftTimeUnit::VSSC:
         fda.setName(cv.getTerm("MS:1003008").name); // MS:1003008 ! raw inverse reduced ion mobility array
         return;
+      // JB cv Term für CCS hinzugefügt
+      case DriftTimeUnit::CCS_ANGSTROM_SQUARED:
+        fda.setName("MS:1002476");
+        break;
       default:
         // invalid enum ...
         // There is no CV term which can be used to describe the FDA
@@ -307,6 +315,11 @@ namespace OpenMS
       if (fda.getName().hasSubstring("MS:1002815"))
       {
         unit = DriftTimeUnit::VSSC;
+      }
+      // JB cv Term for ccs added
+      else if (fda.getName().hasSubstring("MS:1002476"))
+      {
+        unit = DriftTimeUnit::CCS_ANGSTROM_SQUARED;
       }
       else
       {

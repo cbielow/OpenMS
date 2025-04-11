@@ -15,8 +15,10 @@ using namespace std;
 namespace OpenMS
 {
 
-IonMobilitySimulation::IonMobilitySimulation(): DefaultParamHandler("IonMobilitySimulation")
+IonMobilitySimulation::IonMobilitySimulation(): 
+  DefaultParamHandler("IonMobilitySimulation")
 {
+  setDefaultParams_();
 }
 
 IonMobilitySimulation::IonMobilitySimulation(const IonMobilitySimulation& source):
@@ -41,11 +43,26 @@ IonMobilitySimulation& IonMobilitySimulation::operator=(const IonMobilitySimulat
   return *this;
 }
 
+void IonMobilitySimulation::setDefaultParams_()
+{
+  defaults_.setValue("input_path", "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv", "Pfad zur Input-CSV-Datei für IM2Deep.");
+  defaults_.setValue("output_path", "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv", "Pfad zur Output-CSV-Datei für IM2Deep.");
+  defaults_.setValue("IM2Deep_working_dir", "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep", "Arbeitsverzeichnis für IM2Deep.");
+  defaultsToParam_();
+}
+
+void IonMobilitySimulation::updateMembers_()
+{
+  input_path_ = param_.getValue("input_path").toString();
+  output_path_ = param_.getValue("output_path").toString();
+  im2deep_working_dir_ = param_.getValue("IM2Deep_working_dir").toString();
+}
+
 void IonMobilitySimulation::run()
 {
   createIM2DeepInputCSV();
   runIM2Deep();
-  saveIM2DeepOutput(output_path_);
+  saveIM2DeepOutput();
 }
 
 
@@ -95,7 +112,7 @@ void IonMobilitySimulation::runIM2Deep()
   // Path in Qstring umwandeln, damit als input für ExternalProcess geht
   args << QString::fromStdString(input_path_) << "-o" << QString::fromStdString(output_path_);
 
-  QString working_dir = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep";
+  QString working_dir = QString::fromStdString(im2deep_working_dir_);
   String error_msg = "Beim Aufruf von IM2Deep ist etwas schiefgelaufen :(";
 
   ExternalProcess im2deepCall(stdoutCallback, stderrCallback);
@@ -103,17 +120,23 @@ void IonMobilitySimulation::runIM2Deep()
 
   if (result == ExternalProcess::RETURNSTATE::SUCCESS) { OPENMS_LOG_INFO << "IM2Deep erfolgreich ausgeführt!\n"; }
   else { std::cerr << "Fehler beim Ausführen von IM2Deep: " << error_msg << std::endl; }
+
+  // löschen von file, weil temporary datei nicht automat. gelöscht wird
+  /*if (File::exists("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv"))
+  {
+    File::remove("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv");
+  }*/
 }
 
-void IonMobilitySimulation::saveIM2DeepOutput(const String& filename)
+void IonMobilitySimulation::saveIM2DeepOutput()
 {
-  ccs_map_.clear(); // vorher leeren, falls schon was drin war
+  ccs_map_.clear();
 
-  std::ifstream input_file(filename);
-  if (! input_file.is_open()) { throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, filename); }
+  std::ifstream input_file(output_path_);
+  if (! input_file.is_open()) { throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, output_path_); }
 
   String line;
-  std::getline(input_file, line); // Header überspringen
+  std::getline(input_file, line); // skip header
 
   while (std::getline(input_file, line))
   {
@@ -129,6 +152,12 @@ void IonMobilitySimulation::saveIM2DeepOutput(const String& filename)
 
     ccs_map_[{seq, charge}] = ccs;
   }
+
+  // JB löschen von file, weil temporary datei nicht automat. gelöscht wird
+  /*if (File::exists("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv"))
+  {
+    File::remove("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv");
+  }*/
 }
 
-} // namespace OpenMS
+}

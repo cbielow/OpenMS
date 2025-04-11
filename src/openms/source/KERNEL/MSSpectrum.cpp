@@ -747,6 +747,22 @@ namespace OpenMS
     return false;
   }
 
+  // JB add CCS to FloatDataArray
+  void MSSpectrum::addCCSToFloatDataArray(float ccs_value)
+  {
+    MSSpectrum::FloatDataArrays& fda = this->getFloatDataArrays();
+
+    if (fda.empty() || fda[0].getName() != "MS:1002476")
+    {
+      fda.resize(1);
+      fda[0].setName("MS:1002476"); // official CV-term for ion mobility drift time
+      IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::CCS_ANGSTROM_SQUARED);
+      OPENMS_LOG_INFO << "IMUnitname gesetzt" << std::endl;
+    }
+    OPENMS_LOG_INFO << "Adding CCS value " << ccs_value << " to spectrum." << std::endl;
+    fda[0].push_back(ccs_value);
+  }
+
   bool MSSpectrum::containsIMData() const
   {
     Size index;

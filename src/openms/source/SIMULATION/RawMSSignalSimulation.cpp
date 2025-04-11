@@ -94,7 +94,7 @@ RawMSSignalSimulation::RawMSSignalSimulation():
 }
 
 RawMSSignalSimulation::RawMSSignalSimulation(const RawMSSignalSimulation& source):
-    DefaultParamHandler(source), 
+    DefaultParamHandler(source),
     ProgressLogger(source),
     mz_error_mean_(source.mz_error_mean_),
     mz_error_stddev_(source.mz_error_stddev_),
@@ -511,6 +511,7 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
 
   // add detector noise the simulated data
   addDetectorNoise_(experiment);
+
 }
 
 double RawMSSignalSimulation::getPeakWidth_(const double mz, const bool is_gaussian) const
@@ -785,16 +786,7 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 #endif
       point.setMZ(std::fabs(point.getMZ() + mz_err));
 
-      // JB ccs speichern beim schreiben der peaks
-      MSSpectrum::FloatDataArrays& fda = exp_iter->getFloatDataArrays();
-      // Platz für Eintrag erstellen
-      if (fda.empty() || fda[0].getName() != "ccs")
-      {
-        fda.resize(1);
-        fda[0].setName("ccs"); // hier dieser MSWert?
-      }
-
-      // CCS suchen für dieses Peptid
+      // JB CCS suchen für dieses Peptid
       float ccs = -1.0f; // negative Zahl kann erkannt werden als ungültiger ccs Eintrag im nachhenein
       if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
       {
@@ -804,8 +796,8 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
         if (it != ccs_map_.end()) { ccs = static_cast<float>(it->second); }
       }
 
-      fda[0].push_back(ccs);
-
+      // add CCS to the Float data array
+      exp_iter->MSSpectrum::addCCSToFloatDataArray(ccs);
 
       exp_iter->push_back(point);
 

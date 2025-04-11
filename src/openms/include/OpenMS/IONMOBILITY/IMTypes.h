@@ -25,7 +25,8 @@ namespace OpenMS
     MILLISECOND,               ///< milliseconds
     VSSC,                      ///< volt-second per square centimeter (i.e. 1/K_0)
     FAIMS_COMPENSATION_VOLTAGE,///< compensation voltage
-    SIZE_OF_DRIFTTIMEUNIT
+    SIZE_OF_DRIFTTIMEUNIT,
+    CCS_ANGSTROM_SQUARED
   };
 
   /// Names of IM Units. Should be usable as axis annotation.
