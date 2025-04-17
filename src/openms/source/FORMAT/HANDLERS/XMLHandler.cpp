@@ -205,14 +205,27 @@ namespace OpenMS::Internal
       DataValue cv_value = value;
 
       // Abort on unknown terms
-      try
+      if (!cv.exists(accession))
       {
-        const ControlledVocabulary::CVTerm& term = cv.getTerm(accession); // throws Exception::InvalidValue if missing
+        // in 'sample' several external CVs are used (Brenda, GO, ...). Do not warn then.
+        if (parent_tag != "sample")
+        {
+          warning(LOAD, String("Unknown cvParam '") + accession + "' in tag '" + parent_tag + "'.");
+          return DataValue::EMPTY;
+        }
+      }
+      else
+      {
+        const ControlledVocabulary::CVTerm& term = cv.getTerm(accession);
 
         // check if term name and parsed name match
-        if (name != term.name) 
         {
-          warning(LOAD, String("Name of CV term not correct: '") + term.id + " - " + name + "' should be '" + term.name + "'");
+          const String parsed_name = String(name).trim();
+          const String correct_name = String(term.name).trim();
+          if (parsed_name != correct_name)
+          {
+            warning(LOAD, String("Name of CV term not correct: '") + term.id + " - " + parsed_name + "' should be '" + correct_name + "'");
+          }
         }
         if (term.obsolete)
         {
@@ -307,15 +320,6 @@ namespace OpenMS::Internal
         )
         {
           warning(LOAD, String("The CV term '") + accession + " - " + term.name + "' used in tag '" + parent_tag + "' should have a numerical value. The value is '" + value + "'.");
-          return DataValue::EMPTY;
-        }
-      }
-      catch (const Exception::InvalidValue& /*e*/)
-      {
-        // in 'sample' several external CVs are used (Brenda, GO, ...). Do not warn then.
-        if (parent_tag != "sample")
-        {
-          warning(LOAD, String("Unknown cvParam '") + accession + "' in tag '" + parent_tag + "'.");
           return DataValue::EMPTY;
         }
       }
@@ -427,15 +431,10 @@ namespace OpenMS::Internal
     bool StringManager::isASCII(const XMLCh * chars, const XMLSize_t length) {
 
       
-      std::div_t quotient_and_remainder = std::div(length, 8);
-      size_t quotient = quotient_and_remainder.quot;  // Ganzzahliger Quotient
-      size_t remainder = quotient_and_remainder.rem;
-      // std::cout << "Remainer: " << remainder << std::endl;
-      // std::cout << "Quotient: " << quotient << std::endl;
-      // std::cout << "length: " << length << endl; 
-    
-      const XMLCh* it = chars;
-      const XMLCh* end = it + (quotient * 8);
+      size_t quotient = length / 8;  // Ganzzahliger Quotient
+      size_t remainder = length % 8;
+
+      const XMLCh* input_ptr = chars;
       simde__m128i mask = simde_mm_set1_epi16(0xFF00);
       bool bitmask = true;
 
@@ -444,20 +443,19 @@ namespace OpenMS::Internal
         return false;
       }
 
-      while (it != end && bitmask){
-        simde__m128i bits = simde_mm_loadu_si128((simde__m128i*)it);
+      for (size_t i = 0; i < quotient && bitmask; i++)
+      {
+        simde__m128i bits = simde_mm_loadu_si128((simde__m128i*)input_ptr);
         simde__m128i zero = simde_mm_setzero_si128();
         simde__m128i andOP = simde_mm_and_si128(bits, mask);
         simde__m128i cmp = simde_mm_cmpeq_epi16(andOP, zero);
         bitmask = simde_mm_movemask_epi8(cmp) == 0xFFFF;
-        // bitmask = simde_mm_testz_si128(bits, mask);
-        it+=8;
+        input_ptr+=8;
       }  
     
-      end += remainder;
-      while (it != end && bitmask){
-        bitmask = !(*it & 0xFF00);
-        it++;
+      for (size_t i = 0; i < remainder && bitmask; i++)
+      {
+        bitmask = !(input_ptr[i] & 0xFF00);
       }
         return bitmask;
     }
@@ -471,51 +469,27 @@ namespace OpenMS::Internal
         // we can convert to char directly (only keeping the least
         // significant byte).
 
+      size_t quotient = length / 8;  
+      size_t remainder = length % 8;
 
-
-      
-      std::div_t quotient_and_remainder = std::div(length, 8);
-      size_t quotient = quotient_and_remainder.quot;  // Ganzzahliger Quotient
-      size_t remainder = quotient_and_remainder.rem;
-      // std::cout << "Remainer: " << remainder << std::endl;
-      // std::cout << "Quotient: " << quotient << std::endl; 
-      // cout << "length: " << length << endl;
-
-
-      const XMLCh* it = chars;
-      const XMLCh* end = it + (quotient * 8);
-      // std::cout << "Anzahl der Elemente zwischen it1 und it2: "
-      //         << std::distance(it, end) << std::endl;
+      const XMLCh* input_ptr = chars;
 
       size_t curr_size = result.size();
       result.resize(curr_size + length);
-      std::string::iterator str_it = result.begin();
-      std::advance(str_it, curr_size);
-      // int i = 0;
+      char* output_ptr = &result[curr_size];
 
     //Copy Block of 8 chars at a time. Then jumps to the next eight Blocks
-      while (it!=end)
+      for (size_t i = 0; i < quotient; i++)
       {  
-        // std::cout << "Aktueller Wert: " << *it << std::endl;
-
-        compress64(it, &(*str_it));
-        // printf("loop: %d\n", i);
-        str_it += 8;
-        it += 8;
-        // i++;
+        compress64(input_ptr, output_ptr);
+        input_ptr += 8;
+        output_ptr += 8;
       }
 
   
-
-      end = it + remainder;
-  
-      while (it!=end)
+      for (size_t i = 0; i < remainder; i++)
       { 
-        *str_it = static_cast<char>(*it & 0xFF);
-        // std::cout << "Aktueller Wert: " << *str_it << std::endl;
-        str_it ++;
-        it ++;
-        // i++;
+        output_ptr[i] = static_cast<char>(input_ptr[i] & 0xFF);
       }
     }
 
