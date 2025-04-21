@@ -47,6 +47,7 @@
 
 // JB
 #include <OpenMS/KERNEL/MSSpectrum.h>
+#include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 
 #ifdef _OPENMP
   #include <omp.h>
@@ -511,7 +512,6 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
 
   // add detector noise the simulated data
   addDetectorNoise_(experiment);
-
 }
 
 double RawMSSignalSimulation::getPeakWidth_(const double mz, const bool is_gaussian) const
@@ -567,6 +567,7 @@ void RawMSSignalSimulation::add1DSignal_(Feature& active_feature, SimTypes::MSSi
   samplePeptideModel1D_(isomodel, mz_start, mz_end, experiment, experiment_ct, active_feature);
 }
 
+// JB Aufruf für jedes Feature bzw. jedes Peptid
 void RawMSSignalSimulation::add2DSignal_(Feature& active_feature, SimTypes::MSSimExperiment& experiment, SimTypes::MSSimExperiment& experiment_ct)
 {
   SimTypes::SimIntensityType scale = getFeatureScaledIntensity_(active_feature.getIntensity(), 1.0);
@@ -699,7 +700,8 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
   IsotopeModel* isomodel = static_cast<IsotopeModel*>(pm.getModel(1));
   IsotopeDistribution iso_dist = isomodel->getIsotopeDistribution();
   SimTypes::SimCoordinateType mz_mono = active_feature.getMZ();
-  SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
+  // JB nicht mehr benötigt wegen Benutzung von getMZ()
+  // SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
   Int q = active_feature.getCharge();
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -707,18 +709,24 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
   SimTypes::SimCoordinateType rt(0);
   SimTypes::MSSimExperiment::iterator exp_iter = exp_start;
   SimTypes::MSSimExperiment::iterator exp_ct_iter = exp_ct_start;
+  // JB iteriert über alle Spektren im RT-Fenster des aktuellen Peptids, fügt in jedes dieser Spektren die simulierten Peaks für das Peptid an den
+  // entsprechenden m/z-Positionen ein
   for (; rt < rt_end && exp_iter != experiment.end(); ++exp_iter, ++exp_ct_iter)
   {
     rt = exp_iter->getRT();
+    // JB damit IonMobility auch gespeichert wird
+    exp_iter->setType(SpectrumSettings::SpectrumType::PROFILE);
+
     double distortion = double(exp_iter->getMetaValue("distortion"));
     double rt_intensity = ((EGHModel*)pm.getModel(0))->getIntensity(rt);
 
     // centroided GT
-    Size iso_pos(0);
+    // Size iso_pos(0);
     SimTypes::SimPointType point;
 
     // JB hier ändern stattdessen iter.getMZ, warum wurde das so gemacht
-    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
+    // getMZ() für centroided Ausgabe
+    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
     {
       double iso_mass = iter->getMZ(); // Masse von Isotop speichern
       double mz = iso_mass / q;
@@ -731,6 +739,7 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     }
 
     /*
+    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
     {
     point.setMZ(mz_mono + (iso_pos * iso_peakdist / q));
     point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
@@ -742,6 +751,8 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
     // RAW signal (sample it on the grid)
     std::vector<SimTypes::SimCoordinateType>::const_iterator it_grid = lower_bound(grid_.begin(), grid_.end(), mz_start);
+    // JB  Die Schleife iteriert über alle relevanten m/z-Werte innerhalb der Isotopenmuster-Grenzen
+    // setMZ für nicht centroided Ausgabe
     for (; it_grid != grid_.end() && (*it_grid) < mz_end; ++it_grid)
     {
       ProductModel<2>::IntensityType intensity = pm.getIntensity(DPosition<2>(rt, *it_grid)) * distortion;
@@ -788,18 +799,50 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
       // JB CCS suchen für dieses Peptid
       float ccs = -1.0f; // negative Zahl kann erkannt werden als ungültiger ccs Eintrag im nachhenein
+      float k0 = -1.0f;
       if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
       {
         String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
         int charge = active_feature.getCharge();
+        float mz = active_feature.getMZ(); // für Umwandlung zu k0
         auto it = ccs_map_.find({seq, charge});
         if (it != ccs_map_.end()) { ccs = static_cast<float>(it->second); }
+        k0 = IonMobilitySimulation::convertCCStoKo(ccs, mz, charge);
       }
 
       // add CCS to the Float data array
-      exp_iter->MSSpectrum::addCCSToFloatDataArray(ccs);
 
+      exp_iter->MSSpectrum::addK0ToFloatDataArray(k0);
       exp_iter->push_back(point);
+
+      // Debug: Prüfe ob IonMobility korrekt gespeichert wurde
+      /*
+      if (!exp_iter->MSSpectrum::containsIMData())
+      {
+        OPENMS_LOG_WARN << "Keine IonMobility im Spektrum (RT=" << exp_iter->getRT() << ")" << std::endl;
+      }
+      else
+      {
+        auto [unit, data] = exp_iter->MSSpectrum::maybeGetIMData();
+        if (unit != DriftTimeUnit::VSSC)
+        {
+         OPENMS_LOG_WARN << "Falsche IM-Unit gefunden: " << static_cast<int>(unit) << std::endl;
+        }
+        else if (data.size() != exp_iter->size())
+        {
+          OPENMS_LOG_WARN << "FloatArray (" << data.size() << ") und Peaks (" << exp_iter->size() << ") unterschiedlich!" << std::endl;
+        }
+        else
+        {
+          //OPENMS_LOG_INFO << "IonMobility korrekt gespeichert (RT=" << exp_iter->getRT() << ", Floatarraysize=" <<
+      exp_iter->getFloatDataArrays()[0].size() << ", k0=" << k0 << ")" << "Peptid: " <<
+      active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString() << std::endl;
+        }
+      }
+
+      int peaks = exp_iter->size();
+      int floatarray = exp_iter->getFloatDataArrays()[0].size();
+      */
 
       intensity_sum += point.getIntensity();
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 
 namespace OpenMS
 {
@@ -72,11 +73,9 @@ public:
     return ccs_map_;
   }
 
+  // Convert CCS to inverse K0
+  static float convertCCStoKo(float ccs, float mz, int charge);
 
-  /// Add CCS values to the feature map
-  /*
-  void addCCSToFeature(std::vector<FeatureMap>& feature_maps, const std::map<std::pair<String, int>, double>& ccs_map);
-  */
 };
 
-} // namespace OpenMS
+}

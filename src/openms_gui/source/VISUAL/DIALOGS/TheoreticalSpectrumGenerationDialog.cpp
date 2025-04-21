@@ -260,7 +260,7 @@ namespace OpenMS
         }
         else if (p.getValue("isotope_model") == "fine")
         {
-          dist = ef.getIsotopeDistribution(FineIsotopePatternGenerator(double(p.getValue("max_isotope_probability"))));
+          dist = ef.getIsotopeDistribution(FineIsotopePatternGenerator(double(p.getValue("max_isotope_probability")), ProbabilityMode::total_prob));
         }
         else
         {

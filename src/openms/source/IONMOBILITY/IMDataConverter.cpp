@@ -298,7 +298,7 @@ namespace OpenMS
         return;
       // JB cv Term für CCS hinzugefügt
       case DriftTimeUnit::CCS_ANGSTROM_SQUARED:
-        fda.setName("MS:1002476");
+        fda.setName(cv.getTerm("MS:1002476").name);
         break;
       default:
         // invalid enum ...

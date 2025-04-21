@@ -160,4 +160,39 @@ void IonMobilitySimulation::saveIM2DeepOutput()
   }*/
 }
 
+/*
+// JB Funktion von GitHub
+void convertVSSCToCCS(MSExperiment& spectra)
+{
+  OPENMS_LOG_INFO << "Converting 1/k0 to CCS values." << std::endl;
+  const double bruker_CCS_coef = 1059.62245; // constant coefficient for Bruker in the Mason-Schamp equation
+  const double IM_N2_gas_mass = 28;
+
+  for (auto& s : spectra)
+  {
+    double IM = s.getDriftTime();
+    double mz = s.getPrecursors()[0].getMZ();
+    double charge = s.getPrecursors()[0].getCharge();
+    double mass = mz * charge;
+    double reduced_mass = mass * IM_N2_gas_mass / (mass + IM_N2_gas_mass);
+    double CCS = IM * charge * bruker_CCS_coef / std::sqrt(reduced_mass); // Mason-Schamp equation
+    s.setDriftTime(CCS);
+  }
+}
+*/
+
+// convert CCS to inverseK0
+float IonMobilitySimulation::convertCCStoKo(float ccs, float mz, int charge)
+{
+  const float bruker_CCS_coef = 1059.62245; // Bruker-spezifischer Faktor
+  const float IM_N2_gas_mass = 28.0;
+
+  if (ccs <= 0.0 || mz <= 0.0 || charge == 0) return -1.0;
+
+  float mass = mz * charge;
+  float reduced_mass = (mass * IM_N2_gas_mass) / (mass + IM_N2_gas_mass);
+  float k0 = (ccs * std::sqrt(reduced_mass)) / (charge * bruker_CCS_coef);
+  return k0;
+}
+
 }

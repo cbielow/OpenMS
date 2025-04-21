@@ -747,20 +747,19 @@ namespace OpenMS
     return false;
   }
 
-  // JB add CCS to FloatDataArray
-  void MSSpectrum::addCCSToFloatDataArray(float ccs_value)
+  // JB add IonMobility to FloatDataArray
+  void MSSpectrum::addK0ToFloatDataArray(float k0)
   {
     MSSpectrum::FloatDataArrays& fda = this->getFloatDataArrays();
 
-    if (fda.empty() || fda[0].getName() != "MS:1002476")
+    if (fda.empty() || fda[0].getName() != "raw inverse reduced ion mobility array")
     {
       fda.resize(1);
-      fda[0].setName("MS:1002476"); // official CV-term for ion mobility drift time
-      IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::CCS_ANGSTROM_SQUARED);
-      OPENMS_LOG_INFO << "IMUnitname gesetzt" << std::endl;
+      IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::VSSC);
+      // OPENMS_LOG_INFO << "IMUnitname gesetzt" << std::endl;
     }
-    OPENMS_LOG_INFO << "Adding CCS value " << ccs_value << " to spectrum." << std::endl;
-    fda[0].push_back(ccs_value);
+
+    fda[0].push_back(k0);
   }
 
   bool MSSpectrum::containsIMData() const
