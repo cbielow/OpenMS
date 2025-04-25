@@ -751,11 +751,15 @@ namespace OpenMS
   void MSSpectrum::addK0ToFloatDataArray(float k0)
   {
     MSSpectrum::FloatDataArrays& fda = this->getFloatDataArrays();
-
-    if (fda.empty() || fda[0].getName() != "raw inverse reduced ion mobility array")
+    
+    if (fda.empty() || fda[0].getName() != "MS:1003008") // oder MS:1003008? macht keinen Unterschied bisher
     {
-      fda.resize(1);
+      fda.resize(1); // floatdataarry erstellen, falls noch nicht vorhanden
       IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::VSSC);
+      fda[0].setMetaValue("cv accession", "MS:1003008");
+      fda[0].setMetaValue("unit_accession", "MS:1002814");
+      fda[0].setMetaValue("unit_name", "volt-second per square centimeter");
+      fda[0].setMetaValue("unit_cv_ref", "MS");
       // OPENMS_LOG_INFO << "IMUnitname gesetzt" << std::endl;
     }
 

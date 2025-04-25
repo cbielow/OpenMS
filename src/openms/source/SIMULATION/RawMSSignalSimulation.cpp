@@ -498,11 +498,13 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
   experiment.updateRanges();
 
   // build contaminant feature map & add raw signal
+  //JB vorübergehend überspringen
+  /*
   if (experiment.size() > 1) // LC/MS only currently
   {
     createContaminants_(c_map, experiment, experiment_ct);
   }
-
+  */
   if (param_.getValue("ionization_type") == "MALDI") { addBaseLine_(experiment, minimal_mz_measurement_limit); }
   addShotNoise_(experiment, minimal_mz_measurement_limit, maximal_mz_measurement_limit);
   compressSignals_(experiment);
@@ -813,7 +815,22 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
       // add CCS to the Float data array
 
       exp_iter->MSSpectrum::addK0ToFloatDataArray(k0);
-      exp_iter->push_back(point);
+      exp_iter->push_back(point);     
+      
+      //OPENMS_LOG_INFO << "K0 array size: " << fda.size() << std::endl;
+
+      /*
+      const auto& fda = exp_iter->getFloatDataArrays()[0];
+      OPENMS_LOG_INFO << "Name: " << fda.getName() << std::endl;
+
+      // Alle MetaValues anzeigen:
+      std::vector<String> keys;
+      fda.getKeys(keys);
+      for (const auto& key : keys)
+      {
+        OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
+      }
+      */
 
       // Debug: Prüfe ob IonMobility korrekt gespeichert wurde
       /*
@@ -828,21 +845,21 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
         {
          OPENMS_LOG_WARN << "Falsche IM-Unit gefunden: " << static_cast<int>(unit) << std::endl;
         }
-        else if (data.size() != exp_iter->size())
+        else if (exp_iter->getFloatDataArrays()[0].size() != exp_iter->size())
         {
-          OPENMS_LOG_WARN << "FloatArray (" << data.size() << ") und Peaks (" << exp_iter->size() << ") unterschiedlich!" << std::endl;
+          OPENMS_LOG_WARN << "FloatArray (" << exp_iter->getFloatDataArrays()[0].size() << ") und Peaks (" << exp_iter->size() << ") unterschiedlich!" << std::endl;
         }
         else
         {
-          //OPENMS_LOG_INFO << "IonMobility korrekt gespeichert (RT=" << exp_iter->getRT() << ", Floatarraysize=" <<
-      exp_iter->getFloatDataArrays()[0].size() << ", k0=" << k0 << ")" << "Peptid: " <<
-      active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString() << std::endl;
+          OPENMS_LOG_INFO << "IonMobility korrekt gespeichert (RT=" << exp_iter->getRT() << ", Floatarraysize=" <<
+          exp_iter->getFloatDataArrays()[0].size() << ", k0=" << k0 << ")" << "Peptid: " <<
+          active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString() << std::endl;
         }
       }
-
+      */
       int peaks = exp_iter->size();
       int floatarray = exp_iter->getFloatDataArrays()[0].size();
-      */
+      
 
       intensity_sum += point.getIntensity();
     }
@@ -1124,8 +1141,11 @@ void RawMSSignalSimulation::addWhiteNoise_(SimTypes::MSSimExperiment& experiment
 
   for (MSSpectrum& spectrum : experiment)
   {
-    SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;
+    SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;   
     new_spec.clear(false);
+    // JB hier das eingefügt um Floatarrays zu erhalten
+    new_spec.getFloatDataArrays() = spectrum.getFloatDataArrays();
+
 
     for (Peak1D& peak : spectrum)
     {
@@ -1160,6 +1180,8 @@ void RawMSSignalSimulation::addDetectorNoise_(SimTypes::MSSimExperiment& experim
   {
     SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;
     new_spec.clear(false);
+    // JB
+    new_spec.getFloatDataArrays() = spectrum.getFloatDataArrays();
 
     std::vector<SimTypes::SimCoordinateType>::iterator grid_it = grid_.begin();
 
@@ -1259,6 +1281,8 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
     // copy Spectrum and remove Peaks ..
     SimTypes::MSSimExperiment::SpectrumType cont = experiment[i];
     cont.clear(false);
+    //JB einfügen um floatdataarrays zu erhalten
+    cont.getFloatDataArrays() = experiment[i].getFloatDataArrays();
 
     GridTypeIt grid_pos = grid.begin();
     GridTypeIt grid_pos_next(grid_pos + 1);
