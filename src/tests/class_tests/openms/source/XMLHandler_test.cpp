@@ -15,6 +15,17 @@ using namespace OpenMS::Internal;
 
 START_TEST(StringManager, "$Id$")
 
+const XMLCh block8[] = {0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F};
+
+const XMLCh block16[] = {0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F};
+
+const XMLCh block24[] = {0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F};
+
+const XMLCh block26negative[] = {0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0157,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0057,0x006F};
+
+
+const XMLCh block32[] = {0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F
+                         ,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F,0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F};
 
 const XMLCh russianHello[] = {
     0x041F, 0x0440, 0x0438, 0x0432, 0x0435, 0x0442, 0x043C, 
@@ -56,15 +67,23 @@ START_SECTION(isASCII(const XMLCh * chars, const XMLSize_t length))
   isAscii = StringManager::isASCII(upperBoundary,u_length);
   std::cout << "5 \n";
   TEST_TRUE(isAscii)
+  isAscii = StringManager::isASCII(block16, 16);
+  TEST_TRUE(isAscii)
+  isAscii = StringManager::isASCII(block32, 32);
+  TEST_TRUE(isAscii)
+  isAscii = StringManager::isASCII(block24, 24);
+  TEST_TRUE(isAscii)
+  isAscii = StringManager::isASCII(block26negative, 26);
+  TEST_FALSE(isAscii)
+
 END_SECTION
 
-const XMLCh eight_block_negative[] = {0x0148,0x0165,0x016C,0x016C,0x016F,0x012C,0x0157,0x016F};
+const XMLCh block8_negative[] = {0x0148,0x0165,0x016C,0x016C,0x016F,0x012C,0x0157,0x016F};
 
-const XMLCh eight_block[] = {0x0048,0x0065,0x006C,0x006C,0x006F,0x002C,0x0057,0x006F};
 
-const XMLCh eight_block_mixed[] ={0x0042,0x0045,0x004C,0x0041,0x0142,0x0145,0x014C,0x0141};
+const XMLCh block8_mixed[] ={0x0042,0x0045,0x004C,0x0041,0x0142,0x0145,0x014C,0x0141};
 
-const XMLCh eight_block_kadabra[] = {
+const XMLCh block8_kadabra[] = {
     0x004B, // K
     0x0041, // A
     0x0044, // D
@@ -77,13 +96,13 @@ const XMLCh eight_block_kadabra[] = {
 
 START_SECTION(compress64 (const XMLCh* input_it, char* output_it))
     std::string o1_str(8,'\0');
-    StringManager::compress64(eight_block,o1_str.data());
+    StringManager::compress64(block8,o1_str.data());
     std::string res1_str = "Hello,Wo";
     TEST_STRING_EQUAL(o1_str,res1_str);
     
    
     std::string o2_str(8,'\0'); 
-    StringManager::compress64(eight_block_negative,o2_str.data());
+    StringManager::compress64(block8_negative,o2_str.data());
     std::string res2_str = res1_str;
     TEST_STRING_EQUAL(o2_str, res2_str);
 
@@ -91,7 +110,7 @@ START_SECTION(compress64 (const XMLCh* input_it, char* output_it))
     std::string o3_str(8,'\0');
     // char res3 [9] = {0x42,0x45,0x4C,0x41,0x42,0x45,0x4C,0x41};
     // res3[8] = '\0';
-    StringManager::compress64(eight_block_mixed,o3_str.data());
+    StringManager::compress64(block8_mixed,o3_str.data());
     std::string res3_str = {0x42,0x45,0x4C,0x41,0x42,0x45,0x4C,0x41};
     TEST_STRING_EQUAL(o3_str, res3_str);
 
@@ -101,7 +120,7 @@ START_SECTION(compress64 (const XMLCh* input_it, char* output_it))
     o4_str [2]  ='R';
     o4_str [3]  ='A';
     
-    StringManager::compress64(eight_block_kadabra,((o4_str.data())+4));
+    StringManager::compress64(block8_kadabra,((o4_str.data())+4));
     std::string res4_str = "ABRAKADABRA!";
     TEST_STRING_EQUAL(o4_str, res4_str);
 
@@ -131,6 +150,13 @@ START_SECTION(appendASCII(const XMLCh * chars, const XMLSize_t length, String & 
     TEST_STRING_EQUAL(o7_str, res7_str);
     std::cout << o7_str.size() << std::endl;
 
+END_SECTION
+
+START_SECTION(static bool check8block(const XMLCh* input_ptr))
+    bool o8 =  StringManager::check8block(russianHello);
+    TEST_FALSE(o8);
+    o8 = StringManager::check8block(ascii);
+    TEST_TRUE(o8);
 END_SECTION
 
 END_TEST

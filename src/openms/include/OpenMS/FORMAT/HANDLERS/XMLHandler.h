@@ -293,6 +293,8 @@ public:
       {
         return toNative_(str);
       }
+      static bool check8block(const XMLCh* input_ptr);
+      
       /// Checks if supplied if chars in XMLCh* can be encoded with ASCII
       static bool isASCII(const XMLCh * chars, const XMLSize_t length);
 

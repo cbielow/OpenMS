@@ -431,28 +431,55 @@ namespace OpenMS::Internal
       simde_mm_storel_epi64((simde__m128i*)output_it, compressed);
     }
 
-    bool StringManager::isASCII(const XMLCh * chars, const XMLSize_t length) {
+    bool StringManager::check8block(const XMLCh* input_ptr)
+    {
+      static const simde__m128i mask = simde_mm_set1_epi16(0xFF00);
+      simde__m128i bits = simde_mm_loadu_si128((simde__m128i*)input_ptr);
+      simde__m128i zero = simde_mm_setzero_si128();
+      simde__m128i andOP = simde_mm_and_si128(bits, mask);
+      simde__m128i cmp = simde_mm_cmpeq_epi16(andOP, zero);
+      return(simde_mm_movemask_epi8(cmp) == 0xFFFF);
+    }
 
-      
-      size_t quotient = length / 8;  // Ganzzahliger Quotient
-      size_t remainder = length % 8;
-
-      const XMLCh* input_ptr = chars;
-      simde__m128i mask = simde_mm_set1_epi16(0xFF00);
-      bool bitmask = true;
+    bool StringManager::isASCII(const XMLCh * chars, const XMLSize_t length) 
+    {
 
       if (length == 0)
       {
         return false;
       }
 
-      for (size_t i = 0; i < quotient && bitmask; i++)
+      size_t curr_length = length;
+      size_t quotient32 = curr_length / 32;  // Ganzzahliger Quotient
+      curr_length -= 32 * quotient32;  // Rest
+      size_t quotient16 = curr_length / 16;  // Ganzzahliger Quotient
+      curr_length -= 16 * quotient16;  // Rest
+      size_t quotient8 = curr_length / 8;  // Ganzzahliger Quotient
+      size_t remainder = curr_length % 8;
+
+      const XMLCh* input_ptr = chars;
+      
+      bool bitmask = true;
+
+      for (size_t i = 0; i < quotient32 && bitmask; i++)
       {
-        simde__m128i bits = simde_mm_loadu_si128((simde__m128i*)input_ptr);
-        simde__m128i zero = simde_mm_setzero_si128();
-        simde__m128i andOP = simde_mm_and_si128(bits, mask);
-        simde__m128i cmp = simde_mm_cmpeq_epi16(andOP, zero);
-        bitmask = simde_mm_movemask_epi8(cmp) == 0xFFFF;
+        bitmask = check8block(input_ptr) && 
+                  check8block(input_ptr + 8) &&
+                  check8block(input_ptr + 16) &&
+                  check8block(input_ptr + 24);
+        input_ptr+=32;
+      }
+
+      for (size_t i = 0; i < quotient16 && bitmask; i++)
+      {
+        bitmask = check8block(input_ptr) && 
+                  check8block(input_ptr + 8);
+        input_ptr+=16;
+      }
+
+      for (size_t i = 0; i < quotient8 && bitmask; i++)
+      {
+        bitmask = check8block(input_ptr);
         input_ptr+=8;
       }  
     
@@ -472,8 +499,13 @@ namespace OpenMS::Internal
         // we can convert to char directly (only keeping the least
         // significant byte).
 
-      size_t quotient = length / 8;  
-      size_t remainder = length % 8;
+      size_t curr_length = length;
+      size_t quotient32 = curr_length / 32;  // Ganzzahliger Quotient
+      curr_length -= 32 * quotient32;  // Rest
+      size_t quotient16 = curr_length / 16;  // Ganzzahliger Quotient
+      curr_length -= 16 * quotient16;  // Rest
+      size_t quotient8 = curr_length / 8;  // Ganzzahliger Quotient
+      size_t remainder = curr_length % 8;
 
       const XMLCh* input_ptr = chars;
 
@@ -482,7 +514,25 @@ namespace OpenMS::Internal
       char* output_ptr = &result[curr_size];
 
     //Copy Block of 8 chars at a time. Then jumps to the next eight Blocks
-      for (size_t i = 0; i < quotient; i++)
+      for (size_t i = 0; i < quotient32; i++)
+      {  
+        compress64(input_ptr, output_ptr);
+        compress64(input_ptr + 8, output_ptr + 8);
+        compress64(input_ptr + 16, output_ptr + 16);
+        compress64(input_ptr + 24, output_ptr + 24);
+        input_ptr += 32;
+        output_ptr += 32;
+      }
+
+      for (size_t i = 0; i < quotient16; i++)
+      {  
+        compress64(input_ptr, output_ptr);
+        compress64(input_ptr + 8, output_ptr + 8);
+        input_ptr += 16;
+        output_ptr += 16;
+      }
+
+      for (size_t i = 0; i < quotient8; i++)
       {  
         compress64(input_ptr, output_ptr);
         input_ptr += 8;
