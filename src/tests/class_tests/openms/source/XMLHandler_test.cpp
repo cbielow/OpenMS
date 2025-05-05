@@ -160,46 +160,6 @@ START_SECTION(static bool check8block(const XMLCh* input_ptr))
     TEST_TRUE(o8);
 END_SECTION
 
-std::vector<XMLCh> utf16data;
-utf16data.reserve(100001);
-for (int i = 0; i < 100000; ++i) 
-{
-    utf16data.push_back(static_cast<XMLCh>('A' + (i % 26))); // A-Z Muster
-}
-utf16data.push_back(0); // Nullterminierung
-
-
-START_SECTION(Runtime appendASCII)
-
-OpenMS::String o9_str;
-auto start = std::chrono::high_resolution_clock::now();
-
-StringManager::appendASCII(utf16data.data(), utf16data.size(), o9_str);
-
-auto end = std::chrono::high_resolution_clock::now();
-std::chrono::duration<double> diff = end - start;
-
-std::cout << "Dauer: " << diff.count() << " Sekunden\n";
-std::cout << "Ergebnisgröße: " << o9_str.size() << "\n";
-
-
-
-END_SECTION
-
-START_SECTION(Runtime Transcode)
-
-OpenMS::String o10_str;
-auto start = std::chrono::high_resolution_clock::now();
-auto holder =  unique_xerces_ptr<char>(xercesc::XMLString::transcode(utf16data.data()));
-
-auto end = std::chrono::high_resolution_clock::now();
-std::chrono::duration<double> diff = end - start;
-
-std::cout << "Dauer: " << diff.count() << " Sekunden\n";
-// std::cout << "Ergebnisgröße: " << o10_str.size() << "\n";
-
-END_SECTION
-
 END_TEST
 
 

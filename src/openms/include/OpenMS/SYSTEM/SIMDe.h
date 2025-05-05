@@ -21,7 +21,6 @@
 // add the respective compile flags to <git>/cmake/compiler_flags.cmake
 #include <simde/x86/ssse3.h> 
 
-// these operators are defined for GCC/clang, but not in MSVC (TODO: maybe use SFINAE, but that is overkill for the moment)
 #ifdef _MSC_VER
 inline simde__m128i operator|(const simde__m128i& left, const simde__m128i& right)
 {

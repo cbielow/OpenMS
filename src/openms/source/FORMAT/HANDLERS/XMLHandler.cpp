@@ -490,6 +490,23 @@ namespace OpenMS::Internal
         return bitmask;
     }
 
+    void StringManager::appendASCII_old(const XMLCh * chars, const XMLSize_t length, String & result)
+    {
+      const XMLCh* it = chars;
+      const XMLCh* end = it + length;
+
+      size_t curr_size = result.size();
+      result.resize(curr_size + length);
+      std::string::iterator str_it = result.begin();
+      std::advance(str_it, curr_size);
+      while (it!=end)
+      {   
+        *str_it = (char)*it;
+        ++str_it;
+        ++it;
+      }
+    }
+
     void StringManager::appendASCII(const XMLCh * chars, const XMLSize_t length, String & result)
     {
         // XMLCh are characters in UTF16 (usually stored as 16bit unsigned

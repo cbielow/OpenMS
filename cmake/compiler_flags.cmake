@@ -64,7 +64,8 @@ if (MSVC)
   endif()
 else()  ## GCC/Clang/AppleClang
   ## enable SSE3 on x86, to achive faster base64 en-/decoding
-  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "${x64_CPU}") 
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "${x64_CPU}")
+    add_compile_options(-march=native) 
     add_compile_options(-mssse3)
   endif()
 endif()

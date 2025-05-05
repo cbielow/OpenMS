@@ -307,6 +307,8 @@ public:
        * @note Assumes that the XMLCh* only contains ASCII characters
        *
       */
+      static void appendASCII_old(const XMLCh * chars, const XMLSize_t length, String & result);
+
       static void appendASCII(const XMLCh * str, const XMLSize_t length, String & result);
 
     };
