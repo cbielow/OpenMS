@@ -431,63 +431,80 @@ namespace OpenMS::Internal
       simde_mm_storel_epi64((simde__m128i*)output_it, compressed);
     }
 
-    bool StringManager::check8block(const XMLCh* input_ptr)
+    int StringManager::check8block(XMLCh*& input_ptr)
     {
       static const simde__m128i mask = simde_mm_set1_epi16(0xFF00);
       simde__m128i bits = simde_mm_loadu_si128((simde__m128i*)input_ptr);
       simde__m128i zero = simde_mm_setzero_si128();
       simde__m128i andOP = simde_mm_and_si128(bits, mask);
-      simde__m128i cmp = simde_mm_cmpeq_epi16(andOP, zero);
-      return(simde_mm_movemask_epi8(cmp) == 0xFFFF);
+      simde__m128i cmpAscii = simde_mm_cmpeq_epi16(andOP, zero);
+      simde__m128i cmpZero = simde_mm_cmpeq_epi16(bits, zero);
+      uint16_t zeroMask = simde_mm_movemask_epi8(cmpZero);
+      uint16_t isAsciiMask = simde_mm_movemask_epi8(cmpAscii);
+
+      //hier morgen weiter
+      
+
+      
+
+      if(zeroMask != 0x0000)
+      {
+        // Only works when using gcc or Clang as a Compiler
+        int bytePosZero = __builtin_ctz(zeroMask);
+        int charPosZero = bytePosZero / 2;
+
+        if (bytePosZero == 0){return -1;}
+
+        uint16_t suffixMask = zeroMask ^ isAsciiMask;
+        std::cout << "bytePOS: " << ((1 << (bytePosZero)) - 1) << std::endl;
+        std::cout << "SuffixMask: " << suffixMask << std::endl;
+        std::cout << "COMP: " << ((1 << bytePosZero) - 1 == suffixMask) << std::endl;
+        if ((1 << bytePosZero) - 1 > suffixMask)
+        {
+          return -1;
+        }
+
+        std::cout << "charPos: " << charPosZero << std::endl;
+        std::cout << "ascii:" << 32 - __builtin_clz(isAsciiMask) << std::endl;
+
+        
+        std::cout << "suffix:" << 32 - __builtin_clz(suffixMask) << std::endl;
+        std::cout << "suffixVal:" << ~suffixMask << std::endl;
+       
+        input_ptr += charPosZero;
+        return 0;
+      }
+      else if(isAsciiMask != 0xFFFF)
+      {
+        std::cout << "FLAG3" << std::endl;
+        return -1;
+      }
+      std::cout << "FLAG1" << std::endl;
+      input_ptr += 8;
+      return 1;
+      
     }
 
-    bool StringManager::isASCII(const XMLCh * chars, const XMLSize_t length) 
+    int StringManager::isASCII(const XMLCh* chars) 
     {
 
-      if (length == 0)
-      {
-        return false;
-      }
-
-      size_t curr_length = length;
-      size_t quotient32 = curr_length / 32;  // Ganzzahliger Quotient
-      curr_length -= 32 * quotient32;  // Rest
-      size_t quotient16 = curr_length / 16;  // Ganzzahliger Quotient
-      curr_length -= 16 * quotient16;  // Rest
-      size_t quotient8 = curr_length / 8;  // Ganzzahliger Quotient
-      size_t remainder = curr_length % 8;
-
-      const XMLCh* input_ptr = chars;
+      XMLCh* input_ptr = const_cast<XMLCh*>(chars);
+      int bitmask = true;
       
-      bool bitmask = true;
-
-      for (size_t i = 0; i < quotient32 && bitmask; i++)
-      {
-        bitmask = check8block(input_ptr) && 
-                  check8block(input_ptr + 8) &&
-                  check8block(input_ptr + 16) &&
-                  check8block(input_ptr + 24);
-        input_ptr+=32;
-      }
-
-      for (size_t i = 0; i < quotient16 && bitmask; i++)
-      {
-        bitmask = check8block(input_ptr) && 
-                  check8block(input_ptr + 8);
-        input_ptr+=16;
-      }
-
-      for (size_t i = 0; i < quotient8 && bitmask; i++)
+      while (bitmask > 0)
       {
         bitmask = check8block(input_ptr);
-        input_ptr+=8;
-      }  
-    
-      for (size_t i = 0; i < remainder && bitmask; i++)
-      {
-        bitmask = !(input_ptr[i] & 0xFF00);
+        std::cout <<"bitmask: " << bitmask << std::endl;
       }
-        return bitmask;
+        
+      std::cout << "length" << input_ptr - chars << std::endl;
+      if (bitmask == 0)
+      { 
+        std::cout << "FLAG TRUE" << std::endl;
+        return input_ptr - chars;
+      }
+      std::cout << "FLAG FALSE" << std::endl;
+      return -1;
     }
 
     void StringManager::appendASCII_old(const XMLCh * chars, const XMLSize_t length, String & result)

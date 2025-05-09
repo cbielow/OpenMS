@@ -226,8 +226,8 @@ namespace OpenMS
       inline static String toNative_(const XMLCh* str)
       { 
         String r;
-        XMLSize_t l = xercesc::XMLString::stringLen(str);
-        if(isASCII(str, l))
+        int l = isASCII(str);
+        if(l >= 0)
         {
           appendASCII(str,l,r);
         }
@@ -293,10 +293,10 @@ public:
       {
         return toNative_(str);
       }
-      static bool check8block(const XMLCh* input_ptr);
+      static int check8block(XMLCh*& input_ptr);
       
       /// Checks if supplied if chars in XMLCh* can be encoded with ASCII
-      static bool isASCII(const XMLCh * chars, const XMLSize_t length);
+      static int isASCII(const XMLCh * chars);
 
       /// Compresses eight 8x16bit Chars in XMLCh* to 8x8bit Chars by cutting upper byte
       static void compress64 (const XMLCh * input_it, char* output_it);
