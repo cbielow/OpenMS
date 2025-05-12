@@ -456,30 +456,23 @@ namespace OpenMS::Internal
         if (bytePosZero == 0){return -1;}
 
         uint16_t suffixMask = zeroMask ^ isAsciiMask;
-        std::cout << "bytePOS: " << ((1 << (bytePosZero)) - 1) << std::endl;
-        std::cout << "SuffixMask: " << suffixMask << std::endl;
-        std::cout << "COMP: " << ((1 << bytePosZero) - 1 == suffixMask) << std::endl;
+        // std::cout << "bytePOS: " << ((1 << (bytePosZero)) - 1) << std::endl;
+        // std::cout << "SuffixMask: " << suffixMask << std::endl;
+        // std::cout << "COMP: " << ((1 << bytePosZero) - 1 == suffixMask) << std::endl;
         if ((1 << bytePosZero) - 1 > suffixMask)
         {
           return -1;
         }
-
-        std::cout << "charPos: " << charPosZero << std::endl;
-        std::cout << "ascii:" << 32 - __builtin_clz(isAsciiMask) << std::endl;
-
-        
-        std::cout << "suffix:" << 32 - __builtin_clz(suffixMask) << std::endl;
-        std::cout << "suffixVal:" << ~suffixMask << std::endl;
        
         input_ptr += charPosZero;
         return 0;
       }
       else if(isAsciiMask != 0xFFFF)
       {
-        std::cout << "FLAG3" << std::endl;
+        // std::cout << "FLAG3" << std::endl;
         return -1;
       }
-      std::cout << "FLAG1" << std::endl;
+      // std::cout << "FLAG1" << std::endl;
       input_ptr += 8;
       return 1;
       
@@ -494,16 +487,16 @@ namespace OpenMS::Internal
       while (bitmask > 0)
       {
         bitmask = check8block(input_ptr);
-        std::cout <<"bitmask: " << bitmask << std::endl;
+        // std::cout <<"bitmask: " << bitmask << std::endl;
       }
         
-      std::cout << "length" << input_ptr - chars << std::endl;
+      // std::cout << "length" << input_ptr - chars << std::endl;
       if (bitmask == 0)
       { 
-        std::cout << "FLAG TRUE" << std::endl;
+        // std::cout << "FLAG TRUE" << std::endl;
         return input_ptr - chars;
       }
-      std::cout << "FLAG FALSE" << std::endl;
+      // std::cout << "FLAG FALSE" << std::endl;
       return -1;
     }
 
