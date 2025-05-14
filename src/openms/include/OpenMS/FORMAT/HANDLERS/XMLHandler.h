@@ -227,7 +227,7 @@ namespace OpenMS
       inline static String toNative_(const XMLCh* str)
       { 
         String r;
-        XMLSize_t l = strLength(str);
+        XMLSize_t l = xercesc::XMLString::stringLen(str);
         if(isASCII(str, l))
         {
           appendASCII(str,l,r);
