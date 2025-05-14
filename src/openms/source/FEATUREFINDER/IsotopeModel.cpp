@@ -9,6 +9,7 @@
 #include <OpenMS/CHEMISTRY/EmpiricalFormula.h>
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/CoarseIsotopePatternGenerator.h>
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h> // JB includen von FineIsotopePatterngenarator
+#include <OpenMS/CONCEPT/LogStream.h>                                         // JB include für debug ausgaben
 #include <OpenMS/FEATUREFINDER/IsotopeModel.h>
 #include <OpenMS/MATH/STATISTICS/BasicStatistics.h>
 #include <boost/math/distributions/cauchy.hpp>

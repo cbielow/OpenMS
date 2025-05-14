@@ -206,6 +206,10 @@ void annotateAsIM(OpenMS::DataArrays::FloatDataArray& fda, const DriftTimeUnit u
     case DriftTimeUnit::VSSC:
       term = &cv.getTerm("MS:1003008");
       break;
+    // JB
+    case DriftTimeUnit::CCS:
+      term = &cv.getTerm("MS:1002954");
+      break;
     default:
       throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Unit cannot be converted into CV term.", toString(unit));
   }
@@ -284,6 +288,10 @@ void IMDataConverter::setIMUnit(DataArrays::FloatDataArray& fda, const DriftTime
     case DriftTimeUnit::VSSC:
       fda.setName(cv.getTerm("MS:1003008").name); // MS:1003008 ! raw inverse reduced ion mobility array
       return;
+    // JB
+    case DriftTimeUnit::CCS:
+      fda.setName(cv.getTerm("MS:1002954").name); // MS:1002954 ! collisional cross sectional area
+      return;
     default:
       // invalid enum ...
       // There is no CV term which can be used to describe the FDA
@@ -320,6 +328,13 @@ bool IMDataConverter::getIMUnit(const DataArrays::FloatDataArray& fda, DriftTime
                         << std::endl;
         unit = DriftTimeUnit::NONE;
       }
+      return true;
+    }
+
+    // JB CCS
+    else if (cv_term.units.find("UO:0000324") != cv_term.units.end())
+    { // UO:0000324 ! square angstrom
+      unit = DriftTimeUnit::CCS; 
       return true;
     }
   }

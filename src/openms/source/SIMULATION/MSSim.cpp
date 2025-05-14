@@ -107,6 +107,8 @@ MSSim::MSSim(): DefaultParamHandler("MSSim"), experiment_(), feature_maps_(), co
   defaults_.insert("RT:", RTSimulation().getDefaults());
   defaults_.insert("Detectability:", DetectabilitySimulation().getDefaults());
   defaults_.insert("Ionization:", IonizationSimulation().getDefaults());
+  // JB
+  defaults_.insert("IonMobility:", IonMobilitySimulation().getDefaults());
   defaults_.insert("RawSignal:", RawMSSignalSimulation().getDefaults());
   defaults_.insert("RawTandemSignal:", RawTandemMSSignalSimulation().getDefaults());
 
@@ -269,13 +271,17 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   verbosePrintFeatureMap(feature_maps_, "ION sim done");
 
   // JB IonMobilitySimulation
-  ims.setFeatureMap(feature_maps_.front());
-  ims.run();
 
-  auto ccs_map = ims.getCCSMap();
+  if (param_.exists("RawSignal:ionmobility") && param_.getValue("RawSignal:ionmobility") == "true")
+  {
+    ims.run(feature_maps_.front());
+    auto ionmobility_map = ims.getIonMobilityMap();
+    String unit = ims.getUnit();
 
-  // JB CCS Map übergeben
-  raw_sim.setCCSMap(ccs_map);
+    // JB IonMoblity Map übergeben
+    raw_sim.setIonMobilityMap(ionmobility_map);
+    raw_sim.setIMUnit(unit);
+  }
 
 
   // JB löschen von file, weil temporary datei nicht automat. gelöscht wird

@@ -122,6 +122,9 @@ namespace OpenMS
         return DIM_UNIT::IM_MS;
       case DriftTimeUnit::VSSC:
         return DIM_UNIT::IM_VSSC;
+      //JB
+      case DriftTimeUnit::CCS:
+        return DIM_UNIT::IM_CCS;
       default:
         throw Exception::ConversionError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Cannot convert from " + toString(from) + " to a DIM_UNIT.");
     }

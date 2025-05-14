@@ -23,6 +23,8 @@ namespace OpenMS
     INT,      ///< intensity
     IM_MS,    ///< ion mobility milliseconds
     IM_VSSC,  ///< volt-second per square centimeter (i.e. 1/K_0)
+    //JB
+    IM_CCS,   ///< collisional cross section (in square angstrom)
     FAIMS_CV, ///< FAIMS compensation voltage
     SIZE_OF_DIM_UNITS
   };

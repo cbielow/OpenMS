@@ -46,6 +46,7 @@
 #include <utility>
 
 // JB
+#include <OpenMS/CONCEPT/Constants.h>
 #include <OpenMS/KERNEL/MSSpectrum.h>
 #include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 
@@ -220,8 +221,10 @@ void RawMSSignalSimulation::setDefaultParams_()
   defaults_.setSectionDescription("noise", "Parameters modeling noise in mass spectrometry measurements");
 
   // JB Default Werte für Isotope_pattern_mode
-  defaults_.setValue("isotope_pattern_mode", "fine", "Choose the isotope pattern generator mode: coarse or fine.");
+  defaults_.setValue("isotope_pattern_mode", "coarse", "Choose the isotope pattern generator mode: coarse or fine.");
   defaults_.setValidStrings("isotope_pattern_mode", {"coarse", "fine"});
+  defaults_.setValue("ionmobility", "false", "Enable ion mobility simulation.");
+  defaults_.setValidStrings("ionmobility", {"true", "false"});
 
   defaultsToParam_();
 }
@@ -277,7 +280,8 @@ void RawMSSignalSimulation::loadContaminants()
     // read & parse file:
     TextFile tf(contaminants_file, true);
     contaminants_.clear();
-    const UInt COLS_EXPECTED = 8;
+    // JB eine col mehr wegen CCS
+    const UInt COLS_EXPECTED = 9;
     Size line_number = 1;
     for (TextFile::ConstIterator tf_it = tf.begin(); tf_it != tf.end(); ++tf_it, ++line_number)
     {
@@ -315,6 +319,7 @@ void RawMSSignalSimulation::loadContaminants()
         c.rt_end = cols[3].toDouble();
         c.intensity = cols[4].toDouble();
         c.q = cols[5].toInt();
+        c.ccs = cols[8].toFloat(); // JB CCS geaddet
       }
       catch (...)
       {
@@ -451,8 +456,7 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
       const int current_thread(0);
 #endif
       add2DSignal_(features[f], *(experiments[current_thread]), *(experiments_ct[current_thread]));
-
-      // progresslogger, only master thread sets progress (no barrier here)
+// progresslogger, only master thread sets progress (no barrier here)
 #ifdef _OPENMP
   #pragma omp atomic
 #endif
@@ -498,13 +502,12 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
   experiment.updateRanges();
 
   // build contaminant feature map & add raw signal
-  //JB vorübergehend überspringen
-  /*
+  // JB vorübergehend überspringen
   if (experiment.size() > 1) // LC/MS only currently
   {
     createContaminants_(c_map, experiment, experiment_ct);
   }
-  */
+
   if (param_.getValue("ionization_type") == "MALDI") { addBaseLine_(experiment, minimal_mz_measurement_limit); }
   addShotNoise_(experiment, minimal_mz_measurement_limit, maximal_mz_measurement_limit);
   compressSignals_(experiment);
@@ -673,9 +676,9 @@ void RawMSSignalSimulation::samplePeptideModel1D_(const IsotopeModel& pm,
 }
 
 // JB ccs map als Membervariable speichern
-void RawMSSignalSimulation::setCCSMap(const std::map<std::pair<String, int>, double>& map)
+void RawMSSignalSimulation::setIonMobilityMap(const std::map<std::pair<String, int>, double>& map)
 {
-  ccs_map_ = map;
+  ionmobility_map_ = map;
 }
 
 void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
@@ -701,7 +704,8 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
   IsotopeModel* isomodel = static_cast<IsotopeModel*>(pm.getModel(1));
   IsotopeDistribution iso_dist = isomodel->getIsotopeDistribution();
-  SimTypes::SimCoordinateType mz_mono = active_feature.getMZ();
+  // JB benutzen von monoisotopic peak berechnet aus dem Isotopenmuster
+  SimTypes::SimCoordinateType mz_mono = active_feature.getMZ(); //
   // JB nicht mehr benötigt wegen Benutzung von getMZ()
   // SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
   Int q = active_feature.getCharge();
@@ -731,7 +735,7 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
     {
       double iso_mass = iter->getMZ(); // Masse von Isotop speichern
-      double mz = iso_mass / q;
+      double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
       // OPENMS_LOG_INFO << "mz: " << mz << " iso_mass: " << iso_mass << " q: " << q << "protomass:" << Constants::PROTON_MASS_U << std::endl;
       point.setMZ(mz);
       point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
@@ -799,25 +803,47 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 #endif
       point.setMZ(std::fabs(point.getMZ() + mz_err));
 
-      // JB CCS suchen für dieses Peptid
-      float ccs = -1.0f; // negative Zahl kann erkannt werden als ungültiger ccs Eintrag im nachhenein
-      float k0 = -1.0f;
-      if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
+      if (param_.getValue("ionmobility") == "true")
       {
-        String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
-        int charge = active_feature.getCharge();
-        float mz = active_feature.getMZ(); // für Umwandlung zu k0
-        auto it = ccs_map_.find({seq, charge});
-        if (it != ccs_map_.end()) { ccs = static_cast<float>(it->second); }
-        k0 = IonMobilitySimulation::convertCCStoKo(ccs, mz, charge);
+        // JB IonMobility Wert suchen für dieses Peptid
+        float im_value = -1.0f; // negative Zahl kann erkannt werden als ungültiger ccs Eintrag im nachhenein
+        if (active_feature.metaValueExists("contaminant") && active_feature.getMetaValue("contaminant") == "true")
+        {
+          if (active_feature.metaValueExists("ccs"))
+          {
+            if (unit_ == "ccs") { im_value = static_cast<float>(active_feature.getMetaValue("ccs")); }
+            else if (unit_ == "k0")
+            {
+              im_value = IonMobilitySimulation::convertCCStoKo(static_cast<float>(active_feature.getMetaValue("ccs")), active_feature.getMZ(),
+                                                               active_feature.getCharge());
+            }
+          }
+        }
+        else if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
+        {
+          String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
+          int charge = active_feature.getCharge();
+          // float mz = active_feature.getMZ(); // für Umwandlung zu k0
+          auto it = ionmobility_map_.find({seq, charge});
+          if (it != ionmobility_map_.end()) { im_value = static_cast<float>(it->second); }
+          // im_value = IonMobilitySimulation::convertCCStoKo(ccs, mz, charge);
+          else { throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit_, "Unknown unit for ion mobility."); }
+        }
+
+        // add CCS to the Float data array
+
+        exp_iter->MSSpectrum::addIMToFloatDataArray(im_value, unit_);
       }
 
-      // add CCS to the Float data array
-
-      exp_iter->MSSpectrum::addK0ToFloatDataArray(k0);
-      exp_iter->push_back(point);     
-      
-      //OPENMS_LOG_INFO << "K0 array size: " << fda.size() << std::endl;
+      exp_iter->push_back(point);
+      /*
+      if (exp_iter->getFloatDataArrays()[0].size() != exp_iter->size())
+      {
+        OPENMS_LOG_WARN << "FloatArray (" << exp_iter->getFloatDataArrays()[0].size() << ") und Peaks (" << exp_iter->size() << ") unterschiedlich!"
+                        << std::endl;
+      }
+      */
+      // OPENMS_LOG_INFO << "K0 array size: " << fda.size() << std::endl;
 
       /*
       const auto& fda = exp_iter->getFloatDataArrays()[0];
@@ -847,7 +873,9 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
         }
         else if (exp_iter->getFloatDataArrays()[0].size() != exp_iter->size())
         {
-          OPENMS_LOG_WARN << "FloatArray (" << exp_iter->getFloatDataArrays()[0].size() << ") und Peaks (" << exp_iter->size() << ") unterschiedlich!" << std::endl;
+          OPENMS_LOG_WARN << "FloatArray (" << exp_iter->getFloatDataArrays()[0].size() << ") und Peaks (" << exp_iter->size() << ")
+      unterschiedlich!"
+      << std::endl;
         }
         else
         {
@@ -857,9 +885,6 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
         }
       }
       */
-      int peaks = exp_iter->size();
-      int floatarray = exp_iter->getFloatDataArrays()[0].size();
-      
 
       intensity_sum += point.getIntensity();
     }
@@ -1042,6 +1067,8 @@ void RawMSSignalSimulation::createContaminants_(SimTypes::FeatureMapSim& c_map, 
     feature.setMetaValue("sum_formula", contaminants_[i].sf.toString()); // formula without adducts or charges
     feature.setCharge(contaminants_[i].q);
     feature.setMetaValue("charge_adducts", "H" + String(contaminants_[i].q)); // adducts separately
+    feature.setMetaValue("ccs", contaminants_[i].ccs);                        // JB CCS value
+    feature.setMetaValue("contaminant", "true");                              // JB Markierung als Kontaminant
     add2DSignal_(feature, exp, exp_ct);
     c_map.push_back(feature);
   }
@@ -1141,11 +1168,32 @@ void RawMSSignalSimulation::addWhiteNoise_(SimTypes::MSSimExperiment& experiment
 
   for (MSSpectrum& spectrum : experiment)
   {
-    SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;   
+    // neues Spektrum vorbereiten
+    std::vector<Size> selected_indices; // indices aus Spektrum die übernommen werden, wenn neue Intensität > 0 ist
+
+    for (Size i = 0; i < spectrum.size(); ++i)
+    {
+      SimTypes::SimIntensityType intensity = spectrum[i].getIntensity() + ndist(rnd_gen_->getTechnicalRng());
+      if (intensity > 0.0)
+      {
+        spectrum[i].setIntensity(intensity);
+        selected_indices.push_back(i); // Index merken
+      }
+    }
+    // nur die Peaks (und Arrays), die im Index-Vektor sind, behalten
+    spectrum.select(selected_indices);
+  }
+
+
+  /*
+  for (MSSpectrum& spectrum : experiment)
+  {
+    SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;
     new_spec.clear(false);
     // JB hier das eingefügt um Floatarrays zu erhalten
     new_spec.getFloatDataArrays() = spectrum.getFloatDataArrays();
 
+    // vektor mit indizes
 
     for (Peak1D& peak : spectrum)
     {
@@ -1153,12 +1201,19 @@ void RawMSSignalSimulation::addWhiteNoise_(SimTypes::MSSimExperiment& experiment
       if (intensity > 0.0)
       {
         peak.setIntensity(intensity);
-        new_spec.push_back(peak);
+        new_spec.push_back(peak); // pushback mit indizes
+        // select
       }
     }
 
+    // JB
+    // spectrum.select()
+    // leeren vektor anlegen für select
+    // mit i iterieren und statt push back i
+
     spectrum = new_spec;
   }
+  */
 }
 
 void RawMSSignalSimulation::addDetectorNoise_(SimTypes::MSSimExperiment& experiment)
@@ -1281,25 +1336,39 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
     // copy Spectrum and remove Peaks ..
     SimTypes::MSSimExperiment::SpectrumType cont = experiment[i];
     cont.clear(false);
-    //JB einfügen um floatdataarrays zu erhalten
-    cont.getFloatDataArrays() = experiment[i].getFloatDataArrays();
+    // JB einfügen um floatdataarrays zu erhalten
+    // cont.getFloatDataArrays() = experiment[i].getFloatDataArrays();
 
     GridTypeIt grid_pos = grid.begin();
     GridTypeIt grid_pos_next(grid_pos + 1);
 
     double int_sum(0);
+
+    std::vector<double> fda_temp; // JB Vektor für FloatDataArrayeinträge, die zusammengefasst werden
+    double mean_fda_value(0.0);
+
     bool break_scan(false);
     // match points to closest grid point
     for (Size j = 0; j < experiment[i].size(); ++j)
     {
       Size advance_by_binary_search = 3;
-      while (fabs((*grid_pos_next) - experiment[i][j].getMZ()) < fabs((*grid_pos) - experiment[i][j].getMZ()))
+      while (fabs((*grid_pos_next) - experiment[i][j].getMZ())
+             < fabs((*grid_pos) - experiment[i][j].getMZ())) // grid wechsel, wenn peak näher ist an nächstem Peak
       {
         if (int_sum > 0) // we collected some points before --> save them
         {
           p.setIntensity(int_sum);
           p.setMZ(*grid_pos);
           cont.push_back(p);
+
+          if (param_.getValue("ionmobility") == "true")
+          {
+            mean_fda_value = fda_temp.empty() ? 0.0 : std::accumulate(fda_temp.begin(), fda_temp.end(), 0.0) / fda_temp.size();
+            cont.MSSpectrum::addIMToFloatDataArray(mean_fda_value, unit_);
+            fda_temp.clear();
+            mean_fda_value = 0.0;
+          }
+
           int_sum = 0; // reset
         }
 
@@ -1327,6 +1396,7 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
 
       int_sum += experiment[i][j].getIntensity();
 
+      if (param_.getValue("ionmobility") == "true") { fda_temp.push_back(experiment[i].getFloatDataArrays()[0][j]); }
     } // end of scan
 
     if (int_sum > 0) // don't forget the last one
@@ -1334,10 +1404,17 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
       p.setIntensity(int_sum);
       p.setMZ(*grid_pos);
       cont.push_back(p);
+      if (param_.getValue("ionmobility") == "true")
+      {
+        mean_fda_value = fda_temp.empty() ? 0.0 : std::accumulate(fda_temp.begin(), fda_temp.end(), 0.0) / fda_temp.size();
+        cont.getFloatDataArrays()[0].push_back(mean_fda_value);
+      }
     }
 
     point_count_before += experiment[i].size(); // stats
     experiment[i] = cont;
+
+    if (param_.getValue("ionmobility") == "true") { experiment[i].getFloatDataArrays() = cont.getFloatDataArrays(); }
     point_count_after += experiment[i].size();
   }
 

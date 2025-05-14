@@ -2,6 +2,7 @@
 
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
 #include <OpenMS/KERNEL/FeatureMap.h>
+#include <OpenMS/SIMULATION/SimTypes.h>
 
 namespace OpenMS
 {
@@ -19,11 +20,10 @@ namespace OpenMS
 class OPENMS_DLLAPI IonMobilitySimulation : public DefaultParamHandler
 {
 private:
-  String input_path_;                                // z. B. "/path/to/im2deep/input.csv"
-  String output_path_;                               // z. B. "/path/to/im2deep/output.csv"
-  std::map<std::pair<String, int>, double> ccs_map_; // Map für CCS-Werte
-  const FeatureMap* feature_map_;
-  String im2deep_working_dir_; // Arbeitsverzeichnis für IM2Deep
+  String im2deep_input_path_;                                // z. B. "/path/to/im2deep/input.csv"
+  String im2deep_output_path_;                               // z. B. "/path/to/im2deep/output.csv"
+  std::map<std::pair<String, int>, double> ionmobility_map_; // Map für CCS-Werte
+  String unit_;                                              // z. B. "VSSC" oder "CCS"
 
 
 public:
@@ -50,32 +50,32 @@ public:
   // Save param_ values as members
   void updateMembers_();
 
-  void setFeatureMap(const FeatureMap& fmap)
-  {
-    feature_map_ = &fmap;
-  }
-
   // run IM2Deep and save ccs in map with peptide sequence and charge
-  void run();
+  void run(const SimTypes::FeatureMapSim& features);
 
   /// Simulate ion mobility spectra for a given set of peptides
-  void createIM2DeepInputCSV();
+  void createIM2DeepInputCSV(const SimTypes::FeatureMapSim& features);
 
-  /// Run IM2Deep to predict CCS values
+  /// Run IM2Deep to predict Ionmobility values
   void runIM2Deep();
 
   /// Save IM2Deep output to a file
   void saveIM2DeepOutput();
 
-  // CCS Map getter
-  const std::map<std::pair<String, int>, double>& getCCSMap() const
+  // IonMobility Map getter
+  const std::map<std::pair<String, int>, double>& getIonMobilityMap() const
   {
-    return ccs_map_;
+    return ionmobility_map_;
+  }
+
+  // Unit getter
+  const String& getUnit() const
+  {
+    return unit_;
   }
 
   // Convert CCS to inverse K0
   static float convertCCStoKo(float ccs, float mz, int charge);
-
 };
 
-}
+} // namespace OpenMS

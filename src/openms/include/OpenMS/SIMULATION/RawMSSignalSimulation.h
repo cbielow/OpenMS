@@ -62,8 +62,14 @@ public:
                           SimTypes::MSSimExperiment& experiment_ct,
                           SimTypes::FeatureMapSim& contaminants);
 
-  // JB Übergibt die CCS-Werte pro Peptid
-  void setCCSMap(const std::map<std::pair<OpenMS::String, int>, double>& map);
+  // JB Übergibt die IonMobility-Werte pro Peptid
+  void setIonMobilityMap(const std::map<std::pair<OpenMS::String, int>, double>& map);
+
+  // JB Unit speichern (ccs oder k0)
+  void setIMUnit(String& unit)
+  {
+    unit_ = unit;
+  }
 
 protected:
   enum IONIZATIONMETHOD
@@ -247,6 +253,7 @@ protected:
     Int q;
     PROFILESHAPE shape;
     IONIZATIONMETHOD im;
+    float ccs; // JB ccs hinzugefügt
   };
 
   std::vector<ContaminantInfo> contaminants_;
@@ -266,9 +273,10 @@ protected:
 
   bool contaminants_loaded_;
 
-  // JB Map für ccs Variable
+  // JB
 private:
-  std::map<std::pair<OpenMS::String, int>, double> ccs_map_;
+  std::map<std::pair<OpenMS::String, int>, double> ionmobility_map_;
+  String unit_; // z. B. "VSSC" oder "CCS"
 };
 
 } // namespace OpenMS
