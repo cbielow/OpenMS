@@ -20,11 +20,12 @@ namespace OpenMS
 class OPENMS_DLLAPI IonMobilitySimulation : public DefaultParamHandler
 {
 private:
-  String im2deep_input_path_;                                // z. B. "/path/to/im2deep/input.csv"
-  String im2deep_output_path_;                               // z. B. "/path/to/im2deep/output.csv"
-  std::map<std::pair<String, int>, double> ionmobility_map_; // Map für CCS-Werte
-  String unit_;                                              // z. B. "VSSC" oder "CCS"
-
+  String im2deep_input_path_;
+  String im2deep_output_path_;
+  std::map<std::pair<String, int>, double> ionmobility_map_;
+  String unit_;
+  std::vector<std::vector<int>> split_indices_; // Indices of split sequences in im2deep (temporary till im2deep can handle sequences larger than 60)
+  String im2deep_combined_output_path_; // temporary solution for im2deep. To Do: remove this line when im2deep can handle sequences larger than 60
 
 public:
   /** @name Constructors and Destructors
@@ -58,6 +59,10 @@ public:
 
   /// Run IM2Deep to predict Ionmobility values
   void runIM2Deep();
+
+  /// temporary solution for im2deep remove this function when im2deep can handle sequences larger than 60
+  /// Add split indices together from peptides > 60 for im2deep
+  void addsplit_indices();
 
   /// Save IM2Deep output to a file
   void saveIM2DeepOutput();

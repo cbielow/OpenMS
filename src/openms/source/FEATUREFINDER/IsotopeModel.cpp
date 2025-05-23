@@ -8,8 +8,8 @@
 
 #include <OpenMS/CHEMISTRY/EmpiricalFormula.h>
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/CoarseIsotopePatternGenerator.h>
-#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h> // JB includen von FineIsotopePatterngenarator
-#include <OpenMS/CONCEPT/LogStream.h>                                         // JB include für debug ausgaben
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h>
+#include <OpenMS/CONCEPT/LogStream.h>                                        
 #include <OpenMS/FEATUREFINDER/IsotopeModel.h>
 #include <OpenMS/MATH/STATISTICS/BasicStatistics.h>
 #include <boost/math/distributions/cauchy.hpp>
@@ -45,9 +45,6 @@ IsotopeModel::IsotopeModel(): InterpolationModel(), charge_(0), monoisotopic_mz_
   defaults_.setValue("charge", 1, "Charge state of the model.", {"advanced"});
   defaults_.setValue("statistics:mean", 0.0, "Centroid m/z (as opposed to monoisotopic m/z).", {"advanced"});
 
-  // JB default ist IsotopeModus coarse, aber alternativ geht auch fine für FineIsotope
-  defaults_.setValue("isotope:pattern_mode", "coarse", "Choose the isotope pattern generator mode: coarse or fine.", {"advanced"});
-  defaults_.setValidStrings("isotope:pattern_mode", {"coarse", "fine"});
   defaultsToParam_();
 }
 
@@ -98,16 +95,15 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
   typedef std::vector<double> ContainerType;
   ContainerType isotopes_exact;
 
-  // JB FineIsotope als Option hinzufügen
   if (param_.getValue("isotope:pattern_mode") == "fine") { isotope_distribution_ = formula.getIsotopeDistribution(FineIsotopePatternGenerator()); }
-  // JB versuch round_masses (zweites argument) auf false zu setzen
   else { isotope_distribution_ = formula.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_, false)); }
 
   isotope_distribution_.trimRight(trim_right_cutoff_);
   isotope_distribution_.renormalize();
 
   // compute the average mass (-offset)
-  CoordinateType isotopes_mean = 0;
+  // not needed anymore -> using .getMonoWeight() to get monoisotopic mass
+  /*
   {
     Int cnt = 0;
     for (Peak1D& peak : isotope_distribution_)
@@ -118,11 +114,25 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
     }
     isotopes_mean *= isotope_distance_ / charge_;
   }
+  */
   // (Need not divide by sum of probabilities, which is 1.)
 
   ///
   // "stretch" the averagine isotope distribution (so we can add datapoints between isotope peaks)
   ///
+  size_t array_size
+    = size_t((isotope_distribution_[isotope_distribution_.size() - 1].getMZ() - isotope_distribution_[0].getMZ()) / interpolation_step_ + 1.5);
+  isotopes_exact.clear();
+  isotopes_exact.resize(array_size, 0.0);
+
+  for (Size i = 0; i < isotope_distribution_.size(); ++i)
+  {
+    double mz_offset = isotope_distribution_[i].getMZ() - isotope_distribution_[0].getMZ(); // distance to first peak
+    size_t index = static_cast<size_t>(mz_offset / interpolation_step_ + 0.5);              // +0,5 to round to next index
+    if (index < isotopes_exact.size()) { isotopes_exact[index] = isotope_distribution_[i].getIntensity(); }
+  }
+
+  /*
   size_t isotopes_exact_size = isotopes_exact.size();
   isotopes_exact.resize(size_t((isotopes_exact_size - 1) * isotope_distance_ / interpolation_step_ + 1.6)); // round up a bit more
 
@@ -132,7 +142,7 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
     isotopes_exact[size_t(CoordinateType(i) * isotope_distance_ / interpolation_step_ / charge_ + 0.5)] = isotopes_exact[i];
     isotopes_exact[i] = 0;
   }
-
+  */
   ////
   // compute the Gaussian/Cauchy distribution (to be added for widening the averagine isotope distribution)
   ////
@@ -188,7 +198,8 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
     }
   }
 
-  monoisotopic_mz_ = mean_ - isotopes_mean;
+  // monoisotopic_mz_ = mean_ - isotopes_mean;
+  monoisotopic_mz_ = formula.getMonoWeight() / charge_;
   interpolation_.setMapping(interpolation_step_, peak_width / interpolation_step_, monoisotopic_mz_);
 
   // scale data so that integral over distribution equals one

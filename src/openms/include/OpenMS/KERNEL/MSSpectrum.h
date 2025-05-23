@@ -361,6 +361,23 @@ public:
     select(indices);
   }
 
+  // Sort only within begin, end index range
+  template<class Predicate>
+  void partialSort(Size begin, Size end, const Predicate& lambda)
+  {
+    if (end > this->size() || begin > end)
+    {
+      throw OpenMS::Exception::InvalidRange(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Invalid begin/end range for partialSort()");
+    }
+
+    std::vector<Size> indices(this->size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    // Sort only the subrange
+    std::stable_sort(indices.begin() + begin, indices.begin() + end, lambda);
+    this->select(indices);
+  }
+
   //@}
 
   ///@name Searching a peak or peak range
@@ -546,7 +563,15 @@ public:
   */
   ConstIterator PosEnd(ConstIterator begin, CoordinateType mz, ConstIterator end) const;
 
-  // JB add IonMobility to FloatDataArray
+  /**
+    @brief Add a new im_value to the Float data array of the spectrum
+
+    The new @p im_value is added to the end of the list of float data arrays.
+    The unit is set to @p unit.
+
+    @param im_value The value of the ion mobility
+    @param unit The unit of the ion mobility
+  */
   void addIMToFloatDataArray(float im_value, String unit);
 
   /// do the names of internal float metadata arrays contain any hint of ion mobility data, i.e. they are a child of 'MS:1002893 ! ion mobility

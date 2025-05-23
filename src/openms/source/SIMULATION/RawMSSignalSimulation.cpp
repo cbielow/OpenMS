@@ -33,9 +33,12 @@
 // --------------------------------------------------------------------------
 
 
+#include <OpenMS/CONCEPT/Constants.h>
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/FORMAT/SVOutStream.h>
 #include <OpenMS/FORMAT/TextFile.h>
+#include <OpenMS/KERNEL/MSSpectrum.h>
+#include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 #include <OpenMS/SIMULATION/RawMSSignalSimulation.h>
 #include <OpenMS/SYSTEM/File.h>
 #include <boost/math/distributions.hpp>
@@ -44,11 +47,6 @@
 #include <boost/random/poisson_distribution.hpp>
 #include <boost/random/uniform_real.hpp>
 #include <utility>
-
-// JB
-#include <OpenMS/CONCEPT/Constants.h>
-#include <OpenMS/KERNEL/MSSpectrum.h>
-#include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 
 #ifdef _OPENMP
   #include <omp.h>
@@ -154,7 +152,8 @@ void RawMSSignalSimulation::setDefaultParams_()
                      "Peak Shape used around each isotope peak (be aware that the area under the curve is constant for both types, but the maximal "
                      "height will differ (~ 2:3 = Lorentz:Gaussian) due to the wider base of the Lorentzian");
   defaults_.setValidStrings("peak_shape", {"Gaussian", "Lorentzian"});
-
+  defaults_.setValue("isotope_pattern_mode", "coarse", "Choose the isotope pattern generator mode: coarse or fine.");
+  defaults_.setValidStrings("isotope_pattern_mode", {"coarse", "fine"});
 
   // baseline
   defaults_.setValue("baseline:scaling", 0.0, "Scale of baseline. Set to 0 to disable simulation of baseline");
@@ -220,11 +219,13 @@ void RawMSSignalSimulation::setDefaultParams_()
 
   defaults_.setSectionDescription("noise", "Parameters modeling noise in mass spectrometry measurements");
 
-  // JB Default Werte für Isotope_pattern_mode
-  defaults_.setValue("isotope_pattern_mode", "coarse", "Choose the isotope pattern generator mode: coarse or fine.");
-  defaults_.setValidStrings("isotope_pattern_mode", {"coarse", "fine"});
+  // ion mobility
   defaults_.setValue("ionmobility", "false", "Enable ion mobility simulation.");
   defaults_.setValidStrings("ionmobility", {"true", "false"});
+
+  // compress signals
+  defaults_.setValue("compresssignal:IM_grid_width", 0.01, "Width of the IM grid for compressing signals");
+  defaults_.setMinFloat("compresssignal:IM_grid_width", 0.00001);
 
   defaultsToParam_();
 }
@@ -264,6 +265,11 @@ void RawMSSignalSimulation::updateMembers_()
   intensity_scale_stddev_ = param_.getValue("variation:intensity:scale_stddev");
 
   contaminants_loaded_ = false;
+
+  if (param_.getValue("ionmobility") == "true") { im_activated_ = true; }
+  else { im_activated_ = false; }
+
+  im_grid_width_ = param_.getValue("compresssignal:IM_grid_width");
 }
 
 void RawMSSignalSimulation::loadContaminants()
@@ -280,7 +286,6 @@ void RawMSSignalSimulation::loadContaminants()
     // read & parse file:
     TextFile tf(contaminants_file, true);
     contaminants_.clear();
-    // JB eine col mehr wegen CCS
     const UInt COLS_EXPECTED = 9;
     Size line_number = 1;
     for (TextFile::ConstIterator tf_it = tf.begin(); tf_it != tf.end(); ++tf_it, ++line_number)
@@ -319,7 +324,7 @@ void RawMSSignalSimulation::loadContaminants()
         c.rt_end = cols[3].toDouble();
         c.intensity = cols[4].toDouble();
         c.q = cols[5].toInt();
-        c.ccs = cols[8].toFloat(); // JB CCS geaddet
+        c.ccs = cols[8].toFloat();
       }
       catch (...)
       {
@@ -468,7 +473,8 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
       if (compress_count > compress_size_intermediate)
       {
         compress_count = 0;
-        compressSignals_(*(experiments[current_thread]));
+        if (im_activated_) { compressSignalsIonMobility_(*(experiments[current_thread])); }
+        else { compressSignals_(*(experiments[current_thread])); }
       }
     } // ! raw signal sim
 
@@ -502,7 +508,6 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
   experiment.updateRanges();
 
   // build contaminant feature map & add raw signal
-  // JB vorübergehend überspringen
   if (experiment.size() > 1) // LC/MS only currently
   {
     createContaminants_(c_map, experiment, experiment_ct);
@@ -510,7 +515,8 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
 
   if (param_.getValue("ionization_type") == "MALDI") { addBaseLine_(experiment, minimal_mz_measurement_limit); }
   addShotNoise_(experiment, minimal_mz_measurement_limit, maximal_mz_measurement_limit);
-  compressSignals_(experiment);
+  if (im_activated_) { compressSignalsIonMobility_(experiment); }
+  else { compressSignals_(experiment); }
 
   // add white noise to the simulated data
   addWhiteNoise_(experiment);
@@ -546,7 +552,6 @@ void RawMSSignalSimulation::add1DSignal_(Feature& active_feature, SimTypes::MSSi
   p1.setValue("statistics:mean", ef.getAverageWeight() / q);
   p1.setValue("interpolation_step", 0.001);
   p1.setValue("isotope:mode:mode", param_.getValue("peak_shape"));
-  // JB fine als Option für den Isotope Modus
   p1.setValue("isotope:pattern_mode", param_.getValue("isotope_pattern_mode"));
   p1.setValue("intensity_scaling", 0.001 * scale); // this removes the problem of to big isotope-model values
   p1.setValue("charge", q);
@@ -572,7 +577,6 @@ void RawMSSignalSimulation::add1DSignal_(Feature& active_feature, SimTypes::MSSi
   samplePeptideModel1D_(isomodel, mz_start, mz_end, experiment, experiment_ct, active_feature);
 }
 
-// JB Aufruf für jedes Feature bzw. jedes Peptid
 void RawMSSignalSimulation::add2DSignal_(Feature& active_feature, SimTypes::MSSimExperiment& experiment, SimTypes::MSSimExperiment& experiment_ct)
 {
   SimTypes::SimIntensityType scale = getFeatureScaledIntensity_(active_feature.getIntensity(), 1.0);
@@ -588,7 +592,6 @@ void RawMSSignalSimulation::add2DSignal_(Feature& active_feature, SimTypes::MSSi
   p1.setValue("statistics:mean", ef.getAverageWeight() / q);
   p1.setValue("interpolation_step", 0.001);
   p1.setValue("isotope:mode:mode", param_.getValue("peak_shape"));
-  // JB fine als Option für den Isotope Modus
   p1.setValue("isotope:pattern_mode", param_.getValue("isotope_pattern_mode"));
   p1.setValue("intensity_scaling", 0.001); // this removes the problem of to big isotope-model values
   p1.setValue("charge", q);
@@ -675,12 +678,6 @@ void RawMSSignalSimulation::samplePeptideModel1D_(const IsotopeModel& pm,
   active_feature.setIntensity(intensity_sum);
 }
 
-// JB ccs map als Membervariable speichern
-void RawMSSignalSimulation::setIonMobilityMap(const std::map<std::pair<String, int>, double>& map)
-{
-  ionmobility_map_ = map;
-}
-
 void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
                                                   const SimTypes::SimCoordinateType mz_start,
                                                   const SimTypes::SimCoordinateType mz_end,
@@ -704,9 +701,9 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
   IsotopeModel* isomodel = static_cast<IsotopeModel*>(pm.getModel(1));
   IsotopeDistribution iso_dist = isomodel->getIsotopeDistribution();
-  // JB benutzen von monoisotopic peak berechnet aus dem Isotopenmuster
+
   SimTypes::SimCoordinateType mz_mono = active_feature.getMZ(); //
-  // JB nicht mehr benötigt wegen Benutzung von getMZ()
+
   // SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
   Int q = active_feature.getCharge();
 
@@ -720,8 +717,6 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
   for (; rt < rt_end && exp_iter != experiment.end(); ++exp_iter, ++exp_ct_iter)
   {
     rt = exp_iter->getRT();
-    // JB damit IonMobility auch gespeichert wird
-    exp_iter->setType(SpectrumSettings::SpectrumType::PROFILE);
 
     double distortion = double(exp_iter->getMetaValue("distortion"));
     double rt_intensity = ((EGHModel*)pm.getModel(0))->getIntensity(rt);
@@ -730,13 +725,11 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     // Size iso_pos(0);
     SimTypes::SimPointType point;
 
-    // JB hier ändern stattdessen iter.getMZ, warum wurde das so gemacht
-    // getMZ() für centroided Ausgabe
+    // getMZ() for centroided
     for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
     {
       double iso_mass = iter->getMZ(); // Masse von Isotop speichern
       double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
-      // OPENMS_LOG_INFO << "mz: " << mz << " iso_mass: " << iso_mass << " q: " << q << "protomass:" << Constants::PROTON_MASS_U << std::endl;
       point.setMZ(mz);
       point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
@@ -758,7 +751,7 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     // RAW signal (sample it on the grid)
     std::vector<SimTypes::SimCoordinateType>::const_iterator it_grid = lower_bound(grid_.begin(), grid_.end(), mz_start);
     // JB  Die Schleife iteriert über alle relevanten m/z-Werte innerhalb der Isotopenmuster-Grenzen
-    // setMZ für nicht centroided Ausgabe
+    // setMZ if not centroided
     for (; it_grid != grid_.end() && (*it_grid) < mz_end; ++it_grid)
     {
       ProductModel<2>::IntensityType intensity = pm.getIntensity(DPosition<2>(rt, *it_grid)) * distortion;
@@ -803,16 +796,16 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 #endif
       point.setMZ(std::fabs(point.getMZ() + mz_err));
 
-      if (param_.getValue("ionmobility") == "true")
+      // add Ionmobility value from im2deep output
+      if (im_activated_)
       {
-        // JB IonMobility Wert suchen für dieses Peptid
-        float im_value = -1.0f; // negative Zahl kann erkannt werden als ungültiger ccs Eintrag im nachhenein
+        float im_value = -1.0f;
         if (active_feature.metaValueExists("contaminant") && active_feature.getMetaValue("contaminant") == "true")
         {
           if (active_feature.metaValueExists("ccs"))
           {
             if (unit_ == "ccs") { im_value = static_cast<float>(active_feature.getMetaValue("ccs")); }
-            else if (unit_ == "k0")
+            else if (unit_ == "vssc")
             {
               im_value = IonMobilitySimulation::convertCCStoKo(static_cast<float>(active_feature.getMetaValue("ccs")), active_feature.getMZ(),
                                                                active_feature.getCharge());
@@ -823,15 +816,12 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
         {
           String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
           int charge = active_feature.getCharge();
-          // float mz = active_feature.getMZ(); // für Umwandlung zu k0
           auto it = ionmobility_map_.find({seq, charge});
           if (it != ionmobility_map_.end()) { im_value = static_cast<float>(it->second); }
-          // im_value = IonMobilitySimulation::convertCCStoKo(ccs, mz, charge);
           else { throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit_, "Unknown unit for ion mobility."); }
         }
 
         // add CCS to the Float data array
-
         exp_iter->MSSpectrum::addIMToFloatDataArray(im_value, unit_);
       }
 
@@ -1067,8 +1057,8 @@ void RawMSSignalSimulation::createContaminants_(SimTypes::FeatureMapSim& c_map, 
     feature.setMetaValue("sum_formula", contaminants_[i].sf.toString()); // formula without adducts or charges
     feature.setCharge(contaminants_[i].q);
     feature.setMetaValue("charge_adducts", "H" + String(contaminants_[i].q)); // adducts separately
-    feature.setMetaValue("ccs", contaminants_[i].ccs);                        // JB CCS value
-    feature.setMetaValue("contaminant", "true");                              // JB Markierung als Kontaminant
+    feature.setMetaValue("ccs", contaminants_[i].ccs);                        // CCS value
+    feature.setMetaValue("contaminant", "true");                              // mark as contaminant
     add2DSignal_(feature, exp, exp_ct);
     c_map.push_back(feature);
   }
@@ -1186,14 +1176,12 @@ void RawMSSignalSimulation::addWhiteNoise_(SimTypes::MSSimExperiment& experiment
 
 
   /*
+  /// old version without spectrum.select()
   for (MSSpectrum& spectrum : experiment)
   {
     SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;
     new_spec.clear(false);
-    // JB hier das eingefügt um Floatarrays zu erhalten
     new_spec.getFloatDataArrays() = spectrum.getFloatDataArrays();
-
-    // vektor mit indizes
 
     for (Peak1D& peak : spectrum)
     {
@@ -1205,11 +1193,6 @@ void RawMSSignalSimulation::addWhiteNoise_(SimTypes::MSSimExperiment& experiment
         // select
       }
     }
-
-    // JB
-    // spectrum.select()
-    // leeren vektor anlegen für select
-    // mit i iterieren und statt push back i
 
     spectrum = new_spec;
   }
@@ -1235,7 +1218,6 @@ void RawMSSignalSimulation::addDetectorNoise_(SimTypes::MSSimExperiment& experim
   {
     SimTypes::MSSimExperiment::SpectrumType new_spec = spectrum;
     new_spec.clear(false);
-    // JB
     new_spec.getFloatDataArrays() = spectrum.getFloatDataArrays();
 
     std::vector<SimTypes::SimCoordinateType>::iterator grid_it = grid_.begin();
@@ -1296,7 +1278,151 @@ void RawMSSignalSimulation::getSamplingGrid_(std::vector<SimTypes::SimCoordinate
   return;
 }
 
+void RawMSSignalSimulation::getIMGrid_(std::vector<double>& grid, const double im_min, const double im_max, const double im_step)
+{
+  if (fabs(im_max - im_min) < im_step) { throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "IM grid range too small!"); }
+  grid.clear();
+  for (double im = im_min; im <= im_max; im += im_step)
+  {
+    grid.push_back(im);
+  }
+}
+
+size_t RawMSSignalSimulation::getNearestGridIndex_(const std::vector<SimTypes::SimCoordinateType>& grid, const float value)
+{
+  auto upper = std::upper_bound(grid.begin(), grid.end(), value); // first value bigger than im_value
+  if (upper == grid.begin()) return 0;
+  if (upper == grid.end()) return grid.size() - 1;
+  auto lower = upper - 1; // index before upper
+  size_t index = 0;
+  if (value - *lower <= *upper - value) { index = std::distance(grid.begin(), lower); }
+  else { index = std::distance(grid.begin(), upper); }
+  return index;
+}
+
 // TODO: add instrument specific sampling technique
+void RawMSSignalSimulation::compressSignalsIonMobility_(SimTypes::MSSimExperiment& experiment)
+{
+  if (experiment.empty() || experiment[0].getInstrumentSettings().getScanWindows().empty())
+  {
+    throw Exception::IllegalSelfOperation(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION);
+  }
+  SimTypes::SimCoordinateType min_mz = experiment[0].getInstrumentSettings().getScanWindows()[0].begin;
+  SimTypes::SimCoordinateType max_mz = experiment[0].getInstrumentSettings().getScanWindows()[0].end;
+
+  if (min_mz >= max_mz)
+  {
+    OPENMS_LOG_WARN << "No data to compress." << std::endl;
+    return;
+  }
+
+  std::vector<SimTypes::SimCoordinateType> mz_grid;
+  getSamplingGrid_(mz_grid, min_mz, max_mz, 5); // every 5 Da we adjust the sampling width by local FWHM
+
+  // IM Grid bestimmen
+  std::vector<SimTypes::SimCoordinateType> im_grid;
+  float im_min = std::numeric_limits<float>::max();
+  float im_max = std::numeric_limits<float>::lowest();
+
+  for (const auto& spec : experiment)
+  {
+    if (spec.getFloatDataArrays().empty()) continue;
+    const auto& im = spec.getFloatDataArrays()[0];
+
+    for (float val : im)
+    {
+      if (val < im_min) im_min = val;
+      if (val > im_max) im_max = val;
+    }
+  }
+  getIMGrid_(im_grid, im_min, im_max, im_grid_width_);
+
+
+  if (mz_grid.size() < 3 || im_grid.size() < 3)
+  {
+    OPENMS_LOG_WARN << "Data spacing is weird - either you selected a very small interval or a very low resolution - or both. Not compressing."
+                    << std::endl;
+    return;
+  }
+
+  // OPENMS_LOG_INFO << "m/z grid size: " << mz_grid.size() << std::endl;
+  // OPENMS_LOG_INFO << "IM grid size: " << im_grid.size() << std::endl;
+
+
+  Size point_count_before(0), point_count_after(0);
+  SimTypes::SimPointType p;
+  for (Size i = 0; i < experiment.size(); ++i)
+  {
+    if (experiment[i].size() <= 1) { continue; }
+    // OPENMS_LOG_INFO << "Processing spectrum " << i << " with size " << experiment[i].size() << std::endl;
+
+    /*
+    /// Different approach with sorting first
+    experiment[i].sortByIonMobility();
+
+    Size start = 0;
+    for (Size j = 1; j < experiment[i].size(); ++j)
+    {
+      Size bin_prev = getNearestGridIndex_(im_grid, experiment[i].getFloatDataArrays()[0][j - 1]); // index of previous bin
+      Size bin_curr = getNearestGridIndex_(im_grid, experiment[i].getFloatDataArrays()[0][j]);     // index of current bin
+
+      if (bin_curr != bin_prev)
+      {
+        experiment[i].partialSort(start, j, [&](Size i1, Size i2) {
+          return experiment[i][i1].getMZ() < experiment[i][i2].getMZ();
+        });
+        start = j;
+      }
+    }
+    experiment[i].partialSort(start, experiment[i].size(), [&](Size i1, Size i2) { return experiment[i][i1].getMZ() < experiment[i][i2].getMZ(); });
+    */
+
+    // copy Spectrum and remove Peaks ..
+    SimTypes::MSSimExperiment::SpectrumType cont = experiment[i];
+    cont.clear(false);
+    const auto& im_data = experiment[i].getFloatDataArrays()[0];
+    cont.getFloatDataArrays().resize(1);
+
+    std::map<std::pair<Size, Size>, double> bin_map; // map to store intensities for each grid point
+
+    for (Size j = 0; j < experiment[i].size(); ++j) // go through peaks
+    {
+      Size im_bin = getNearestGridIndex_(im_grid, im_data[j]);               // index of nearest im_grid point to im value of peak
+      Size mz_bin = getNearestGridIndex_(mz_grid, experiment[i][j].getMZ()); // index of nearest mz_grid point to mz value of peak
+
+      bin_map[{im_bin, mz_bin}] += experiment[i][j].getIntensity(); // save index of im_bin and mz_bin in bin_map
+    }
+
+    Peak1D p;
+    // fill spectrum with the compressed data from bin_map
+    for (const auto& point : bin_map)
+    {
+      const auto& bin = point.first; // im_bin, mz_bin
+      double intensity = point.second;
+
+      p.setIntensity(intensity);
+      p.setMZ(mz_grid[bin.second]);
+      cont.push_back(p);
+      cont.MSSpectrum::addIMToFloatDataArray(im_grid[bin.first], unit_);
+    }
+
+    point_count_before += experiment[i].size();
+    experiment[i] = cont;
+    experiment[i].getFloatDataArrays() = cont.getFloatDataArrays();
+    point_count_after += experiment[i].size();
+  }
+
+
+  if (point_count_before != 0)
+  {
+    OPENMS_LOG_INFO << "Compressed data to grid ... " << point_count_before << " --> " << point_count_after << " ("
+                    << (point_count_after * 100 / point_count_before) << "%)\n";
+  }
+  else { OPENMS_LOG_INFO << "Not enough points in map .. did not compress!\n"; }
+
+  return;
+}
+
 void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experiment)
 {
   if (experiment.empty() || experiment[0].getInstrumentSettings().getScanWindows().empty())
@@ -1336,42 +1462,25 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
     // copy Spectrum and remove Peaks ..
     SimTypes::MSSimExperiment::SpectrumType cont = experiment[i];
     cont.clear(false);
-    // JB einfügen um floatdataarrays zu erhalten
-    // cont.getFloatDataArrays() = experiment[i].getFloatDataArrays();
 
     GridTypeIt grid_pos = grid.begin();
     GridTypeIt grid_pos_next(grid_pos + 1);
 
     double int_sum(0);
-
-    std::vector<double> fda_temp; // JB Vektor für FloatDataArrayeinträge, die zusammengefasst werden
-    double mean_fda_value(0.0);
-
     bool break_scan(false);
     // match points to closest grid point
     for (Size j = 0; j < experiment[i].size(); ++j)
     {
       Size advance_by_binary_search = 3;
-      while (fabs((*grid_pos_next) - experiment[i][j].getMZ())
-             < fabs((*grid_pos) - experiment[i][j].getMZ())) // grid wechsel, wenn peak näher ist an nächstem Peak
+      while (fabs((*grid_pos_next) - experiment[i][j].getMZ()) < fabs((*grid_pos) - experiment[i][j].getMZ()))
       {
         if (int_sum > 0) // we collected some points before --> save them
         {
           p.setIntensity(int_sum);
           p.setMZ(*grid_pos);
           cont.push_back(p);
-
-          if (param_.getValue("ionmobility") == "true")
-          {
-            mean_fda_value = fda_temp.empty() ? 0.0 : std::accumulate(fda_temp.begin(), fda_temp.end(), 0.0) / fda_temp.size();
-            cont.MSSpectrum::addIMToFloatDataArray(mean_fda_value, unit_);
-            fda_temp.clear();
-            mean_fda_value = 0.0;
-          }
-
           int_sum = 0; // reset
         }
-
         if (--advance_by_binary_search == 0)
         {
           // advance using binary search
@@ -1385,7 +1494,6 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
           ++grid_pos;
           ++grid_pos_next;
         }
-
         if (grid_pos_next == grid.end())
         {
           break_scan = true;
@@ -1396,7 +1504,6 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
 
       int_sum += experiment[i][j].getIntensity();
 
-      if (param_.getValue("ionmobility") == "true") { fda_temp.push_back(experiment[i].getFloatDataArrays()[0][j]); }
     } // end of scan
 
     if (int_sum > 0) // don't forget the last one
@@ -1404,17 +1511,10 @@ void RawMSSignalSimulation::compressSignals_(SimTypes::MSSimExperiment& experime
       p.setIntensity(int_sum);
       p.setMZ(*grid_pos);
       cont.push_back(p);
-      if (param_.getValue("ionmobility") == "true")
-      {
-        mean_fda_value = fda_temp.empty() ? 0.0 : std::accumulate(fda_temp.begin(), fda_temp.end(), 0.0) / fda_temp.size();
-        cont.getFloatDataArrays()[0].push_back(mean_fda_value);
-      }
     }
 
     point_count_before += experiment[i].size(); // stats
     experiment[i] = cont;
-
-    if (param_.getValue("ionmobility") == "true") { experiment[i].getFloatDataArrays() = cont.getFloatDataArrays(); }
     point_count_after += experiment[i].size();
   }
 

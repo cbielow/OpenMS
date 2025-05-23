@@ -649,11 +649,10 @@ bool getIonMobilityArray__(const MSSpectrum::FloatDataArrays& fdas, Size& index,
   return false;
 }
 
-// JB add IonMobility to FloatDataArray
 void MSSpectrum::addIMToFloatDataArray(float im_value, String unit)
 {
   MSSpectrum::FloatDataArrays& fda = this->getFloatDataArrays();
-  if (unit == "k0")
+  if (unit == "vssc")
   {
     if (fda.empty() || fda[0].getName() != "MS:1003008") // oder MS:1003008? macht keinen Unterschied bisher
     {

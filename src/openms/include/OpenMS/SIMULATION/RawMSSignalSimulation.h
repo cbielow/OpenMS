@@ -62,16 +62,7 @@ public:
                           SimTypes::MSSimExperiment& experiment_ct,
                           SimTypes::FeatureMapSim& contaminants);
 
-  // JB Übergibt die IonMobility-Werte pro Peptid
-  void setIonMobilityMap(const std::map<std::pair<OpenMS::String, int>, double>& map);
-
-  // JB Unit speichern (ccs oder k0)
-  void setIMUnit(String& unit)
-  {
-    unit_ = unit;
-  }
-
-protected:
+  // protected:
   enum IONIZATIONMETHOD
   {
     IM_ESI = 0,
@@ -186,6 +177,15 @@ protected:
                         const SimTypes::SimCoordinateType mz_max,
                         const Int step_Da);
 
+  /// get the im grid where all im values will be mapped to
+  void getIMGrid_(std::vector<double>& grid, const double im_min, const double im_max, const double im_step);
+
+  /// get the index of the nearest grid point (works for both: mz and im)
+  size_t getNearestGridIndex_(const std::vector<SimTypes::SimCoordinateType>& grid, const float value);
+
+  /// compress signals in a single RT scan when IonMobility is activated
+  void compressSignalsIonMobility_(SimTypes::MSSimExperiment& experiment);
+
   /// Compress signals in a single RT scan (to merge signals which were sampled overlapping)
   void compressSignals_(SimTypes::MSSimExperiment& experiment);
 
@@ -196,6 +196,7 @@ protected:
   SimTypes::SimCoordinateType mz_error_mean_;
   /// Standard deviation of peak m/z error
   SimTypes::SimCoordinateType mz_error_stddev_;
+  /// determines whether IonMoblity is activated or not
 
   /**
    * @brief Computes a rescaled feature intensity based on the set parameters for feature intensity scaling and the passed parameter @p
@@ -253,7 +254,7 @@ protected:
     Int q;
     PROFILESHAPE shape;
     IONIZATIONMETHOD im;
-    float ccs; // JB ccs hinzugefügt
+    float ccs;
   };
 
   std::vector<ContaminantInfo> contaminants_;
@@ -273,10 +274,26 @@ protected:
 
   bool contaminants_loaded_;
 
-  // JB
-private:
+  /// Ionmobility map that uses sequence and charge as key and the ion mobility value as value
   std::map<std::pair<OpenMS::String, int>, double> ionmobility_map_;
-  String unit_; // z. B. "VSSC" oder "CCS"
+  /// Ion mobility unit ("VSSC:raw inverse reduced ion mobility array" or "CCS: collisional cross sectional area")
+  String unit_;
+  // determines whether IonMobility is activated or not
+  bool im_activated_;
+  /// IonMobility grid width for CompressSignals
+  float im_grid_width_;
+
+  /// save IMUnit as member variable
+  void setIMUnit(String& unit)
+  {
+    unit_ = unit;
+  }
+
+  /// Setter for IonMobilityMap
+  void setIonMobilityMap(const std::map<std::pair<OpenMS::String, int>, double>& map)
+  {
+    ionmobility_map_ = map;
+  }
 };
 
 } // namespace OpenMS

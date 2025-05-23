@@ -41,14 +41,11 @@
 #include <OpenMS/SIMULATION/RTSimulation.h>
 #include <OpenMS/SIMULATION/RawMSSignalSimulation.h>
 #include <OpenMS/SIMULATION/RawTandemMSSignalSimulation.h>
-
-// JB Klasse für temporäreDatei für IM2Deep csv
 #include <OpenMS/KERNEL/MSSpectrum.h>
 #include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 #include <OpenMS/SYSTEM/ExternalProcess.h>
 #include <OpenMS/SYSTEM/File.h>
-#include <fstream> // für Datei
-#include <iostream>
+#include <fstream>
 
 // #define OPENMS_DEBUG_SIM_
 
@@ -107,7 +104,6 @@ MSSim::MSSim(): DefaultParamHandler("MSSim"), experiment_(), feature_maps_(), co
   defaults_.insert("RT:", RTSimulation().getDefaults());
   defaults_.insert("Detectability:", DetectabilitySimulation().getDefaults());
   defaults_.insert("Ionization:", IonizationSimulation().getDefaults());
-  // JB
   defaults_.insert("IonMobility:", IonMobilitySimulation().getDefaults());
   defaults_.insert("RawSignal:", RawMSSignalSimulation().getDefaults());
   defaults_.insert("RawTandemSignal:", RawTandemMSSignalSimulation().getDefaults());
@@ -193,7 +189,6 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   IonizationSimulation ion_sim(rnd_gen);
   ion_sim.setParameters(param_.copy("Ionization:", true));
   ion_sim.setLogType(this->getLogType());
-  // JB Ionmobility Klassenobjekt erstellen
   IonMobilitySimulation ims;
   ims.setParameters(param_.copy("IonMobility:", true));
   RawMSSignalSimulation raw_sim(rnd_gen);
@@ -270,25 +265,16 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   // debug
   verbosePrintFeatureMap(feature_maps_, "ION sim done");
 
-  // JB IonMobilitySimulation
-
+  // IonMobilitySimulation
   if (param_.exists("RawSignal:ionmobility") && param_.getValue("RawSignal:ionmobility") == "true")
   {
     ims.run(feature_maps_.front());
     auto ionmobility_map = ims.getIonMobilityMap();
     String unit = ims.getUnit();
 
-    // JB IonMoblity Map übergeben
     raw_sim.setIonMobilityMap(ionmobility_map);
     raw_sim.setIMUnit(unit);
   }
-
-
-  // JB löschen von file, weil temporary datei nicht automat. gelöscht wird
-  /*if (File::exists("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv"))
-  {
-    File::remove("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv");
-  }*/
 
   raw_sim.generateRawSignals(feature_maps_.front(), experiment_, peak_map_, contaminants_map_);
 

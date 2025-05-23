@@ -382,7 +382,6 @@ void TheoreticalSpectrumGenerator::addIsotopeCluster_(PeakSpectrum& spectrum,
   if (isotope_model_ == 1) { dist = f.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_)); }
   else if (isotope_model_ == 2)
   {
-    // JB hier ProbabilityMode total_prob verwendet, weil vorher stand da nichts und default war default
     dist = f.getIsotopeDistribution(FineIsotopePatternGenerator(max_isotope_probability_, ProbabilityMode::total_prob));
   }
 
@@ -488,7 +487,6 @@ void TheoreticalSpectrumGenerator::addLosses_(PeakSpectrum& spectrum,
 
       IsotopeDistribution dist;
       if (isotope_model_ == 1) { dist = loss_ion.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_)); }
-      // JB hier total_prob ausgewählt
       else if (isotope_model_ == 2)
       {
         dist = loss_ion.getIsotopeDistribution(FineIsotopePatternGenerator(max_isotope_probability_, ProbabilityMode::total_prob));
@@ -840,7 +838,6 @@ void TheoreticalSpectrumGenerator::addPrecursorPeaks_(PeakSpectrum& spectrum,
 
     IsotopeDistribution dist;
     if (isotope_model_ == 1) { dist = formula.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_)); }
-    // JB total_prob added
     else if (isotope_model_ == 2)
     {
       dist = formula.getIsotopeDistribution(FineIsotopePatternGenerator(max_isotope_probability_, ProbabilityMode::total_prob));
@@ -878,7 +875,6 @@ void TheoreticalSpectrumGenerator::addPrecursorPeaks_(PeakSpectrum& spectrum,
 
     IsotopeDistribution dist;
     if (isotope_model_ == 1) { dist = ion.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_)); }
-    // JB total_prob added
     else if (isotope_model_ == 2)
     {
       dist = ion.getIsotopeDistribution(FineIsotopePatternGenerator(max_isotope_probability_, ProbabilityMode::total_prob));
@@ -916,7 +912,6 @@ void TheoreticalSpectrumGenerator::addPrecursorPeaks_(PeakSpectrum& spectrum,
 
     IsotopeDistribution dist;
     if (isotope_model_ == 1) { dist = ion.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_)); }
-    // JB total_prob added
     else if (isotope_model_ == 2)
     {
       dist = ion.getIsotopeDistribution(FineIsotopePatternGenerator(max_isotope_probability_, ProbabilityMode::total_prob));

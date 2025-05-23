@@ -123,6 +123,7 @@ namespace OpenMS
         <tr><th>Unit                           <th>CV term
         <tr><td>DriftTimeUnit::MILLISECOND     <td>MS:1002816 ! mean ion mobility array
         <tr><td>DriftTimeUnit::VSSC            <td>MS:1003008 ! raw inverse reduced ion mobility array
+        <tr><td>DriftTimeUnit::CCS             <td>MS:1002954 ! collisional cross sectional area
         </table>
     
         For any other unit  (e.g. FAIMS-Compensation voltage) we throw, since the PSI CV does not 
@@ -147,6 +148,7 @@ namespace OpenMS
         <tr><td>MS:1002816 ! mean ion mobility array                <td>DriftTimeUnit::MILLISECOND
         <tr><td>MS:1003008 ! raw inverse reduced ion mobility array <td>DriftTimeUnit::VSSC
         <tr><td>MS:1002893 ! ion mobility array **                  <td>DriftTimeUnit::NONE
+        <tr><td>UO:0000324 ! square angstrom                      <td>DriftTimeUnit::CCS    
         </table>
         @p **) or a child term, which is not one of the terms used above.
 

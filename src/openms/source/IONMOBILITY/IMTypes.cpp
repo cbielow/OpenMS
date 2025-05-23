@@ -122,7 +122,6 @@ namespace OpenMS
         return DIM_UNIT::IM_MS;
       case DriftTimeUnit::VSSC:
         return DIM_UNIT::IM_VSSC;
-      //JB
       case DriftTimeUnit::CCS:
         return DIM_UNIT::IM_CCS;
       default:

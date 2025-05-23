@@ -38,8 +38,6 @@
 #include <OpenMS/DATASTRUCTURES/DefaultParamHandler.h>
 #include <OpenMS/KERNEL/ConsensusMap.h>
 #include <OpenMS/SIMULATION/SimTypes.h>
-
-// JB  includes für IM2Deep
 #include <OpenMS/SYSTEM/File.h>
 
 namespace OpenMS
