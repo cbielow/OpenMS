@@ -95,7 +95,6 @@ namespace OpenMS
  * See also method run()
  **/
 
-// JB Klasse für die drei Modi, statt zwei bools zu verwenden
 /**
  * @brief Enum, that describes, how the stop_condition is supposed to be interpreted.
  */
