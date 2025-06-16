@@ -224,7 +224,7 @@ void RawMSSignalSimulation::setDefaultParams_()
   defaults_.setValidStrings("ionmobility", {"true", "false"});
 
   // compress signals
-  defaults_.setValue("compresssignal:IM_grid_width", 0.01, "Width of the IM grid for compressing signals");
+  defaults_.setValue("compresssignal:IM_grid_width", 0.0011, "Width of the IM grid for compressing signals");
   defaults_.setMinFloat("compresssignal:IM_grid_width", 0.00001);
 
   defaultsToParam_();
@@ -379,6 +379,15 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
   // grid is constant over scans, so we compute it only once
   getSamplingGrid_(grid_, minimal_mz_measurement_limit, maximal_mz_measurement_limit, 5); // every 5 Da we adjust the sampling width by local FWHM
 
+  // Initializing the IonMobility data array if ion mobility is activated
+  if (im_activated_)
+  {
+    for (Size i = 0; i < experiment.size(); ++i)
+    {
+      experiment[i].initializeIMFloatDataArray(unit_);
+    }
+  }
+
   OPENMS_LOG_INFO << "  Simulating signal for " << features.size() << " features ..." << std::endl;
 
   this->startProgress(0, features.size(), "RawMSSignal");
@@ -515,14 +524,63 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
 
   if (param_.getValue("ionization_type") == "MALDI") { addBaseLine_(experiment, minimal_mz_measurement_limit); }
   addShotNoise_(experiment, minimal_mz_measurement_limit, maximal_mz_measurement_limit);
+
+  Size spec_index = 0;
+  if (spec_index < experiment.size())
+  {
+    const MSSpectrum& spec = experiment[spec_index];
+
+    const auto& fda = spec.getFloatDataArrays()[0];
+    OPENMS_LOG_INFO << "before compression Name: " << fda.getName() << std::endl;
+
+    // Alle MetaValues anzeigen:
+    std::vector<String> keys;
+    fda.getKeys(keys);
+    for (const auto& key : keys)
+    {
+      OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
+    }
+  }
   if (im_activated_) { compressSignalsIonMobility_(experiment); }
   else { compressSignals_(experiment); }
+
+  {
+    const MSSpectrum& spec = experiment[spec_index];
+
+    const auto& fda = spec.getFloatDataArrays()[0];
+    OPENMS_LOG_INFO << "after compression Name: " << fda.getName() << std::endl;
+
+    // Alle MetaValues anzeigen:
+    std::vector<String> keys;
+    fda.getKeys(keys);
+    for (const auto& key : keys)
+    {
+      OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
+    }
+  }
 
   // add white noise to the simulated data
   addWhiteNoise_(experiment);
 
   // add detector noise the simulated data
   addDetectorNoise_(experiment);
+
+  spec_index = 0;
+  if (spec_index < experiment.size())
+  {
+    const MSSpectrum& spec = experiment[spec_index];
+
+    const auto& fda = spec.getFloatDataArrays()[0];
+    OPENMS_LOG_INFO << "MS raw signal end Name: " << fda.getName() << std::endl;
+
+    // Alle MetaValues anzeigen:
+    std::vector<String> keys;
+    fda.getKeys(keys);
+    for (const auto& key : keys)
+    {
+      OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
+    }
+  }
 }
 
 double RawMSSignalSimulation::getPeakWidth_(const double mz, const bool is_gaussian) const
@@ -533,8 +591,10 @@ double RawMSSignalSimulation::getPeakWidth_(const double mz, const bool is_gauss
   // Approximation for Gaussian-shaped signals,
   // i.e. sqrt(2*ln(2))*2 = 2.35482
   // , relating FWHM to Gaussian width
+  // OPENMS_LOG_INFO << "FWHM for m/z " << mz_local << " is " << fwhm << std::endl; //JB
   if (is_gaussian) { fwhm /= 2.35482; }
   else {} // for Lorentzian, we do nothing as the scale parameter is exactly the FWHM
+  // fwhm = std::max(fwhm, 0.008); // JB
   return fwhm;
 }
 
@@ -726,15 +786,34 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     SimTypes::SimPointType point;
 
     // getMZ() for centroided
-    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
+    if (param_.getValue("isotope_pattern_mode") == "fine")
     {
-      double iso_mass = iter->getMZ(); // Masse von Isotop speichern
-      double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
-      point.setMZ(mz);
-      point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
+      for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
+      {
+        double iso_mass = iter->getMZ(); // Masse von Isotop speichern
+        double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
+        point.setMZ(mz);
+        point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-      if (point.getIntensity() <= 0.0) continue;
-      exp_ct_iter->push_back(point);
+        if (point.getIntensity() <= 0.0) continue;
+        exp_ct_iter->push_back(point);
+      }
+    }
+    else if (param_.getValue("isotope_pattern_mode") == "coarse")
+      for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
+      {
+        double iso_mass = iter->getMZ(); // Masse von Isotop speichern
+        double mz = iso_mass / q;
+        point.setMZ(mz);
+        point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
+
+        if (point.getIntensity() <= 0.0) continue;
+        exp_ct_iter->push_back(point);
+      }
+    else
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, param_.getValue("isotope_pattern_mode"),
+                                    "Unknown isotope pattern mode.");
     }
 
     /*
@@ -821,11 +900,13 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
           else { throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit_, "Unknown unit for ion mobility."); }
         }
 
-        // add CCS to the Float data array
-        exp_iter->MSSpectrum::addIMToFloatDataArray(im_value, unit_);
+        // add IonMobility value to the Float data array
+        exp_iter->MSSpectrum::addIMValueToIMArray(im_value);
+        // exp_iter->MSSpectrum::addIMToFloatDataArray(im_value, unit_);
       }
 
       exp_iter->push_back(point);
+
       /*
       if (exp_iter->getFloatDataArrays()[0].size() != exp_iter->size())
       {
@@ -833,6 +914,7 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
                         << std::endl;
       }
       */
+
       // OPENMS_LOG_INFO << "K0 array size: " << fda.size() << std::endl;
 
       /*
@@ -1324,11 +1406,13 @@ void RawMSSignalSimulation::compressSignalsIonMobility_(SimTypes::MSSimExperimen
   float im_min = std::numeric_limits<float>::max();
   float im_max = std::numeric_limits<float>::lowest();
 
+  Size im_array_index = experiment[0].MSSpectrum::getIMArrayIndex();
   for (const auto& spec : experiment)
   {
     if (spec.getFloatDataArrays().empty()) continue;
-    const auto& im = spec.getFloatDataArrays()[0];
+    const auto& im = spec.getFloatDataArrays()[im_array_index];
 
+    // determine min and max IM values for IM grid
     for (float val : im)
     {
       if (val < im_min) im_min = val;
@@ -1354,7 +1438,6 @@ void RawMSSignalSimulation::compressSignalsIonMobility_(SimTypes::MSSimExperimen
   for (Size i = 0; i < experiment.size(); ++i)
   {
     if (experiment[i].size() <= 1) { continue; }
-    // OPENMS_LOG_INFO << "Processing spectrum " << i << " with size " << experiment[i].size() << std::endl;
 
     /*
     /// Different approach with sorting first
@@ -1377,11 +1460,13 @@ void RawMSSignalSimulation::compressSignalsIonMobility_(SimTypes::MSSimExperimen
     experiment[i].partialSort(start, experiment[i].size(), [&](Size i1, Size i2) { return experiment[i][i1].getMZ() < experiment[i][i2].getMZ(); });
     */
 
-    // copy Spectrum and remove Peaks ..
+    // copy Spectrum and remove Peaks
     SimTypes::MSSimExperiment::SpectrumType cont = experiment[i];
     cont.clear(false);
-    const auto& im_data = experiment[i].getFloatDataArrays()[0];
-    cont.getFloatDataArrays().resize(1);
+    const auto& im_data = experiment[i].getFloatDataArrays()[im_array_index];
+    cont.getFloatDataArrays().resize(im_array_index + 1);
+    cont.getFloatDataArrays()[im_array_index] = experiment[i].getFloatDataArrays()[im_array_index];
+    cont.getFloatDataArrays()[im_array_index].clear();
 
     std::map<std::pair<Size, Size>, double> bin_map; // map to store intensities for each grid point
 
@@ -1403,7 +1488,7 @@ void RawMSSignalSimulation::compressSignalsIonMobility_(SimTypes::MSSimExperimen
       p.setIntensity(intensity);
       p.setMZ(mz_grid[bin.second]);
       cont.push_back(p);
-      cont.MSSpectrum::addIMToFloatDataArray(im_grid[bin.first], unit_);
+      cont.MSSpectrum::addIMValueToIMArray(im_grid[bin.first]);
     }
 
     point_count_before += experiment[i].size();

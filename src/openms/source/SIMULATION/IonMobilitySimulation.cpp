@@ -5,6 +5,7 @@
 #include <OpenMS/METADATA/PeptideHit.h>
 #include <OpenMS/METADATA/PeptideIdentification.h>
 #include <OpenMS/SIMULATION/IonMobilitySimulation.h>
+#include <OpenMS/SIMULATION/RawMSSignalSimulation.h>
 #include <OpenMS/SYSTEM/ExternalProcess.h>
 #include <OpenMS/SYSTEM/File.h>
 #include <QDir>
@@ -31,7 +32,9 @@ IonMobilitySimulation::IonMobilitySimulation(const IonMobilitySimulation& source
     im2deep_output_path_(source.im2deep_output_path_),
     ionmobility_map_(source.ionmobility_map_),
     unit_(source.unit_),
-    im2deep_combined_output_path_(source.im2deep_combined_output_path_) // temporary solution for im2deep. To Do: remove this line when im2deep can handle sequences larger than 60
+    im2deep_combined_output_path_(
+      source
+        .im2deep_combined_output_path_) // temporary solution for im2deep. To Do: remove this line when im2deep can handle sequences larger than 60
 {
 }
 
@@ -51,6 +54,37 @@ IonMobilitySimulation& IonMobilitySimulation::operator=(const IonMobilitySimulat
           .im2deep_combined_output_path_; // temporary solution for im2deep. To Do: remove this line when im2deep can handle sequences larger than 60
   }
   return *this;
+}
+
+// Callback helpers
+void stdoutCallback(const String& output)
+{
+  std::cout << "stdout: " << output << std::endl;
+}
+
+void stderrCallback(const String& output)
+{
+  std::cerr << "stderr: " << output << std::endl;
+}
+
+bool IonMobilitySimulation::isIM2DeepAvailable()
+{
+  QString exe = "im2deep";
+  QStringList args;
+  args << "--help";
+
+  QString working_dir = QDir::currentPath();
+  String error_msg = "im2deep was not found.";
+
+  ExternalProcess im2deepCheck;
+  ExternalProcess::RETURNSTATE result = im2deepCheck.run(exe, args, working_dir, false, error_msg);
+
+  if (result == ExternalProcess::RETURNSTATE::SUCCESS) { return true; }
+  else
+  {
+    OPENMS_LOG_WARN << "im2deep is not available. Get im2deep via 'pip install im2deep' to get calculate IonMoblity values." << std::endl;
+    return false;
+  }
 }
 
 void IonMobilitySimulation::setDefaultParams_()
@@ -132,8 +166,9 @@ void IonMobilitySimulation::createIM2DeepInputCSV(const SimTypes::FeatureMapSim&
     }
   }
   /// temporary solution for im2deep ///
+  
   /*
-  // To Do: replace the "temporary solution for im2deep" above with this, when im2deep can handle sequences larger than 60:
+  // To Do: replace the "temporary solution for im2deep" above with the following, when im2deep can handle sequences larger than 60:
 
   for (const Feature& feat : features)
   {
@@ -150,17 +185,6 @@ void IonMobilitySimulation::createIM2DeepInputCSV(const SimTypes::FeatureMapSim&
 
   file.close();
   */
-}
-
-// Callback helpers
-void stdoutCallback(const String& output)
-{
-  std::cout << "stdout: " << output << std::endl;
-}
-
-void stderrCallback(const String& output)
-{
-  std::cerr << "stderr: " << output << std::endl;
 }
 
 void IonMobilitySimulation::runIM2Deep()
@@ -189,12 +213,6 @@ void IonMobilitySimulation::runIM2Deep()
 
   if (result == ExternalProcess::RETURNSTATE::SUCCESS) { OPENMS_LOG_INFO << "IM2Deep erfolgreich ausgeführt!\n"; }
   else { std::cerr << "Fehler beim Ausführen von IM2Deep: " << error_msg << std::endl; }
-
-  // löschen von file, weil temporary datei nicht automat. gelöscht wird
-  /*if (File::exists("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv"))
-  {
-    File::remove("/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv");
-  }*/
 }
 
 // temporary solution for im2deep

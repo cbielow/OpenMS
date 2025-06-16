@@ -45,6 +45,9 @@ IsotopeModel::IsotopeModel(): InterpolationModel(), charge_(0), monoisotopic_mz_
   defaults_.setValue("charge", 1, "Charge state of the model.", {"advanced"});
   defaults_.setValue("statistics:mean", 0.0, "Centroid m/z (as opposed to monoisotopic m/z).", {"advanced"});
 
+  defaults_.setValue("isotope:pattern_mode", "coarse", "Choose the isotope pattern generator mode: coarse or fine.");
+  defaults_.setValidStrings("isotope:pattern_mode", {"coarse", "fine"});
+
   defaultsToParam_();
 }
 
@@ -133,6 +136,7 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
   }
 
   /*
+  // old code to stretch the averagine isotope distribution
   size_t isotopes_exact_size = isotopes_exact.size();
   isotopes_exact.resize(size_t((isotopes_exact_size - 1) * isotope_distance_ / interpolation_step_ + 1.6)); // round up a bit more
 

@@ -45,6 +45,9 @@ public:
   /// Assignment operator
   IonMobilitySimulation& operator=(const IonMobilitySimulation& source);
 
+  /// Test if IM2Deep is available
+  bool isIM2DeepAvailable();
+
   /// Set default parameters
   void setDefaultParams_();
 
@@ -67,20 +70,63 @@ public:
   /// Save IM2Deep output to a file
   void saveIM2DeepOutput();
 
-  // IonMobility Map getter
+  // Convert CCS to inverse K0
+  static float convertCCStoKo(float ccs, float mz, int charge);
+
+  // Getters and Setters for member variables
+  void setIM2DeepInputPath(const String& path)
+  {
+    im2deep_input_path_ = path;
+  }
+  String getIM2DeepInputPath() const
+  {
+    return im2deep_input_path_;
+  }
+
+  void setIM2DeepOutputPath(const String& path)
+  {
+    im2deep_output_path_ = path;
+  }
+  String getIM2DeepOutputPath() const
+  {
+    return im2deep_output_path_;
+  }
+
+  void setIonMobilityMap(const std::map<std::pair<String, int>, double>& map)
+  {
+    ionmobility_map_ = map;
+  }
   const std::map<std::pair<String, int>, double>& getIonMobilityMap() const
   {
     return ionmobility_map_;
   }
 
-  // Unit getter
-  const String& getUnit() const
+  void setUnit(const String& u)
+  {
+    unit_ = u;
+  }
+  String getUnit() const
   {
     return unit_;
   }
 
-  // Convert CCS to inverse K0
-  static float convertCCStoKo(float ccs, float mz, int charge);
+  void setSplitIndices(const std::vector<std::vector<int>>& indices)
+  {
+    split_indices_ = indices;
+  }
+  const std::vector<std::vector<int>>& getSplitIndices() const
+  {
+    return split_indices_;
+  }
+
+  void setIM2DeepCombinedOutputPath(const String& path)
+  {
+    im2deep_combined_output_path_ = path;
+  }
+  String getIM2DeepCombinedOutputPath() const
+  {
+    return im2deep_combined_output_path_;
+  }
 };
 
 } // namespace OpenMS

@@ -33,16 +33,16 @@
 // --------------------------------------------------------------------------
 
 #include <OpenMS/CONCEPT/LogStream.h>
+#include <OpenMS/KERNEL/MSSpectrum.h>
 #include <OpenMS/SIMULATION/DetectabilitySimulation.h>
 #include <OpenMS/SIMULATION/DigestSimulation.h>
+#include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 #include <OpenMS/SIMULATION/IonizationSimulation.h>
 #include <OpenMS/SIMULATION/LABELING/BaseLabeler.h>
 #include <OpenMS/SIMULATION/MSSim.h>
 #include <OpenMS/SIMULATION/RTSimulation.h>
 #include <OpenMS/SIMULATION/RawMSSignalSimulation.h>
 #include <OpenMS/SIMULATION/RawTandemMSSignalSimulation.h>
-#include <OpenMS/KERNEL/MSSpectrum.h>
-#include <OpenMS/SIMULATION/IonMobilitySimulation.h>
 #include <OpenMS/SYSTEM/ExternalProcess.h>
 #include <OpenMS/SYSTEM/File.h>
 #include <fstream>
@@ -268,12 +268,21 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   // IonMobilitySimulation
   if (param_.exists("RawSignal:ionmobility") && param_.getValue("RawSignal:ionmobility") == "true")
   {
-    ims.run(feature_maps_.front());
-    auto ionmobility_map = ims.getIonMobilityMap();
-    String unit = ims.getUnit();
+    bool im2deep_available = ims.isIM2DeepAvailable(); // check if im2deep is available
+    if (im2deep_available)
+    {
+      ims.run(feature_maps_.front());
+      auto ionmobility_map = ims.getIonMobilityMap();
+      String unit = ims.getUnit();
 
-    raw_sim.setIonMobilityMap(ionmobility_map);
-    raw_sim.setIMUnit(unit);
+      raw_sim.setIonMobilityMap(ionmobility_map);
+      raw_sim.setIMUnit(unit);
+    }
+    else
+    {
+      param_.setValue("RawSignal:ionmobility", "false");
+      raw_sim.setIMActivated_(false);
+    }
   }
 
   raw_sim.generateRawSignals(feature_maps_.front(), experiment_, peak_map_, contaminants_map_);

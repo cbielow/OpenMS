@@ -33,6 +33,9 @@
 // --------------------------------------------------------------------------
 
 #include <OpenMS/CONCEPT/ClassTest.h>
+#include <OpenMS/CONCEPT/LogStream.h>
+#include <OpenMS/IONMOBILITY/IMDataConverter.h>
+#include <OpenMS/KERNEL/MSSpectrum.h>
 #include <OpenMS/test_config.h>
 
 ///////////////////////////
@@ -49,27 +52,27 @@ START_TEST(RawMSSignalSimulation, "$Id$")
 
 RawMSSignalSimulation* ptr = nullptr;
 RawMSSignalSimulation* nullPointer = nullptr;
-SimTypes::MutableSimRandomNumberGeneratorPtr empty_rnd_gen (new SimTypes::SimRandomNumberGenerator);
-//const unsigned long rnd_gen_seed = 1;
+SimTypes::MutableSimRandomNumberGeneratorPtr empty_rnd_gen(new SimTypes::SimRandomNumberGenerator);
+// const unsigned long rnd_gen_seed = 1;
 
 START_SECTION((RawMSSignalSimulation(SimRandomNumberGeneratorPtr rng)))
 {
   ptr = new RawMSSignalSimulation(empty_rnd_gen);
-	TEST_NOT_EQUAL(ptr, nullPointer)
+  TEST_NOT_EQUAL(ptr, nullPointer)
 }
 END_SECTION
 
 START_SECTION(~RawMSSignalSimulation())
 {
-	delete ptr;
+  delete ptr;
 }
 END_SECTION
 
-START_SECTION((RawMSSignalSimulation(const RawMSSignalSimulation &source)))
+START_SECTION((RawMSSignalSimulation(const RawMSSignalSimulation& source)))
 {
   RawMSSignalSimulation source(empty_rnd_gen);
   Param p = source.getParameters();
-  p.setValue("peak_fwhm",0.3);
+  p.setValue("peak_fwhm", 0.3);
   source.setParameters(p);
 
   RawMSSignalSimulation target(source);
@@ -77,13 +80,13 @@ START_SECTION((RawMSSignalSimulation(const RawMSSignalSimulation &source)))
 }
 END_SECTION
 
-START_SECTION((RawMSSignalSimulation& operator=(const RawMSSignalSimulation &source)))
+START_SECTION((RawMSSignalSimulation & operator=(const RawMSSignalSimulation& source)))
 {
   RawMSSignalSimulation source(empty_rnd_gen);
   RawMSSignalSimulation target(source);
 
   Param p = source.getParameters();
-  p.setValue("peak_fwhm",0.3);
+  p.setValue("peak_fwhm", 0.3);
   source.setParameters(p);
   TEST_NOT_EQUAL(source.getParameters(), target.getParameters())
 
@@ -93,7 +96,10 @@ START_SECTION((RawMSSignalSimulation& operator=(const RawMSSignalSimulation &sou
 }
 END_SECTION
 
-START_SECTION((void generateRawSignals(SimTypes::FeatureMapSim &features, SimTypes::MSSimExperiment &experiment, SimTypes::MSSimExperiment &experiment_ct, SimTypes::FeatureMapSim &contaminants)))
+START_SECTION((void generateRawSignals(SimTypes::FeatureMapSim& features,
+                                       SimTypes::MSSimExperiment& experiment,
+                                       SimTypes::MSSimExperiment& experiment_ct,
+                                       SimTypes::FeatureMapSim& contaminants)))
 {
   // TODO
 }
@@ -106,9 +112,82 @@ START_SECTION((void loadContaminants()))
 }
 END_SECTION
 
+START_SECTION((void compressSignalsIonMobility_(SimTypes::MSSimExperiment& experiment)))
+{
+  using namespace OpenMS;
+  using SimTypes::MSSimExperiment;
+
+  MSSimExperiment exp;
+  MSSpectrum spectrum;
+
+  std::vector<double> ims = {1.06, 1.061, 1.062, 1.12, 1.12, 1.086, 1.063, 1.09, 1.04, 1.02, 1.06, 1.06};
+  std::vector<double> mzs = {400, 400, 402, 123, 500, 495, 401, 12, 403, 404, 400, 400};
+  std::vector<double> ints = {100, 120, 110, 80, 90, 70, 130, 60, 85, 95, 110, 69};
+
+  // add peaks
+  for (Size i = 0; i < ims.size(); ++i)
+  {
+    Peak1D p;
+    p.setMZ(mzs[i]);
+    p.setIntensity(ints[i]);
+    spectrum.push_back(p);
+  }
+
+  // add ionmobility data
+  MSSpectrum::FloatDataArrays& fda = spectrum.getFloatDataArrays();
+  fda.resize(1);
+  IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::VSSC);
+  fda[0].setMetaValue("cv accession", "MS:1003008");
+  fda[0].setMetaValue("unit_accession", "MS:1002814");
+  fda[0].setMetaValue("unit_name", "volt-second per square centimeter");
+  fda[0].setMetaValue("unit_cv_ref", "MS");
+  fda[0].insert(fda[0].begin(), ims.begin(), ims.end());
+
+
+  InstrumentSettings is;
+  is.getScanWindows().resize(1);
+  is.getScanWindows()[0].begin = 10.0;
+  is.getScanWindows()[0].end = 510.0;
+  spectrum.setInstrumentSettings(is);
+
+  exp.addSpectrum(spectrum);
+
+  /*
+  std::cout << "-------- BEFORE COMPRESSION --------" << std::endl;
+  const auto& im_data_before = exp[0].getFloatDataArrays()[0];
+  for (Size i = 0; i < exp[0].size(); ++i)
+  {
+    std::cout << "m/z: " << exp[0][i].getMZ() << " | Intensity: " << exp[0][i].getIntensity() << " | IM: " << im_data_before[i] << std::endl;
+  }
+  */
+
+  // Compression aufrufen
+  RawMSSignalSimulation sim;
+  sim.compressSignalsIonMobility_(exp);
+
+  /*
+  std::cout << "-------- AFTER COMPRESSION --------" << std::endl;
+  const auto& im_data_after = exp[0].getFloatDataArrays()[0];
+  for (Size i = 0; i < exp[0].size(); ++i)
+  {
+    std::cout << "m/z: " << exp[0][i].getMZ() << " | Intensity: " << exp[0][i].getIntensity() << " | IM: " << im_data_after[i] << std::endl;
+  }
+  */
+
+  TEST_EQUAL(exp[0][2].getIntensity(), 399)
+
+  const auto& im_array = exp[0].getFloatDataArrays()[0];
+
+  for (Size i = 1; i < im_array.size(); ++i)
+  {
+    TEST_TRUE(im_array[i - 1] <= im_array[i])
+  }
+
+  TEST_EQUAL(im_array.size(), 9)
+}
+END_SECTION
+
+
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
 END_TEST
-
-
-

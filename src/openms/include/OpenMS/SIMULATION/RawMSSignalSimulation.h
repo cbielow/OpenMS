@@ -283,6 +283,26 @@ public:
   /// IonMobility grid width for CompressSignals
   float im_grid_width_;
 
+  bool getIMActivated_() const
+  {
+    return im_activated_;
+  }
+
+  void setIMActivated_(bool activated)
+  {
+    im_activated_ = activated;
+  }
+
+  float getIMGridWidth_() const
+  {
+    return im_grid_width_;
+  }
+
+  void setIMGridWidth_(float width)
+  {
+    im_grid_width_ = width;
+  }
+
   /// save IMUnit as member variable
   void setIMUnit(String& unit)
   {

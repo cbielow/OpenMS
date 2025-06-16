@@ -572,7 +572,7 @@ public:
     @param im_value The value of the ion mobility
     @param unit The unit of the ion mobility
   */
-  void addIMToFloatDataArray(float im_value, String unit);
+  // void addIMToFloatDataArray(float im_value, String unit);
 
   /// do the names of internal float metadata arrays contain any hint of ion mobility data, i.e. they are a child of 'MS:1002893 ! ion mobility
   /// array'? (for spectra which represent an IM-frame)
@@ -646,6 +646,20 @@ public:
   /// compute the total ion count (sum of all peak intensities)
   PeakType::IntensityType calculateTIC() const;
 
+  /**
+   * @brief Initialize the IM data array with a unit and an empty array
+   * @param unit The unit of the ion mobility data
+   */
+  void initializeIMFloatDataArray(const String& unit);
+
+  /**
+   * @brief Add a new ion mobility value to the IM data array
+   * @param im_value The value of the ion mobility
+   */
+  void addIMValueToIMArray(float im_value);
+
+  Size getIMArrayIndex() const;
+
 protected:
   /// Retention time
   double retention_time_ = -1;
@@ -670,6 +684,9 @@ protected:
 
   /// Integer data arrays
   IntegerDataArrays integer_data_arrays_;
+
+  /// Index of FloatDataArrays that contains ion mobility data (if any)
+  Size im_array_index_ = std::numeric_limits<Size>::max(); // if max => no IM data
 };
 
 inline std::ostream& operator<<(std::ostream& os, const MSSpectrum& spec)

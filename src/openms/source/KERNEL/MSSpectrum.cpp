@@ -649,37 +649,66 @@ bool getIonMobilityArray__(const MSSpectrum::FloatDataArrays& fdas, Size& index,
   return false;
 }
 
-void MSSpectrum::addIMToFloatDataArray(float im_value, String unit)
+void MSSpectrum::initializeIMFloatDataArray(const String& unit)
 {
+  if (im_array_index_ != std::numeric_limits<Size>::max()) return; // already initialized
+
+  // check if unit already exists
+  for (Size i = 0; i < getFloatDataArrays().size(); ++i)
+  {
+    const auto& name = getFloatDataArrays()[i].getName();
+    if ((unit == "vssc" && (name == "raw inverse reduced ion mobility array" || name == "MS:1003008")) ||
+      (unit == "ccs"  && (name == "collisional cross sectional area"       || name == "MS:1002954")))
+    {
+      im_array_index_ = i;
+      return;
+    }
+  }
+
   MSSpectrum::FloatDataArrays& fda = this->getFloatDataArrays();
+  fda.push_back(FloatDataArray());
+  im_array_index_ = fda.size() - 1;
+
   if (unit == "vssc")
   {
-    if (fda.empty() || fda[0].getName() != "MS:1003008") // oder MS:1003008? macht keinen Unterschied bisher
-    {
-      fda.resize(1); // floatdataarry erstellen, falls noch nicht vorhanden
-      IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::VSSC);
-      fda[0].setMetaValue("cv accession", "MS:1003008");
-      fda[0].setMetaValue("unit_accession", "MS:1002814");
-      fda[0].setMetaValue("unit_name", "volt-second per square centimeter");
-      fda[0].setMetaValue("unit_cv_ref", "MS");
-    }
+    IMDataConverter::setIMUnit(fda[im_array_index_], DriftTimeUnit::VSSC);
+    fda[im_array_index_].setMetaValue("cv accession", "MS:1003008");
+    fda[im_array_index_].setMetaValue("unit_accession", "MS:1002814");
+    fda[im_array_index_].setMetaValue("unit_name", "volt-second per square centimeter");
+    fda[im_array_index_].setMetaValue("unit_cv_ref", "MS");
   }
 
   else if (unit == "ccs")
   {
-    if (fda.empty() || fda[0].getName() != "MS:1002954")
-    {
-      fda.resize(1); // floatdataarry erstellen, falls noch nicht vorhanden
-      IMDataConverter::setIMUnit(fda[0], DriftTimeUnit::CCS);
-      fda[0].setMetaValue("cv accession", "MS:1002954");
-      fda[0].setMetaValue("unit_accession", "UO:0000324");
-      fda[0].setMetaValue("unit_name", "square angstrom");
-      fda[0].setMetaValue("unit_cv_ref", "UO");
-      // OPENMS_LOG_INFO << "IMUnitname gesetzt" << std::endl;
-    }
+    IMDataConverter::setIMUnit(fda[im_array_index_], DriftTimeUnit::CCS);
+    fda[im_array_index_].setMetaValue("cv accession", "MS:1002954");
+    fda[im_array_index_].setMetaValue("unit_accession", "UO:0000324");
+    fda[im_array_index_].setMetaValue("unit_name", "square angstrom");
+    fda[im_array_index_].setMetaValue("unit_cv_ref", "UO");
   }
+  else
+  {
+    throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit, "Unknown unit for ion mobility.");
+  }
+}
 
-  fda[0].push_back(im_value);
+void MSSpectrum::addIMValueToIMArray(float im_value)
+{
+  if (im_array_index_ == std::numeric_limits<Size>::max())
+  {
+    throw Exception::Precondition(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "IM FloatDataArray was not initialized!");
+  }
+  MSSpectrum::FloatDataArrays& fda = this->getFloatDataArrays();
+  fda[im_array_index_].push_back(im_value);
+}
+
+Size MSSpectrum::getIMArrayIndex() const
+{
+  if (im_array_index_ == std::numeric_limits<Size>::max())
+  {
+    throw Exception::Precondition(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "IM FloatDataArray was not initialized!");
+  }
+  return im_array_index_;
 }
 
 bool MSSpectrum::containsIMData() const

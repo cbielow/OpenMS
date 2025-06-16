@@ -70,6 +70,12 @@ cdef extern from "<OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h>" 
 
 cdef extern from "<OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h>" namespace "OpenMS":
 
+
+    cdef enum ProbabilityMode:
+        ABSOLUTE
+        RELATIVE
+        TOTAL_PROB
+
     cdef cppclass FineIsotopePatternGenerator:
         #
         # wrap-doc:
@@ -83,9 +89,7 @@ cdef extern from "<OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenera
         #  if the threshold is absolute or relative.
 
         FineIsotopePatternGenerator() except + nogil  
-        FineIsotopePatternGenerator(double threshold) except + nogil 
-        FineIsotopePatternGenerator(double threshold, bool use_total_prob) except + nogil 
-        FineIsotopePatternGenerator(double threshold, bool use_total_prob, bool absolute) except + nogil 
+        FineIsotopePatternGenerator(double stop_condition, ProbabilityMode probabilityMode) except + nogil 
 
         void setThreshold(double threshold) except + nogil 
         double getThreshold() except + nogil 
