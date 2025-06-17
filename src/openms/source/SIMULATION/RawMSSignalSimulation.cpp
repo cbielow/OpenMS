@@ -713,8 +713,9 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
   IsotopeModel* isomodel = static_cast<IsotopeModel*>(pm.getModel(1));
   IsotopeDistribution iso_dist = isomodel->getIsotopeDistribution();
-
-  SimTypes::SimCoordinateType mz_mono = active_feature.getMZ(); //
+  // OPENMS_LOG_INFO << "First isotope (monoisotopic): mz=" << iso_dist.begin()->getMZ() << ", intensity=" << iso_dist.begin()->getIntensity() <<
+  // std::endl;
+  SimTypes::SimCoordinateType mz_mono = active_feature.getMZ();
 
   // SimTypes::SimCoordinateType iso_peakdist = isomodel->getParameters().getValue("isotope:distance");
   Int q = active_feature.getCharge();
@@ -737,23 +738,37 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     // Size iso_pos(0);
     SimTypes::SimPointType point;
 
+    double mz_first = iso_dist.begin()->getMZ();
+
+    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
+    {
+      // relative distance to first isotope peak
+      double delta = iter->getMZ() - mz_first;
+      double mz = mz_mono + delta / q;
+
+      point.setMZ(mz);
+      point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
+
+      if (point.getIntensity() > 0.0) { exp_ct_iter->push_back(point); }
+    }
+
     // getMZ() for centroided
     /*
     if (param_.getValue("isotope_pattern_mode") == "fine")
-    {*/
-      for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
-      {
-        double iso_mass = iter->getMZ(); // Masse von Isotop speichern
-        //double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
-        double mz = iso_mass / q;
-        point.setMZ(mz);
-        point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
+    {
+    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
+    {
+      double iso_mass = iter->getMZ(); // Masse von Isotop speichern
+      // double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
+      double mz = iso_mass / q;
+      point.setMZ(mz);
+      point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-        if (point.getIntensity() <= 0.0) continue;
+      if (point.getIntensity() <= 0.0) continue;
 
-        exp_ct_iter->push_back(point);
-      }
-      OPENMS_LOG_INFO << "First isotope (monoisotopic): mz=" << iso_dist.begin()->getMZ() << ", intensity=" << iso_dist.begin()->getIntensity() << std::endl;
+      exp_ct_iter->push_back(point);
+    }
+      */
     /*
     }
     else if (param_.getValue("isotope_pattern_mode") == "coarse")

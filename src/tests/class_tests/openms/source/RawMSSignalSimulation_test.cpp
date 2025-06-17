@@ -32,6 +32,10 @@
 // $Authors: Stephan Aiche, Chris Bielow$
 // --------------------------------------------------------------------------
 
+#include <OpenMS/CHEMISTRY/EmpiricalFormula.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/CoarseIsotopePatternGenerator.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h>
+#include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/IsotopeDistribution.h>
 #include <OpenMS/CONCEPT/ClassTest.h>
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/IONMOBILITY/IMDataConverter.h>
@@ -152,27 +156,29 @@ START_SECTION((void compressSignalsIonMobility_(SimTypes::MSSimExperiment& exper
 
   exp.addSpectrum(spectrum);
 
-  /*
+
   std::cout << "-------- BEFORE COMPRESSION --------" << std::endl;
   const auto& im_data_before = exp[0].getFloatDataArrays()[0];
   for (Size i = 0; i < exp[0].size(); ++i)
   {
     std::cout << "m/z: " << exp[0][i].getMZ() << " | Intensity: " << exp[0][i].getIntensity() << " | IM: " << im_data_before[i] << std::endl;
   }
-  */
 
+
+  exp[0].MSSpectrum::initializeIMFloatDataArray("vssc");
   // Compression aufrufen
   RawMSSignalSimulation sim;
+  sim.setIMGridWidth_(0.01);
   sim.compressSignalsIonMobility_(exp);
 
-  /*
+
   std::cout << "-------- AFTER COMPRESSION --------" << std::endl;
   const auto& im_data_after = exp[0].getFloatDataArrays()[0];
   for (Size i = 0; i < exp[0].size(); ++i)
   {
     std::cout << "m/z: " << exp[0][i].getMZ() << " | Intensity: " << exp[0][i].getIntensity() << " | IM: " << im_data_after[i] << std::endl;
   }
-  */
+
 
   TEST_EQUAL(exp[0][2].getIntensity(), 399)
 
@@ -184,6 +190,26 @@ START_SECTION((void compressSignalsIonMobility_(SimTypes::MSSimExperiment& exper
   }
 
   TEST_EQUAL(im_array.size(), 9)
+}
+END_SECTION
+
+START_SECTION((Test Coarse and FineIsotopePatternGeneration))
+{
+  EmpiricalFormula formula = EmpiricalFormula("C100H159N31O31S2");
+  IsotopeDistribution fine_dist = formula.getIsotopeDistribution(FineIsotopePatternGenerator());
+  IsotopeDistribution coarse_dist = formula.getIsotopeDistribution(CoarseIsotopePatternGenerator(100, false));
+
+  // Log zur Kontrolle
+  for (Size i = 0; i < coarse_dist.size(); ++i)
+  {
+    OPENMS_LOG_INFO << "COARSE " << i << ": MZ = " << coarse_dist[i].getMZ() << "  INT = " << coarse_dist[i].getIntensity() << std::endl;
+  }
+  for (Size i = 0; i < fine_dist.size(); ++i)
+  {
+    OPENMS_LOG_INFO << "FINE " << i << ": MZ = " << fine_dist[i].getMZ() << "  INT = " << fine_dist[i].getIntensity() << std::endl;
+  }
+  // Vergleich über Toleranz – Position und Intensität
+  TEST_REAL_SIMILAR(coarse_dist[0].getMZ(), fine_dist[0].getMZ());
 }
 END_SECTION
 
