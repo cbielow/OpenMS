@@ -525,62 +525,14 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
   if (param_.getValue("ionization_type") == "MALDI") { addBaseLine_(experiment, minimal_mz_measurement_limit); }
   addShotNoise_(experiment, minimal_mz_measurement_limit, maximal_mz_measurement_limit);
 
-  Size spec_index = 0;
-  if (spec_index < experiment.size())
-  {
-    const MSSpectrum& spec = experiment[spec_index];
-
-    const auto& fda = spec.getFloatDataArrays()[0];
-    OPENMS_LOG_INFO << "before compression Name: " << fda.getName() << std::endl;
-
-    // Alle MetaValues anzeigen:
-    std::vector<String> keys;
-    fda.getKeys(keys);
-    for (const auto& key : keys)
-    {
-      OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
-    }
-  }
   if (im_activated_) { compressSignalsIonMobility_(experiment); }
   else { compressSignals_(experiment); }
-
-  {
-    const MSSpectrum& spec = experiment[spec_index];
-
-    const auto& fda = spec.getFloatDataArrays()[0];
-    OPENMS_LOG_INFO << "after compression Name: " << fda.getName() << std::endl;
-
-    // Alle MetaValues anzeigen:
-    std::vector<String> keys;
-    fda.getKeys(keys);
-    for (const auto& key : keys)
-    {
-      OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
-    }
-  }
 
   // add white noise to the simulated data
   addWhiteNoise_(experiment);
 
   // add detector noise the simulated data
   addDetectorNoise_(experiment);
-
-  spec_index = 0;
-  if (spec_index < experiment.size())
-  {
-    const MSSpectrum& spec = experiment[spec_index];
-
-    const auto& fda = spec.getFloatDataArrays()[0];
-    OPENMS_LOG_INFO << "MS raw signal end Name: " << fda.getName() << std::endl;
-
-    // Alle MetaValues anzeigen:
-    std::vector<String> keys;
-    fda.getKeys(keys);
-    for (const auto& key : keys)
-    {
-      OPENMS_LOG_INFO << "MetaValue - " << key << ": " << fda.getMetaValue(key) << std::endl;
-    }
-  }
 }
 
 double RawMSSignalSimulation::getPeakWidth_(const double mz, const bool is_gaussian) const
@@ -786,18 +738,23 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     SimTypes::SimPointType point;
 
     // getMZ() for centroided
+    /*
     if (param_.getValue("isotope_pattern_mode") == "fine")
-    {
+    {*/
       for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
       {
         double iso_mass = iter->getMZ(); // Masse von Isotop speichern
-        double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
+        //double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
+        double mz = iso_mass / q;
         point.setMZ(mz);
         point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
         if (point.getIntensity() <= 0.0) continue;
+
         exp_ct_iter->push_back(point);
       }
+      OPENMS_LOG_INFO << "First isotope (monoisotopic): mz=" << iso_dist.begin()->getMZ() << ", intensity=" << iso_dist.begin()->getIntensity() << std::endl;
+    /*
     }
     else if (param_.getValue("isotope_pattern_mode") == "coarse")
       for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
@@ -815,7 +772,7 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
       throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, param_.getValue("isotope_pattern_mode"),
                                     "Unknown isotope pattern mode.");
     }
-
+      */
     /*
     for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
     {
