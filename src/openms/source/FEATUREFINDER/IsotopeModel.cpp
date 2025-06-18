@@ -188,7 +188,7 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
   ContainerType& result = interpolation_.getData();
   result.clear();
 
-  SignedSize r_max = std::min(SignedSize(left.size() + right.size() - 1), SignedSize(2 * peak_width / interpolation_step_ * max_isotope_ + 1));
+  SignedSize r_max = SignedSize(left.size() + right.size() - 1);
   result.resize(r_max, 0);
 
   // we loop backwards because then the small products tend to come first
@@ -196,7 +196,7 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
   for (SignedSize i = left.size() - 1; i >= 0; --i)
   {
     if (left[i] == 0) { continue; }
-    for (SignedSize j = std::min(r_max - i, SignedSize(right.size())) - 1; j >= 0; --j)
+    for (SignedSize j = right.size() - 1; j >= 0; --j)
     {
       result[i + j] += left[i] * right[j];
     }
