@@ -56,8 +56,9 @@ namespace OpenMS
     defaults_.setMinInt("model_naive:missed_cleavages", 0);
 
     // pep length
-    defaults_.setValue("min_peptide_length", 3, "Minimum peptide length after digestion (shorter ones will be discarded)");
-    defaults_.setMinInt("min_peptide_length", 1);
+    // changed from 3 to 4, because im2deep can't predict IonMobility for peptides shorter than 4 and in real data we rarely see peptides shorter than 4 in MS
+    defaults_.setValue("min_peptide_length", 4, "Minimum peptide length after digestion (shorter ones will be discarded)");
+    defaults_.setMinInt("min_peptide_length", 4); // changed from 1 to 4
 
     defaultsToParam_();
   }

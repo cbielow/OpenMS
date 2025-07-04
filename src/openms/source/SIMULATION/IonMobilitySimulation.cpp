@@ -8,6 +8,7 @@
 #include <OpenMS/SIMULATION/RawMSSignalSimulation.h>
 #include <OpenMS/SYSTEM/ExternalProcess.h>
 #include <OpenMS/SYSTEM/File.h>
+#include <OpenMS/CHEMISTRY/AASequence.h>
 #include <QDir>
 #include <fstream>
 #include <iostream>
@@ -82,8 +83,8 @@ bool IonMobilitySimulation::isIM2DeepAvailable()
   if (result == ExternalProcess::RETURNSTATE::SUCCESS) { return true; }
   else
   {
-    OPENMS_LOG_WARN << "im2deep is not available. Get im2deep via 'pip install im2deep' to get calculate IonMoblity values." << std::endl;
-    return false;
+    throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+                                  "IM2Deep is not available! Please install it via 'pip install im2deep' to enable Ion Mobility simulation.");
   }
 }
 
@@ -115,7 +116,7 @@ void IonMobilitySimulation::run(const SimTypes::FeatureMapSim& features)
 void IonMobilitySimulation::createIM2DeepInputCSV(const SimTypes::FeatureMapSim& features)
 {
 
-  // im2deep_input_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv";
+  im2deep_input_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv";
   std::ofstream file;
   file.open(im2deep_input_path_.c_str(), std::ios::out);
 
@@ -166,7 +167,7 @@ void IonMobilitySimulation::createIM2DeepInputCSV(const SimTypes::FeatureMapSim&
     }
   }
   /// temporary solution for im2deep ///
-  
+
   /*
   // To Do: replace the "temporary solution for im2deep" above with the following, when im2deep can handle sequences larger than 60:
 
@@ -189,10 +190,16 @@ void IonMobilitySimulation::createIM2DeepInputCSV(const SimTypes::FeatureMapSim&
 
 void IonMobilitySimulation::runIM2Deep()
 {
+#ifdef _OPENMP
+  Size thread_count = omp_get_max_threads();
+#else
+  Size thread_count = 1;
+#endif
+
   QString exe = "im2deep";
   QStringList args;
 
-  // im2deep_output_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
+  im2deep_output_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
   //  Path in Qstring umwandeln, damit als input für ExternalProcess geht
   if (unit_ == "ccs")
   {
@@ -202,7 +209,7 @@ void IonMobilitySimulation::runIM2Deep()
   }
   else if (unit_ == "vssc")
   {
-    args << QString::fromStdString(im2deep_input_path_) << "-o" << QString::fromStdString(im2deep_output_path_)
+    args << QString::fromStdString(im2deep_input_path_) << "-o" << QString::fromStdString(im2deep_output_path_) << "--n-jobs" << QString::number(thread_count)
          << "--ion-mobility"; //<< "-c" << "/buffer/ag_bsc/student_data/mssim/jonnab00/IM2Deep/im2deep/reference_data/multi_reference_ccs.csv";
   }
   QString working_dir = QDir::currentPath();
@@ -252,7 +259,7 @@ void IonMobilitySimulation::addsplit_indices()
     // Zusammensetzen
     String combined_seq;
     int total_charge = 0;
-    double total_ccs = 0.0;
+    float total_ccs = 0.0;
 
     for (int idx : group)
     {
@@ -266,8 +273,30 @@ void IonMobilitySimulation::addsplit_indices()
       if (slash_pos == String::npos) continue;
 
       combined_seq += parts[0].substr(0, slash_pos);
+      int charge = parts[1].toInt();
+      float mz = 0.0;
+
+      // calculated mz from sequence
+      String seq = parts[0].substr(0, slash_pos);
+      AASequence sequence = AASequence::fromString(seq);
+      mz = sequence.getMonoWeight() / charge;
+
+
+      float im_value = parts[2].toFloat();;
+
+      // convert ccs to vssc to approximate the ion mobility value by adding
+      if (unit_ == "vssc")
+      {
+        im_value = IonMobilitySimulation::convertVSSCToCCS(im_value, mz, charge);
+      }
       total_charge += parts[1].toInt();
-      total_ccs += parts[2].toDouble();
+      total_ccs += im_value;
+    }
+    if (unit_ == "vssc")
+    {
+      AASequence final_sequence = AASequence::fromString(combined_seq);
+      double mz = final_sequence.getMonoWeight() / total_charge;
+      total_ccs = IonMobilitySimulation::convertCCStoKo(total_ccs, mz, total_charge);
     }
 
     combined_file << combined_seq << "/" << total_charge << "," << total_charge << "," << total_ccs << "\n";
@@ -315,27 +344,20 @@ void IonMobilitySimulation::saveIM2DeepOutput()
   }
 }
 
-/*
-// function from GitHub
+// function based on function from GitHub
 // source: https://github.com/OpenMS/OpenMS/issues/6685
-void convertVSSCToCCS(MSExperiment& spectra)
+float IonMobilitySimulation::convertVSSCToCCS(float vssc, float mz, int charge)
 {
-  OPENMS_LOG_INFO << "Converting 1/k0 to CCS values." << std::endl;
-  const double bruker_CCS_coef = 1059.62245; // constant coefficient for Bruker in the Mason-Schamp equation
-  const double IM_N2_gas_mass = 28;
+  const float bruker_CCS_coef = 1059.62245; // constant coefficient for Bruker in the Mason-Schamp equation
+  const float IM_N2_gas_mass = 28;
 
-  for (auto& s : spectra)
-  {
-    double IM = s.getDriftTime();
-    double mz = s.getPrecursors()[0].getMZ();
-    double charge = s.getPrecursors()[0].getCharge();
-    double mass = mz * charge;
-    double reduced_mass = mass * IM_N2_gas_mass / (mass + IM_N2_gas_mass);
-    double CCS = IM * charge * bruker_CCS_coef / std::sqrt(reduced_mass); // Mason-Schamp equation
-    s.setDriftTime(CCS);
-  }
+  float IM = vssc;
+  float q = charge;
+  float mass = mz * q;
+  float reduced_mass = mass * IM_N2_gas_mass / (mass + IM_N2_gas_mass);
+  float CCS = IM * q * bruker_CCS_coef / std::sqrt(reduced_mass); // Mason-Schamp equation
+  return CCS;
 }
-*/
 
 // convert CCS to inverseK0
 float IonMobilitySimulation::convertCCStoKo(float ccs, float mz, int charge)

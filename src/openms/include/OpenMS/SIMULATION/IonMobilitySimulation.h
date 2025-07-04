@@ -70,6 +70,9 @@ public:
   /// Save IM2Deep output to a file
   void saveIM2DeepOutput();
 
+  /// convert inverse K0 to CCS
+  static float convertVSSCToCCS(float vssc, float mz, int charge);
+
   // Convert CCS to inverse K0
   static float convertCCStoKo(float ccs, float mz, int charge);
 
