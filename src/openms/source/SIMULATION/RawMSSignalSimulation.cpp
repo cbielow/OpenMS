@@ -387,6 +387,10 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
     {
       experiment[i].initializeIMFloatDataArray(unit_);
     }
+    for (Size i = 0; i < experiment_ct.size(); ++i)
+    {
+      experiment_ct[i].initializeIMFloatDataArray(unit_);
+    }
   }
 
   OPENMS_LOG_INFO << "  Simulating signal for " << features.size() << " features ..." << std::endl;
@@ -461,7 +465,9 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
     Size compress_count = 0;                                // feature count (for each thread)
 
 #ifdef _OPENMP
-  #pragma omp parallel for firstprivate(compress_count)
+  // temporary solution for ion mobility, since parallelisation is not yet implemented
+  #pragma omp parallel for if(!im_activated_) firstprivate(compress_count)
+  //#pragma omp parallel for firstprivate(compress_count)
 #endif
     for (SignedSize f = 0; f < (SignedSize)features.size(); ++f)
     {
@@ -740,40 +746,8 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
     // Size iso_pos(0);
     SimTypes::SimPointType point;
 
-    double mz_first = iso_dist.begin()->getMZ();
-
-    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
-    {
-      // relative distance to first isotope peak
-      double delta = iter->getMZ() - mz_first;
-      double mz = mz_mono + delta / q;
-
-      point.setMZ(mz);
-      point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
-
-      if (point.getIntensity() > 0.0) { exp_ct_iter->push_back(point); }
-    }
-
     // getMZ() for centroided
-    /*
-    if (param_.getValue("isotope_pattern_mode") == "fine")
-    {
-    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
-    {
-      double iso_mass = iter->getMZ(); // Masse von Isotop speichern
-      // double mz = (iso_mass + (q * Constants::PROTON_MASS_U)) / q;
-      double mz = iso_mass / q;
-      point.setMZ(mz);
-      point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-      if (point.getIntensity() <= 0.0) continue;
-
-      exp_ct_iter->push_back(point);
-    }
-      */
-    /*
-    }
-    else if (param_.getValue("isotope_pattern_mode") == "coarse")
       for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
       {
         double iso_mass = iter->getMZ(); // Masse von Isotop speichern
@@ -781,15 +755,40 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
         point.setMZ(mz);
         point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-        if (point.getIntensity() <= 0.0) continue;
-        exp_ct_iter->push_back(point);
+        if (point.getIntensity() > 0.0)
+        {
+          if (im_activated_)
+          {
+            float im_value = -1.0f;
+            if (active_feature.metaValueExists("contaminant") && active_feature.getMetaValue("contaminant") == "true")
+            {
+              if (active_feature.metaValueExists("ccs"))
+              {
+                if (unit_ == "ccs") { im_value = static_cast<float>(active_feature.getMetaValue("ccs")); }
+                else if (unit_ == "vssc")
+                {
+                  im_value = IonMobilitySimulation::convertCCStoKo(static_cast<float>(active_feature.getMetaValue("ccs")), active_feature.getMZ(),
+                                                                  active_feature.getCharge());
+                }
+              }
+            }
+            else if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
+            {
+              String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
+              int charge = active_feature.getCharge();
+              auto it = ionmobility_map_.find({seq, charge});
+              if (it != ionmobility_map_.end()) { im_value = static_cast<float>(it->second); }
+              else { throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit_, "Unknown unit for ion mobility."); }
+            }
+
+            // add IonMobility value to the Float data array
+            exp_ct_iter->MSSpectrum::addIMValueToIMArray(im_value);
+          }
+          exp_ct_iter->push_back(point);
+        }
       }
-    else
-    {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, param_.getValue("isotope_pattern_mode"),
-                                    "Unknown isotope pattern mode.");
-    }
-      */
+      
+
     /*
     for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
     {
