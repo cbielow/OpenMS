@@ -232,6 +232,7 @@ void RawMSSignalSimulation::setDefaultParams_()
 
 double RawMSSignalSimulation::getResolution_(const double query_mz, const double resolution, const RESOLUTIONMODEL model) const
 {
+  assert(query_mz > 0.0 && "Query m/z must be positive!");
   switch (model)
   {
     case RES_CONSTANT:
@@ -547,6 +548,7 @@ double RawMSSignalSimulation::getPeakWidth_(const double mz, const bool is_gauss
   if (is_gaussian) { fwhm /= 2.35482; }
   else {} // for Lorentzian, we do nothing as the scale parameter is exactly the FWHM
   // fwhm = std::max(fwhm, 0.008); // JB
+
   return fwhm;
 }
 
@@ -1314,6 +1316,10 @@ void RawMSSignalSimulation::getSamplingGrid_(std::vector<SimTypes::SimCoordinate
   if (fabs(mz_max - mz_min) < step_Da)
   {
     throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Sampling grid seems very small. This cannot be computed!");
+  }
+  if (mz_min <= 0.0)
+  {
+    throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Sampling grid must start at m/z > 0.");
   }
   grid.clear();
   SimTypes::SimCoordinateType mz = mz_min;

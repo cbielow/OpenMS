@@ -167,7 +167,7 @@ namespace OpenMS
 
     // maximal size of map in mz dimension
     defaults_.setValue("mz:lower_measurement_limit", 200.0, "Lower m/z detector limit");
-    defaults_.setMinFloat("mz:lower_measurement_limit", 0.0);
+    defaults_.setMinFloat("mz:lower_measurement_limit", 1.0); // must be > 0 to avoid division by zero when computing resolution
     defaults_.setValue("mz:upper_measurement_limit", 1200.0, "Upper m/z detector limit");
     defaults_.setMinFloat("mz:upper_measurement_limit", 0.0);
 
