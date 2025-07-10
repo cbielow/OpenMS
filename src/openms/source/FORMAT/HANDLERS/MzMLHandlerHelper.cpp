@@ -135,7 +135,8 @@ namespace OpenMS::Internal
     }
   }
 
-  void MzMLHandlerHelper::decodeBase64Arrays(std::vector<BinaryData>& data, const bool skipXMLCheck)
+  void
+  MzMLHandlerHelper::decodeBase64Arrays(std::vector<BinaryData>& data, size_t default_arr_length, const bool skipXMLCheck)
   {
     // decode all base64 arrays
     for (auto& bindata : data)
@@ -178,7 +179,7 @@ namespace OpenMS::Internal
           // decoder always works with 64 bit (takes std::vector<double>)
           MSNumpressCoder::NumpressConfig config;
           config.np_compression = bindata.np_compression;
-          MSNumpressCoder().decodeNP(bindata.base64, bindata.floats_64,  bindata.compression, config);
+          MSNumpressCoder().decodeNP(bindata.base64, bindata.floats_64,  bindata.compression, config);  // todo: use default_arr_length
 
           // Next, ensure that we only look at the float array even if the
           // mzML tags say 32 bit data (I am looking at you, proteowizard)
@@ -186,7 +187,7 @@ namespace OpenMS::Internal
         }
         else if (bindata.precision == BinaryData::PRE_64)
         {
-          Base64::decode(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.floats_64, bindata.compression);
+          Base64::decode(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.floats_64, bindata.compression, default_arr_length * 8);
           if (bindata.size != bindata.floats_64.size())
           {
             MzMLHandlerHelper::warning(0, String("Float binary data array '") + bindata.meta.getName() + 
@@ -196,7 +197,7 @@ namespace OpenMS::Internal
         }
         else if (bindata.precision == BinaryData::PRE_32)
         {
-          Base64::decode(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.floats_32, bindata.compression);
+          Base64::decode(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.floats_32, bindata.compression, default_arr_length * 4);
           if (bindata.size != bindata.floats_32.size())
           {
             MzMLHandlerHelper::warning(0, String("Float binary data array '") + bindata.meta.getName() + 
@@ -226,7 +227,7 @@ namespace OpenMS::Internal
       {
         if (bindata.precision == BinaryData::PRE_64)
         {
-          Base64::decodeIntegers(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.ints_64, bindata.compression);
+          Base64::decodeIntegers(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.ints_64, bindata.compression, default_arr_length * 8);
           if (bindata.size != bindata.ints_64.size())
           {
             MzMLHandlerHelper::warning(0, String("Integer binary data array '") + bindata.meta.getName() + 
@@ -236,7 +237,7 @@ namespace OpenMS::Internal
         }
         else if (bindata.precision == BinaryData::PRE_32)
         {
-          Base64::decodeIntegers(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.ints_32, bindata.compression);
+          Base64::decodeIntegers(bindata.base64, Base64::BYTEORDER_LITTLEENDIAN, bindata.ints_32, bindata.compression, default_arr_length * 4);
           if (bindata.size != bindata.ints_32.size())
           {
             MzMLHandlerHelper::warning(0, String("Integer binary data array '") + bindata.meta.getName() + 
@@ -247,7 +248,7 @@ namespace OpenMS::Internal
       }
       else if (bindata.data_type == BinaryData::DT_STRING)
       {
-        Base64::decodeStrings(bindata.base64, bindata.decoded_char, bindata.compression);
+        Base64::decodeStrings(bindata.base64, bindata.decoded_char, bindata.compression, default_arr_length);
         if (bindata.size != bindata.decoded_char.size())
         {
           MzMLHandlerHelper::warning(0, String("String binary data array '") + bindata.meta.getName() + 

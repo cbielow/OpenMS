@@ -126,7 +126,7 @@ namespace OpenMS
         @param data_ The input and output
         @param skipXMLCheck whether to skip cleaning the Base64 arrays and remove whitespaces
       */
-      static void decodeBase64Arrays(std::vector<BinaryData> & data_, const bool skipXMLCheck = false);
+      static void decodeBase64Arrays(std::vector<BinaryData>& data_, size_t default_arr_length, const bool skipXMLCheck = false);
 
       /**
         @brief Identify a data array from a list.

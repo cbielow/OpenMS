@@ -237,7 +237,7 @@ namespace OpenMS
   }
   
 
-  void Base64::decodeStrings(const String& in, std::vector<String>& out, bool zlib_compression)
+  void Base64::decodeStrings(const String& in, std::vector<String>& out, bool zlib_compression, size_t default_arr_length)
   {
     out.clear();
 
@@ -249,7 +249,7 @@ namespace OpenMS
     }
 
     QByteArray base64_uncompressed;
-    decodeSingleString(in, base64_uncompressed, zlib_compression);    //////////////////////////////////////////////the magic happenes here
+    decodeSingleString(in, base64_uncompressed, zlib_compression, default_arr_length);    //////////////////////////////////////////////the magic happenes here
     QList<QByteArray> null_strings = base64_uncompressed.split('\0');
     for (QList<QByteArray>::iterator it = null_strings.begin(); it < null_strings.end(); ++it)
     {
@@ -260,7 +260,7 @@ namespace OpenMS
     }
   }
 
-  void Base64::decodeSingleString(const String& in, QByteArray& base64_uncompressed, bool zlib_compression)
+  void Base64::decodeSingleString(const String& in, QByteArray& base64_uncompressed, bool zlib_compression, size_t default_arr_length)
   {
     // The length of a base64 string is a always a multiple of 4 (always 3
     // bytes are encoded as 4 characters)
@@ -273,19 +273,10 @@ namespace OpenMS
     base64_uncompressed = QByteArray::fromBase64(herewego);
     if (zlib_compression)
     {
-      QByteArray czip;
-      czip.resize(4);
-      czip[0] = (base64_uncompressed.size() & 0xff000000) >> 24;
-      czip[1] = (base64_uncompressed.size() & 0x00ff0000) >> 16;
-      czip[2] = (base64_uncompressed.size() & 0x0000ff00) >> 8;
-      czip[3] = (base64_uncompressed.size() & 0x000000ff);
-      czip += base64_uncompressed;
-      base64_uncompressed = qUncompress(czip);
+      String uncompressed;
+      ZlibCompression::uncompressString(base64_uncompressed, base64_uncompressed.size(), uncompressed, default_arr_length);
+      base64_uncompressed = QByteArray::fromRawData(uncompressed.c_str(), (int)uncompressed.size());
 
-      if (base64_uncompressed.isEmpty())
-      {
-        throw Exception::ConversionError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Decompression error?");
-      }
     }
   }
 

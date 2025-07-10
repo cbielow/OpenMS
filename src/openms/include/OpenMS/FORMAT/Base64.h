@@ -73,7 +73,7 @@ public:
         You have to specify the byte order of the input and if it is zlib-compressed.
     */
     template <typename ToType>
-    static void decode(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out, bool zlib_compression = false);
+    static void decode(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out, bool zlib_compression = false, size_t default_arr_length = 0);
 
     /**
         @brief Encodes a vector of integer point numbers to a Base64 string
@@ -83,7 +83,7 @@ public:
         @note @p in will be empty after this method
     */
     template <typename FromType>
-    static void encodeIntegers(std::vector<FromType> & in, ByteOrder to_byte_order, String & out, bool zlib_compression = false);
+    static void encodeIntegers(std::vector<FromType>& in, ByteOrder to_byte_order, String& out, bool zlib_compression = false);
 
     /**
         @brief Decodes a Base64 string to a vector of integer numbers
@@ -91,7 +91,7 @@ public:
         You have to specify the byte order of the input and if it is zlib-compressed.
     */
     template <typename ToType>
-    static void decodeIntegers(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out, bool zlib_compression = false);
+    static void decodeIntegers(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out, bool zlib_compression = false, size_t default_arr_length = 0);
 
     /**
         @brief Encodes a vector of strings to a Base64 string
@@ -116,7 +116,7 @@ public:
         @param out A vector containing the decoded data (split at null "\0") bytes
         @param zlib_compression Whether the data should be decompressed with zlib after decoding in Base64
     */
-    static void decodeStrings(const String & in, std::vector<String> & out, bool zlib_compression = false);
+    static void decodeStrings(const String& in, std::vector<String>& out, bool zlib_compression = false, size_t default_arr_length = 0);
 
     /**
         @brief Decodes a Base64 string to a QByteArray
@@ -125,7 +125,7 @@ public:
         @param base64_uncompressed A ByteArray containing the decoded data
         @param zlib_compression Whether the data should be decompressed with zlib after decoding in Base64
     */
-    static void decodeSingleString(const String& in, QByteArray& base64_uncompressed, bool zlib_compression);
+    static void decodeSingleString(const String& in, QByteArray& base64_uncompressed, bool zlib_compression, size_t default_arr_length = 0);
 
 private:
 
@@ -151,7 +151,7 @@ private:
 
     ///Decodes a compressed Base64 string to a vector of floating point numbers
     template <typename ToType>
-    static void decodeCompressed_(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out);
+    static void decodeCompressed_(const String& in, ByteOrder from_byte_order, std::vector<ToType>& out, size_t default_arr_length);
 
     /// Decodes a Base64 string to a vector of integer numbers
     template <typename ToType>
@@ -159,7 +159,7 @@ private:
 
     ///Decodes a compressed Base64 string to a vector of integer numbers
     template <typename ToType>
-    static void decodeIntegersCompressed_(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out);
+    static void decodeIntegersCompressed_(const String& in, ByteOrder from_byte_order, std::vector<ToType>& out, size_t default_arr_length);
 
     static void stringSimdEncoder_(std::string& in, std::string& out);
 
@@ -246,11 +246,11 @@ private:
   }
 
   template <typename ToType>  ////////////////////////////////////////////nothing to change here, magic happenes elsewhere
-  void Base64::decode(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out, bool zlib_compression)
+  void Base64::decode(const String& in, ByteOrder from_byte_order, std::vector<ToType>& out, bool zlib_compression, size_t default_arr_length)
   {
     if (zlib_compression)
     {
-      decodeCompressed_(in, from_byte_order, out);
+      decodeCompressed_(in, from_byte_order, out, default_arr_length);
     }
     else
     {
@@ -275,18 +275,17 @@ private:
 
 
   template <typename ToType>
-  void Base64::decodeCompressed_(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out)
+  void Base64::decodeCompressed_(const String& in, ByteOrder from_byte_order, std::vector<ToType>& out, size_t default_arr_length)
   {
     out.clear();
     if (in.empty()) return;
 
     constexpr Size element_size = sizeof(ToType);
 
-    String decompressed;
 
     String s;
     stringSimdDecoder_(in, s);
-    QByteArray bazip = QByteArray::fromRawData(s.c_str(), (int) s.size());
+    /* QByteArray bazip = QByteArray::fromRawData(s.c_str(), (int)s.size());
 
    /////////////////////////////////////////////////////////////////////////////////////if faster: first encode then call fromRawData
    // QByteArray qt_byte_array = QByteArray::fromRawData(in.c_str(), (int) in.size());
@@ -298,16 +297,15 @@ private:
     czip[2] = (bazip.size() & 0x0000ff00) >> 8;
     czip[3] = (bazip.size() & 0x000000ff);
     czip += bazip;
-    QByteArray base64_uncompressed = qUncompress(czip);
+    */
+    String decompressed;
 
-    if (base64_uncompressed.isEmpty())
+    ZlibCompression::uncompressString((const uchar*)s.data(), s.size(), decompressed, default_arr_length);
+
+    if (decompressed.empty())
     {
       throw Exception::ConversionError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Decompression error?");
     }
-    decompressed.resize(base64_uncompressed.size());
-
-    std::copy(base64_uncompressed.begin(), base64_uncompressed.end(), decompressed.begin());
-
     void* byte_buffer = reinterpret_cast<void *>(&decompressed[0]);
     Size buffer_size = decompressed.size();
 
@@ -417,11 +415,11 @@ private:
   }
 
   template <typename ToType>
-  void Base64::decodeIntegers(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out, bool zlib_compression)
+  void Base64::decodeIntegers(const String& in, ByteOrder from_byte_order, std::vector<ToType>& out, bool zlib_compression, size_t default_arr_length)
   {
     if (zlib_compression)
     {
-      decodeIntegersCompressed_(in, from_byte_order, out);
+      decodeIntegersCompressed_(in, from_byte_order, out, default_arr_length);
     }
     else
     {
@@ -430,7 +428,7 @@ private:
   }
 
   template <typename ToType>
-  void Base64::decodeIntegersCompressed_(const String & in, ByteOrder from_byte_order, std::vector<ToType> & out)
+  void Base64::decodeIntegersCompressed_(const String& in, ByteOrder from_byte_order, std::vector<ToType>& out, size_t default_arr_length)
   {
     out.clear();
     if (in.empty())
@@ -441,24 +439,11 @@ private:
     constexpr Size element_size = sizeof(ToType);
 
     String decompressed;
-
-    QByteArray qt_byte_array = QByteArray::fromRawData(in.c_str(), (int) in.size());
-    QByteArray bazip = QByteArray::fromBase64(qt_byte_array);
-    QByteArray czip;
-    czip.resize(4);
-    czip[0] = (bazip.size() & 0xff000000) >> 24;
-    czip[1] = (bazip.size() & 0x00ff0000) >> 16;
-    czip[2] = (bazip.size() & 0x0000ff00) >> 8;
-    czip[3] = (bazip.size() & 0x000000ff);
-    czip += bazip;
-    QByteArray base64_uncompressed = qUncompress(czip);
-    if (base64_uncompressed.isEmpty())
+    ZlibCompression::uncompressString((const void*)in.data(), in.size(), decompressed, default_arr_length);
+    if (decompressed.empty())
     {
       throw Exception::ConversionError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Decompression error?");
     }
-    decompressed.resize(base64_uncompressed.size());
-
-    std::copy(base64_uncompressed.begin(), base64_uncompressed.end(), decompressed.begin());
 
     byte_buffer = reinterpret_cast<void *>(&decompressed[0]);
     buffer_size = decompressed.size();

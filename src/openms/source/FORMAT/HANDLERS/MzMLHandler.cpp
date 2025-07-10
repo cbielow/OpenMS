@@ -121,41 +121,35 @@ namespace OpenMS::Internal
       // Whether spectrum should be populated with data
       if (options_.getFillData())
       {
-        size_t errCount = 0;
+        std::atomic<int> errCount = 0;
         String error_message;
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
+        #pragma omp parallel for
         for (SignedSize i = 0; i < (SignedSize)spectrum_data_.size(); i++)
         {
           // parallel exception catching and re-throwing business
-          if (!errCount) // no need to parse further if already an error was encountered
+          try
           {
-            try
+            populateSpectraWithData_(spectrum_data_[i].data,
+                                      spectrum_data_[i].default_array_length,
+                                      options_,
+                                      spectrum_data_[i].spectrum);
+            if (options_.getSortSpectraByMZ() && !spectrum_data_[i].spectrum.isSorted())
             {
-              populateSpectraWithData_(spectrum_data_[i].data,
-                                       spectrum_data_[i].default_array_length,
-                                       options_,
-                                       spectrum_data_[i].spectrum);
-              if (options_.getSortSpectraByMZ() && !spectrum_data_[i].spectrum.isSorted())
-              {
-                spectrum_data_[i].spectrum.sortByPosition();
-              }
+              spectrum_data_[i].spectrum.sortByPosition();
             }
+          }
 
-            catch (OpenMS::Exception::BaseException& e)
+          catch (OpenMS::Exception::BaseException& e)
+          {
+            #pragma omp critical(MZMLErrorHandling)
             {
-#pragma omp critical(MZMLErrorHandling)
-              {
-                ++errCount;
-                error_message = e.what();
-              }
-            }
-            catch (...)
-            {
-#pragma omp atomic
               ++errCount;
+              error_message = e.what();
             }
+          }
+          catch (...)
+          {
+            ++errCount;
           }
         }
         if (errCount != 0)
@@ -264,7 +258,7 @@ namespace OpenMS::Internal
       typedef SpectrumType::PeakType PeakType;
 
       // decode all base64 arrays
-      MzMLHandlerHelper::decodeBase64Arrays(input_data, options_.getSkipXMLChecks());
+      MzMLHandlerHelper::decodeBase64Arrays(input_data, default_arr_length, options_.getSkipXMLChecks());
 
       //look up the precision and the index of the intensity and m/z array
       bool mz_precision_64 = true;
@@ -521,7 +515,7 @@ namespace OpenMS::Internal
       typedef ChromatogramType::PeakType ChromatogramPeakType;
 
       //decode all base64 arrays
-      MzMLHandlerHelper::decodeBase64Arrays(input_data, options_.getSkipXMLChecks());
+      MzMLHandlerHelper::decodeBase64Arrays(input_data, options_.getSkipXMLChecks(), default_arr_length);
 
       //look up the precision and the index of the intensity and m/z array
       bool int_precision_64 = true;

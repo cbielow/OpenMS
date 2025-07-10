@@ -61,8 +61,19 @@ public:
     */
     static void compressString(const QByteArray& raw_data, QByteArray& compressed_data);
 
+
     /**
-      * @brief Uncompresses data using Qt (wrapper around Qt function)
+      * @brief Uncompresses data using zlib
+      *
+      * @param compressed_data Compressed data
+      * @param nr_bytes Number of bytes in compressed data
+      * @param raw_data Uncompressed result data
+      * 
+    */
+    static void uncompressString(const void * compressed_data, size_t nr_bytes, std::string& raw_data, size_t output_size);
+
+    /**
+      * @brief Uncompresses data using zlib
       *
       * @param compressed_data Compressed data
       * @param nr_bytes Number of bytes in compressed data
@@ -72,7 +83,7 @@ public:
     static void uncompressString(const void * compressed_data, size_t nr_bytes, std::string& raw_data);
 
     /**
-      * @brief Uncompresses data using Qt
+      * @brief Uncompresses data using zlib
       *
       * @param compressed_data Compressed data
       * @param raw_data Uncompressed result data
