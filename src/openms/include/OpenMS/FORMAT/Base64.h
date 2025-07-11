@@ -282,9 +282,7 @@ private:
 
     constexpr Size element_size = sizeof(ToType);
 
-    String decompressed;
-
-    String s;
+    static thread_local String s;
     stringSimdDecoder_(in, s);
     QByteArray bazip = QByteArray::fromRawData(s.c_str(), (int) s.size());
 
@@ -292,11 +290,12 @@ private:
    // QByteArray qt_byte_array = QByteArray::fromRawData(in.c_str(), (int) in.size());
    // QByteArray bazip = QByteArray::fromBase64(qt_byte_array);
     QByteArray czip;
+    auto expected_size = bazip.size() * 2;
     czip.resize(4);
-    czip[0] = (bazip.size() & 0xff000000) >> 24;
-    czip[1] = (bazip.size() & 0x00ff0000) >> 16;
-    czip[2] = (bazip.size() & 0x0000ff00) >> 8;
-    czip[3] = (bazip.size() & 0x000000ff);
+    czip[0] = (expected_size & 0xff000000) >> 24;
+    czip[1] = (expected_size & 0x00ff0000) >> 16;
+    czip[2] = (expected_size & 0x0000ff00) >> 8;
+    czip[3] = (expected_size & 0x000000ff);
     czip += bazip;
     QByteArray base64_uncompressed = qUncompress(czip);
 
@@ -304,12 +303,9 @@ private:
     {
       throw Exception::ConversionError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Decompression error?");
     }
-    decompressed.resize(base64_uncompressed.size());
 
-    std::copy(base64_uncompressed.begin(), base64_uncompressed.end(), decompressed.begin());
-
-    void* byte_buffer = reinterpret_cast<void *>(&decompressed[0]);
-    Size buffer_size = decompressed.size();
+    void* byte_buffer = reinterpret_cast<void*>(&base64_uncompressed[0]);
+    Size buffer_size = base64_uncompressed.size();
 
     const ToType * float_buffer = reinterpret_cast<const ToType *>(byte_buffer);
     if (buffer_size % element_size != 0)
@@ -354,8 +350,8 @@ private:
     src_size -= padding;
 
     constexpr Size element_size = sizeof(ToType);
-    String s;
-    stringSimdDecoder_(in,s);
+    static thread_local String s;
+    stringSimdDecoder_(in, s);
 
     // change endianness if necessary (mzML is always LITTLE_ENDIAN; x64 is LITTLE_ENDIAN)
     if ((OPENMS_IS_BIG_ENDIAN && from_byte_order == Base64::BYTEORDER_LITTLEENDIAN) || (!OPENMS_IS_BIG_ENDIAN && from_byte_order == Base64::BYTEORDER_BIGENDIAN))

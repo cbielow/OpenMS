@@ -221,10 +221,9 @@ protected:
           @param spectrum The output spectrum
 
       */
-      void populateSpectraWithData_(std::vector<MzMLHandlerHelper::BinaryData>& input_data,
-                                    Size& length,
-                                    const PeakFileOptions& peak_file_options,
-                                    SpectrumType& spectrum);
+      SpectrumType populateSpectraWithData_(std::vector<MzMLHandlerHelper::BinaryData>& input_data,
+                                            Size& default_arr_length,
+                                            const PeakFileOptions& peak_file_options);
 
       /**
           @brief Fill a single chromatogram with data from input

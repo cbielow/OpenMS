@@ -233,7 +233,8 @@ private:
     MSNumpressCoder::NumpressConfig np_config_mz_{};
     MSNumpressCoder::NumpressConfig np_config_int_{};
     MSNumpressCoder::NumpressConfig np_config_fda_{};
-    Size maximal_data_pool_size_ = 100;
+    Size maximal_data_pool_size_ = 10000000; // ensure we convert spectra only at the end, so we have more iterations to observe thread mutex issues
+                                             // (due to frequent memory allocation/deallocation which is single threaded and mutexed!)
     bool precursor_mz_selected_ion_ = true;
     bool skip_chromatograms_ = false;
   };

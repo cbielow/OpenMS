@@ -138,7 +138,7 @@ namespace OpenMS
         @param index The index of the identified array
         @param index_name The name of the array to be identified
       */
-      static void computeDataProperties_(const std::vector<BinaryData>& data_, bool& precision_64, SignedSize& index, const String& index_name);
+      static void computeDataProperties_(const std::vector<BinaryData>& data_, bool& precision_64, SignedSize& index, const std::string_view& index_name);
 
       /**
         @brief Handle a given CV parameter found in a binaryDataArray tag

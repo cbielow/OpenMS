@@ -121,42 +121,20 @@ namespace OpenMS::Internal
       // Whether spectrum should be populated with data
       if (options_.getFillData())
       {
+        std::cerr << "  Populating spectra with data..." << std::endl;
         size_t errCount = 0;
         String error_message;
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-        for (SignedSize i = 0; i < (SignedSize)spectrum_data_.size(); i++)
+        const int ssize = (int)spectrum_data_.size();
+        #pragma omp parallel for schedule(static, 1)
+        for (int i = 0; i < ssize; ++i)
         {
-          // parallel exception catching and re-throwing business
-          if (!errCount) // no need to parse further if already an error was encountered
-          {
-            try
-            {
-              populateSpectraWithData_(spectrum_data_[i].data,
+              spectrum_data_[i].spectrum = populateSpectraWithData_(spectrum_data_[i].data,
                                        spectrum_data_[i].default_array_length,
-                                       options_,
-                                       spectrum_data_[i].spectrum);
+                                       options_);
               if (options_.getSortSpectraByMZ() && !spectrum_data_[i].spectrum.isSorted())
               {
                 spectrum_data_[i].spectrum.sortByPosition();
               }
-            }
-
-            catch (OpenMS::Exception::BaseException& e)
-            {
-#pragma omp critical(MZMLErrorHandling)
-              {
-                ++errCount;
-                error_message = e.what();
-              }
-            }
-            catch (...)
-            {
-#pragma omp atomic
-              ++errCount;
-            }
-          }
         }
         if (errCount != 0)
         {
@@ -256,12 +234,13 @@ namespace OpenMS::Internal
       chromatogram_data_.clear();
     }
 
-    void MzMLHandler::populateSpectraWithData_(std::vector<MzMLHandlerHelper::BinaryData>& input_data,
+    SpectrumType MzMLHandler::populateSpectraWithData_(std::vector<MzMLHandlerHelper::BinaryData>& input_data,
                                                Size& default_arr_length,
-                                               const PeakFileOptions& peak_file_options,
-                                               SpectrumType& spectrum)
+                                               const PeakFileOptions& peak_file_options) // todo: return
     {
       typedef SpectrumType::PeakType PeakType;
+
+      SpectrumType spectrum;
 
       // decode all base64 arrays
       MzMLHandlerHelper::decodeBase64Arrays(input_data, options_.getSkipXMLChecks());
@@ -282,7 +261,7 @@ namespace OpenMS::Internal
         {
           warning(LOAD, String("The m/z or intensity array of spectrum '") + spectrum.getNativeID() + "' is missing and default_arr_length is " + default_arr_length + ".");
         }
-        return;
+        return spectrum;
       }
 
       // Error if intensity or m/z is encoded as int32|64 - they should be float32|64!
@@ -327,7 +306,7 @@ namespace OpenMS::Internal
 
       //add the peaks and the meta data to the container (if they pass the restrictions)
       PeakType tmp;
-      spectrum.reserve(default_arr_length);
+      spectrum.resize(default_arr_length);
 
       // Optimized code paths for different scenarios
       bool has_mz_range = peak_file_options.hasMZRange();
@@ -342,9 +321,9 @@ namespace OpenMS::Internal
         MzMLHandlerHelper::BinaryData::PRECISION precision;
       };
       std::vector<MetaArrayInfo> meta_arrays;
-      meta_arrays.reserve(input_data.size() - 2); // reserve space for all but m/z and intensity arrays
       if (has_metadata)
       {
+        meta_arrays.reserve(input_data.size() - 2); // reserve space for all but m/z and intensity arrays
         Size meta_float_idx = 0, meta_int_idx = 0, meta_string_idx = 0;
         for (Size i = 0; i < input_data.size(); i++)
         {
@@ -389,21 +368,38 @@ namespace OpenMS::Internal
         }
       }
 
+      int spec_size = default_arr_length;
+
       // Most common case: no ranges, 64/32 precision, no metadata
       if (mz_precision_64 && !int_precision_64 && !has_metadata && !has_mz_range && !has_intensity_range)
       {
+        
         std::vector<double>::const_iterator mz_it = input_data[mz_index].floats_64.begin();
         std::vector<float>::const_iterator int_it = input_data[int_index].floats_32.begin();
-        for (Size n = 0; n < default_arr_length; n++) {
-          tmp.setIntensity(*int_it);
-          tmp.setMZ(*mz_it);
+        for (int n = 0; n < spec_size; n++)
+        {
+          spectrum[n].setIntensity(*int_it);
+          spectrum[n].setMZ(*mz_it);
           ++mz_it;
           ++int_it;
-          spectrum.push_back(tmp);
         }
-        return;
+        return spectrum;
       }
+      // Most common case: no ranges, 64/64 precision, no metadata
+      if (mz_precision_64 && int_precision_64 && ! has_metadata && ! has_mz_range && ! has_intensity_range)
+      {
 
+        std::vector<double>::const_iterator mz_it = input_data[mz_index].floats_64.begin();
+        std::vector<double>::const_iterator int_it = input_data[int_index].floats_64.begin();
+        for (int n = 0; n < spec_size; n++)
+        {
+          spectrum[n].setIntensity(*int_it);
+          spectrum[n].setMZ(*mz_it);
+          ++mz_it;
+          ++int_it;
+        }
+        return spectrum;
+      }
       // Optimized case: no filtering, but with metadata
       if (!has_mz_range && !has_intensity_range)
       {
@@ -473,7 +469,7 @@ namespace OpenMS::Internal
             }
           }
         }
-        return;
+        return spectrum;
       }
 
       // General case with filtering (rare case - keep simple)
@@ -511,6 +507,7 @@ namespace OpenMS::Internal
           }
         }
       }
+      return spectrum;
     }
 
     void MzMLHandler::populateChromatogramsWithData_(std::vector<MzMLHandlerHelper::BinaryData>& input_data,
