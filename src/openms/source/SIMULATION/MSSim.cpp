@@ -295,6 +295,11 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
 
   RawTandemMSSignalSimulation raw_tandemsim(rnd_gen);
   raw_tandemsim.setParameters(param_.copy("RawTandemSignal:", true));
+  if (param_.exists("RawSignal:ionmobility") && param_.getValue("RawSignal:ionmobility") == "true"){
+    String unit = ims.getUnit();
+    raw_tandemsim.setIMUnit(unit);
+    raw_tandemsim.setIMactivated(true);
+  }
   raw_tandemsim.generateRawTandemSignals(feature_maps_.front(), experiment_, peak_map_);
 
   labeler_->postRawTandemMSHook(feature_maps_, experiment_);
