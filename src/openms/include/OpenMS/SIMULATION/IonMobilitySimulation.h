@@ -26,7 +26,7 @@ private:
   String unit_;
   std::vector<std::vector<int>> split_indices_; // Indices of split sequences in im2deep (temporary till im2deep can handle sequences larger than 60)
   String im2deep_combined_output_path_; // temporary solution for im2deep. To Do: remove this line when im2deep can handle sequences larger than 60
-
+  float im_grid_width_;
 public:
   /** @name Constructors and Destructors
    */
@@ -129,6 +129,11 @@ public:
   String getIM2DeepCombinedOutputPath() const
   {
     return im2deep_combined_output_path_;
+  }
+
+  float getIMGridWidth_() const
+  {
+    return im_grid_width_;
   }
 };
 

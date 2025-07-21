@@ -266,7 +266,7 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
   verbosePrintFeatureMap(feature_maps_, "ION sim done");
 
   // IonMobilitySimulation
-  if (param_.exists("RawSignal:ionmobility") && param_.getValue("RawSignal:ionmobility") == "true")
+  if (param_.exists("IonMobility:ionmobility") && param_.getValue("IonMobility:ionmobility") == "true")
   {
     bool im2deep_available = ims.isIM2DeepAvailable(); // check if im2deep is available
     if (im2deep_available)
@@ -274,13 +274,16 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
       ims.run(feature_maps_.front());
       auto ionmobility_map = ims.getIonMobilityMap();
       String unit = ims.getUnit();
+      float im_grid_width = ims.getIMGridWidth_();
 
+      raw_sim.setIMActivated_(true);
       raw_sim.setIonMobilityMap(ionmobility_map);
       raw_sim.setIMUnit(unit);
+      raw_sim.setIMGridWidth_(im_grid_width);
     }
     else
     {
-      param_.setValue("RawSignal:ionmobility", "false");
+      param_.setValue("IonMobility:ionmobility", "false");
       raw_sim.setIMActivated_(false);
     }
   }
@@ -295,7 +298,8 @@ void MSSim::simulate(const SimTypes::MutableSimRandomNumberGeneratorPtr& rnd_gen
 
   RawTandemMSSignalSimulation raw_tandemsim(rnd_gen);
   raw_tandemsim.setParameters(param_.copy("RawTandemSignal:", true));
-  if (param_.exists("RawSignal:ionmobility") && param_.getValue("RawSignal:ionmobility") == "true"){
+  if (param_.exists("IonMobility:ionmobility") && (param_.getValue("IonMobility:ionmobility") == "true") && (param_.getValue("RawTandemSignal:status") == "precursor"))
+  {
     String unit = ims.getUnit();
     raw_tandemsim.setIMUnit(unit);
     raw_tandemsim.setIMactivated(true);

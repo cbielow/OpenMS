@@ -90,8 +90,13 @@ bool IonMobilitySimulation::isIM2DeepAvailable()
 
 void IonMobilitySimulation::setDefaultParams_()
 {
+  defaults_.setValue("ionmobility", "false", "Enable ion mobility simulation with IM2Deep.");
+  defaults_.setValidStrings("ionmobility", {"true", "false"});
   defaults_.setValue("IM_unit", "vssc", "Unit of ion mobility. vssc (= raw inverse reduced ion mobility array) or ccs (= collisional cross section)");
   defaults_.setValidStrings("IM_unit", {"vssc", "ccs"});
+  // for compress signals in RawMSSignalSimulation
+  defaults_.setValue("compresssignal:IM_grid_width", 0.0011, "Width of the IM grid for compressing signals");
+  defaults_.setMinFloat("compresssignal:IM_grid_width", 0.00001);
   defaultsToParam_();
 }
 
@@ -102,7 +107,8 @@ void IonMobilitySimulation::updateMembers_()
   unit_ = param_.getValue("IM_unit").toString();
   im2deep_combined_output_path_
     = File::getTemporaryFile(); // temporary solution for im2deep. To Do: remove this line when im2deep can handle sequences larger than 60
-}
+  im_grid_width_ = param_.getValue("compresssignal:IM_grid_width");
+  }
 
 void IonMobilitySimulation::run(const SimTypes::FeatureMapSim& features)
 {
@@ -116,13 +122,14 @@ void IonMobilitySimulation::run(const SimTypes::FeatureMapSim& features)
 void IonMobilitySimulation::createIM2DeepInputCSV(const SimTypes::FeatureMapSim& features)
 {
 
-  im2deep_input_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv";
+  // optional: set the path to the IM2Deep input file, so it is not only created temporarily
+  // im2deep_input_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_input.csv";
   std::ofstream file;
   file.open(im2deep_input_path_.c_str(), std::ios::out);
 
   if (! file.is_open())
   {
-    std::cerr << "Fehler: Datei konnte nicht geöffnet werden!" << std::endl;
+    std::cerr << "error: IM2Deep input file could not be opened." << std::endl;
     return;
   }
 
@@ -199,13 +206,14 @@ void IonMobilitySimulation::runIM2Deep()
   QString exe = "im2deep";
   QStringList args;
 
-  im2deep_output_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
-  //  Path in Qstring umwandeln, damit als input für ExternalProcess geht
+  // optional: set the path to the IM2Deep output file, so it is not only created temporarily
+  // im2deep_output_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_output.csv";
+  //  Path has to be converted to QString, because ExternalProcess uses QString for the path
   if (unit_ == "ccs")
   {
     args << QString::fromStdString(im2deep_input_path_) << "-o"
          << QString::fromStdString(
-              im2deep_output_path_); //<< "-c" << "/buffer/ag_bsc/student_data/mssim/jonnab00/IM2Deep/im2deep/reference_data/multi_reference_ccs.csv";
+              im2deep_output_path_); //<< "-c" << "/buffer/ag_bsc/student_data/mssim/jonnab00/IM2Deep/im2deep/reference_data/multi_reference_ccs.csv"; // configuration file can be set here in the future
   }
   else if (unit_ == "vssc")
   {
@@ -213,13 +221,13 @@ void IonMobilitySimulation::runIM2Deep()
          << "--ion-mobility"; //<< "-c" << "/buffer/ag_bsc/student_data/mssim/jonnab00/IM2Deep/im2deep/reference_data/multi_reference_ccs.csv";
   }
   QString working_dir = QDir::currentPath();
-  String error_msg = "Beim Aufruf von IM2Deep ist etwas schiefgelaufen :(";
+  String error_msg = "Something went wrong while running IM2Deep.";
 
   ExternalProcess im2deepCall(stdoutCallback, stderrCallback);
   ExternalProcess::RETURNSTATE result = im2deepCall.run(exe, args, working_dir, true, error_msg);
 
-  if (result == ExternalProcess::RETURNSTATE::SUCCESS) { OPENMS_LOG_INFO << "IM2Deep erfolgreich ausgeführt!\n"; }
-  else { std::cerr << "Fehler beim Ausführen von IM2Deep: " << error_msg << std::endl; }
+  if (result == ExternalProcess::RETURNSTATE::SUCCESS) { OPENMS_LOG_INFO << "IM2Deep executed successfully!\n"; }
+  else { std::cerr << "Error: " << error_msg << std::endl; }
 }
 
 // temporary solution for im2deep
@@ -239,17 +247,19 @@ void IonMobilitySimulation::addsplit_indices()
     lines.push_back(line);
   }
 
-  im2deep_combined_output_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_combined_output.csv";
+  // optional: set the path to the IM2Deep combined output file, so it is not only created temporarily
+  // im2deep_combined_output_path_ = "/buffer/ag_bsc/student_data/mssim/jonnab00/Beispieldaten/MS_IM2Deep/IM2Deep_combined_output.csv";
   std::ofstream combined_file(im2deep_combined_output_path_.c_str());
   combined_file << header << "\n";
 
-  int current_line = 1; // 1-basiert (wegen Header)
+  int current_line = 1; // 1-based (due to Header)
+  // Iterate through split indices and combine sequences
   for (const auto& group : split_indices_)
   {
     int start = group.front();
     int end = group.back();
 
-    // Unveränderte Zeilen davor übernehmen
+    // keeping unchanged lines before split
     while (current_line < start && current_line <= (int)lines.size())
     {
       combined_file << lines[current_line - 1] << "\n";
@@ -303,7 +313,7 @@ void IonMobilitySimulation::addsplit_indices()
     current_line = end + 1;
   }
 
-  // Restliche Zeilen übernehmen
+  // adding remaining lines after the last split
   while (current_line <= (int)lines.size())
   {
     combined_file << lines[current_line - 1] << "\n";

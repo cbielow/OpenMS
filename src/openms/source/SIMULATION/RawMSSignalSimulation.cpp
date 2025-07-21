@@ -219,14 +219,6 @@ void RawMSSignalSimulation::setDefaultParams_()
 
   defaults_.setSectionDescription("noise", "Parameters modeling noise in mass spectrometry measurements");
 
-  // ion mobility
-  defaults_.setValue("ionmobility", "false", "Enable ion mobility simulation.");
-  defaults_.setValidStrings("ionmobility", {"true", "false"});
-
-  // compress signals
-  defaults_.setValue("compresssignal:IM_grid_width", 0.0011, "Width of the IM grid for compressing signals");
-  defaults_.setMinFloat("compresssignal:IM_grid_width", 0.00001);
-
   defaultsToParam_();
 }
 
@@ -266,11 +258,7 @@ void RawMSSignalSimulation::updateMembers_()
   intensity_scale_stddev_ = param_.getValue("variation:intensity:scale_stddev");
 
   contaminants_loaded_ = false;
-
-  if (param_.getValue("ionmobility") == "true") { im_activated_ = true; }
-  else { im_activated_ = false; }
-
-  im_grid_width_ = param_.getValue("compresssignal:IM_grid_width");
+  im_activated_ = false;
 }
 
 void RawMSSignalSimulation::loadContaminants()
@@ -466,8 +454,8 @@ void RawMSSignalSimulation::generateRawSignals(SimTypes::FeatureMapSim& features
 
 #ifdef _OPENMP
   // temporary solution for ion mobility, since parallelisation is not yet implemented
-  #pragma omp parallel for if(!im_activated_) firstprivate(compress_count)
-  //#pragma omp parallel for firstprivate(compress_count)
+  #pragma omp parallel for if (! im_activated_) firstprivate(compress_count)
+    // #pragma omp parallel for firstprivate(compress_count)
 #endif
     for (SignedSize f = 0; f < (SignedSize)features.size(); ++f)
     {
@@ -748,47 +736,47 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
     // getMZ() for centroided
 
-      for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
-      {
-        double iso_mass = iter->getMZ(); // Masse von Isotop speichern
-        double mz = iso_mass / q;
-        point.setMZ(mz);
-        point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
+    for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter)
+    {
+      double iso_mass = iter->getMZ(); // Masse von Isotop speichern
+      double mz = iso_mass / q;
+      point.setMZ(mz);
+      point.setIntensity(iter->getIntensity() * rt_intensity * distortion);
 
-        if (point.getIntensity() > 0.0)
+      if (point.getIntensity() > 0.0)
+      {
+        if (im_activated_)
         {
-          if (im_activated_)
+          float im_value = -1.0f;
+          if (active_feature.metaValueExists("contaminant") && active_feature.getMetaValue("contaminant") == "true")
           {
-            float im_value = -1.0f;
-            if (active_feature.metaValueExists("contaminant") && active_feature.getMetaValue("contaminant") == "true")
+            if (active_feature.metaValueExists("ccs"))
             {
-              if (active_feature.metaValueExists("ccs"))
+              if (unit_ == "ccs") { im_value = static_cast<float>(active_feature.getMetaValue("ccs")); }
+              else if (unit_ == "vssc")
               {
-                if (unit_ == "ccs") { im_value = static_cast<float>(active_feature.getMetaValue("ccs")); }
-                else if (unit_ == "vssc")
-                {
-                  im_value = IonMobilitySimulation::convertCCStoKo(static_cast<float>(active_feature.getMetaValue("ccs")), active_feature.getMZ(),
-                                                                  active_feature.getCharge());
-                }
+                im_value = IonMobilitySimulation::convertCCStoKo(static_cast<float>(active_feature.getMetaValue("ccs")), active_feature.getMZ(),
+                                                                 active_feature.getCharge());
               }
             }
-            else if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
-            {
-              String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
-              int charge = active_feature.getCharge();
-              auto it = ionmobility_map_.find({seq, charge});
-              if (it != ionmobility_map_.end()) { im_value = static_cast<float>(it->second); }
-              else { throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit_, "Unknown unit for ion mobility."); }
-            }
-
-            // add IonMobility value to the Float data array
-            exp_ct_iter->MSSpectrum::addIMValueToIMArray(im_value);
           }
-          exp_ct_iter->push_back(point);
-        }
-      }
-      
+          else if (! active_feature.getPeptideIdentifications().empty() && ! active_feature.getPeptideIdentifications()[0].getHits().empty())
+          {
+            String seq = active_feature.getPeptideIdentifications()[0].getHits()[0].getSequence().toString();
+            int charge = active_feature.getCharge();
+            auto it = ionmobility_map_.find({seq, charge});
+            if (it != ionmobility_map_.end()) { im_value = static_cast<float>(it->second); }
+            else { throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, unit_, "Unknown unit for ion mobility."); }
+          }
 
+          // add IonMobility value to the Float data array
+          exp_ct_iter->MSSpectrum::addIMValueToIMArray(im_value);
+        }
+        exp_ct_iter->push_back(point);
+      }
+    }
+
+    // old version, where isotope positions were calculated for the centroided ouput. (new version above)
     /*
     for (IsotopeDistribution::const_iterator iter = iso_dist.begin(); iter != iso_dist.end(); ++iter, ++iso_pos)
     {
@@ -802,7 +790,6 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
     // RAW signal (sample it on the grid)
     std::vector<SimTypes::SimCoordinateType>::const_iterator it_grid = lower_bound(grid_.begin(), grid_.end(), mz_start);
-    // JB  Die Schleife iteriert über alle relevanten m/z-Werte innerhalb der Isotopenmuster-Grenzen
     // setMZ if not centroided
     for (; it_grid != grid_.end() && (*it_grid) < mz_end; ++it_grid)
     {
@@ -875,11 +862,11 @@ void RawMSSignalSimulation::samplePeptideModel2D_(const ProductModel<2>& pm,
 
         // add IonMobility value to the Float data array
         exp_iter->MSSpectrum::addIMValueToIMArray(im_value);
-        // exp_iter->MSSpectrum::addIMToFloatDataArray(im_value, unit_);
       }
 
       exp_iter->push_back(point);
 
+      // Debug output to check if the FloatDataArray is correctly filled
       /*
       if (exp_iter->getFloatDataArrays()[0].size() != exp_iter->size())
       {
@@ -1316,10 +1303,7 @@ void RawMSSignalSimulation::getSamplingGrid_(std::vector<SimTypes::SimCoordinate
   {
     throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Sampling grid seems very small. This cannot be computed!");
   }
-  if (mz_min <= 0.0)
-  {
-    throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Sampling grid must start at m/z > 0.");
-  }
+  if (mz_min <= 0.0) { throw Exception::IllegalArgument(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Sampling grid must start at m/z > 0."); }
   grid.clear();
   SimTypes::SimCoordinateType mz = mz_min;
   double sampling_rate(0);
@@ -1401,7 +1385,7 @@ void RawMSSignalSimulation::compressSignalsIonMobility_(SimTypes::MSSimExperimen
 
   if (mz_grid.size() < 3 || im_grid.size() < 3)
   {
-    OPENMS_LOG_WARN << "Data spacing is weird - either you selected a very small interval or a very low resolution - or both. Not compressing."
+    OPENMS_LOG_WARN << "Data spacing is weird -  either you selected a very small interval or a very low resolution - or both. Not compressing."
                     << std::endl;
     return;
   }

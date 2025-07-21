@@ -351,6 +351,7 @@ void RawTandemMSSignalSimulation::generatePrecursorSpectra_(const SimTypes::Feat
     // preserve precursor information etc and just insert peaks
     ms2[i].insert(ms2[i].begin(), tmp_spectra[0].begin(), tmp_spectra[0].end());
 
+    // get precursor ion mobility value by using the metadata set in OfflinePrecursorIonSelection.cpp
     if (im_activated_){
       for (Size id = 0; id < ids.size(); ++id)
       {
