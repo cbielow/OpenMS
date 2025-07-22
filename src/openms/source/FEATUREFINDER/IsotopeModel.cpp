@@ -98,10 +98,7 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
   typedef std::vector<double> ContainerType;
   ContainerType isotopes_exact;
 
-  if (param_.getValue("isotope:pattern_mode") == "fine")
-  {
-    isotope_distribution_ = formula.getIsotopeDistribution(FineIsotopePatternGenerator(0.00005, ProbabilityMode::relative));
-  }
+  if (param_.getValue("isotope:pattern_mode") == "fine") { isotope_distribution_ = formula.getIsotopeDistribution(FineIsotopePatternGenerator()); }
   else { isotope_distribution_ = formula.getIsotopeDistribution(CoarseIsotopePatternGenerator(max_isotope_, false)); }
 
   isotope_distribution_.trimRight(trim_right_cutoff_);
