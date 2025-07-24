@@ -69,13 +69,17 @@ namespace OpenMS
     if (ret == Z_OK)
     {
       if (uncompressedSize != raw_data.size())
-      { 
-        OPENMS_LOG_INFO << "zlib::uncompress: data was smaller than anticipated.\n";
+      {
+        OPENMS_LOG_INFO << "ZlibCompression::uncompressString: Warning: decompressed data was smaller (" << std::to_string(uncompressedSize) << ") than anticipated: " << std::to_string(output_size) << std::endl;
         raw_data.resize(output_size);
       }
     }
-    else {
-      std::cerr << "Zlib::uncompress() failed with code: " << ret << " and expected output size: " << output_size << std::endl;
+    else if (ret == Z_BUF_ERROR)
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Decompression failed because specified output_size was too small. Size of data after decompression is larger than anticipated: " + std::to_string(uncompressedSize), std::to_string(output_size));
+    } else
+    {
+      throw Exception::InternalToolError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "zlib::inflate failed with code " + std::to_string(ret) + " .");
     }
 
   }
@@ -90,12 +94,17 @@ namespace OpenMS
     strm.next_in = (Bytef*)(compressed_data);
     strm.avail_in = nr_bytes;
 
+    int ret;
+
     // Initialize zlib (use inflateInit2 for gzip or raw deflate)
-    if (inflateInit(&strm) != Z_OK) { throw std::runtime_error("inflateInit failed"); }
+    ret = inflateInit(&strm);
+    if (ret != Z_OK)
+    {
+      throw Exception::InternalToolError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "zlib::inflateInit failed with code " + std::to_string(ret) + " .");
+    }
 
     // Decompress loop
     std::array<char, CHUNK_SIZE> buffer;
-    int ret;
 
     do
     {
@@ -106,7 +115,7 @@ namespace OpenMS
       if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR)
       {
         inflateEnd(&strm);
-        throw std::runtime_error("inflate failed");
+        throw Exception::InternalToolError(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "zlib::inflate failed with code " + std::to_string(ret) + " .");
       }
 
       size_t bytesDecompressed = CHUNK_SIZE - strm.avail_out;
@@ -116,13 +125,5 @@ namespace OpenMS
 
     inflateEnd(&strm);
   }
-
-  void ZlibCompression::uncompressString(const QByteArray& compressed_data, QByteArray& raw_data)
-  {
-    std::string uncompressed;
-    uncompressString(compressed_data.constData(), compressed_data.size(), uncompressed);
-    raw_data = QByteArray::fromRawData(uncompressed.data(), static_cast<int>(uncompressed.size()));
-  }
-
 }
 

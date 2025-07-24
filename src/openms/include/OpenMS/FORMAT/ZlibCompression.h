@@ -64,16 +64,21 @@ public:
 
     /**
       * @brief Uncompresses data using zlib
+      * Compared to variant of this function, which does not use output_size parameter, this is faster and preferred.
+      * Be aware that this function preallocates amount of memory corresponding to ouput_size.
       *
       * @param compressed_data Compressed data
       * @param nr_bytes Number of bytes in compressed data
       * @param raw_data Uncompressed result data
+      * @param output_size Size of uncompressed data
       * 
     */
     static void uncompressString(const void * compressed_data, size_t nr_bytes, std::string& raw_data, size_t output_size);
 
     /**
       * @brief Uncompresses data using zlib
+      * When size of data after decompression is known, it is recommended to use another variant of this function, which allows specifying output size.
+      * Does not support gzip format decompression.
       *
       * @param compressed_data Compressed data
       * @param nr_bytes Number of bytes in compressed data
@@ -81,16 +86,6 @@ public:
       * 
     */
     static void uncompressString(const void * compressed_data, size_t nr_bytes, std::string& raw_data);
-
-    /**
-      * @brief Uncompresses data using zlib
-      *
-      * @param compressed_data Compressed data
-      * @param raw_data Uncompressed result data
-      * 
-    */
-    static void uncompressString(const QByteArray& compressed_data, QByteArray& raw_data);
-
   };
 
 } // namespace OpenMS
