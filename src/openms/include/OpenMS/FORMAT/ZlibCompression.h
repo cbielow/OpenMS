@@ -71,6 +71,8 @@ public:
       * @param nr_bytes Number of bytes in compressed data
       * @param raw_data Uncompressed result data
       * @param output_size Size of uncompressed data
+      * @throws Exception::InvalidValue if output_size specified turns out to be smaller than actual size of uncompressed data.
+      * @throws Exception::InternalToolError if zlib tools used by function fail for unknown reason.
       * 
     */
     static void uncompressString(const void * compressed_data, size_t nr_bytes, std::string& raw_data, size_t output_size);
@@ -83,6 +85,7 @@ public:
       * @param compressed_data Compressed data
       * @param nr_bytes Number of bytes in compressed data
       * @param raw_data Uncompressed result data
+      * @throws Exception::InternalToolError if zlib tools used by function fail for unknown reason. This might happen if decompression from unsupported gzip format is attempted.
       * 
     */
     static void uncompressString(const void * compressed_data, size_t nr_bytes, std::string& raw_data);

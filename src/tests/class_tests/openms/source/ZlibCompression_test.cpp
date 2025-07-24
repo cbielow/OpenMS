@@ -138,6 +138,15 @@ START_SECTION((static void uncompressString(const void* compressed_data, size_t 
   TEST_TRUE(compressed_data.size() < raw_data4.size())
   TEST_EQUAL(uncompressed_data.size(), 1052)
   TEST_TRUE(uncompressed_data == raw_data4)
+
+  ////////////////
+  // Exceptions //
+  ////////////////
+  ZlibCompression::compressString(raw_data, compressed_data);
+  // Invalid output_size
+  TEST_EXCEPTION(Exception::InvalidValue, ZlibCompression::uncompressString(&compressed_data[0], compressed_data.size(), uncompressed_data, 10);)
+  // Truncated data
+  TEST_EXCEPTION(Exception::InternalToolError, ZlibCompression::uncompressString(&compressed_data[0], compressed_data.size()-10, uncompressed_data, raw_data.size());)
 }
 END_SECTION
 
