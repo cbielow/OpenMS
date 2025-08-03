@@ -606,6 +606,7 @@ set(simulation_executables_list
   EGHModel_test
   EGHFitter1D_test
   IonizationSimulation_test
+  IonMobilitySimulation_test
   MSSim_test
   RTSimulation_test
   RawMSSignalSimulation_test
@@ -700,4 +701,5 @@ set(TEST_executables
     ${ionmobility_executables_list}
     ${swath_executables_list}
     ${qc_executables_list}
+    ${simulation_executables_list}
 )

@@ -238,6 +238,16 @@ void RawTandemMSSignalSimulation::generateMSESpectra_(const SimTypes::FeatureMap
   }
 }
 
+void RawTandemMSSignalSimulation::setIMUnit(String& unit)
+{
+  im_unit_ = unit;
+}
+
+void RawTandemMSSignalSimulation::setIMactivated(bool im_activated)
+{
+  im_activated_ = im_activated;
+}
+
 void RawTandemMSSignalSimulation::generatePrecursorSpectra_(const SimTypes::FeatureMapSim& features,
                                                             const SimTypes::MSSimExperiment& experiment,
                                                             SimTypes::MSSimExperiment& ms2)
@@ -340,6 +350,41 @@ void RawTandemMSSignalSimulation::generatePrecursorSpectra_(const SimTypes::Feat
     }
     // preserve precursor information etc and just insert peaks
     ms2[i].insert(ms2[i].begin(), tmp_spectra[0].begin(), tmp_spectra[0].end());
+
+    // get precursor ion mobility value by using the metadata set in OfflinePrecursorIonSelection.cpp
+    if (im_activated_){
+      for (Size id = 0; id < ids.size(); ++id)
+      {
+        Precursor& precursor = ms2[i].getPrecursors()[id];
+
+        if (precursor.metaValueExists("ms1_index") && precursor.metaValueExists("ms1_peak_index"))
+        {
+          int ms1_index = precursor.getMetaValue("ms1_index");
+          int peak_index = precursor.getMetaValue("ms1_peak_index");
+
+          const auto& fda = experiment[ms1_index].getFloatDataArrays();
+          const Size im_array_index = experiment[ms1_index].MSSpectrum::getIMArrayIndex();
+          if (!fda.empty())
+          {
+
+            float im_val = fda[im_array_index][peak_index];
+            precursor.setDriftTime(im_val);
+            if (im_unit_ == "vssc")
+            {
+              precursor.setDriftTimeUnit(DriftTimeUnit::VSSC);
+            }
+            else if (im_unit_ == "ccs")
+            {
+              precursor.setDriftTimeUnit(DriftTimeUnit::CCS);
+            }
+            else
+            {
+              OPENMS_LOG_WARN << "Unknown ion mobility unit" << std::endl;
+            }
+          }
+        }
+      }
+    }
   }
 }
 

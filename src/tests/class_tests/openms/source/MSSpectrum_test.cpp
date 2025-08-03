@@ -1526,7 +1526,8 @@ START_SECTION((void addIMToFloatDataArray(float im_value, String unit)))
 
   // vssc test
   float im_val = 123.45f;
-  spec.addIMToFloatDataArray(im_val, "vssc");
+  spec.initializeIMFloatDataArray("vssc");
+  spec.addIMValueToIMArray(im_val);
 
   const auto& fda_vssc = spec.getFloatDataArrays();
   TEST_EQUAL(fda_vssc.size(), 1)
@@ -1540,7 +1541,8 @@ START_SECTION((void addIMToFloatDataArray(float im_value, String unit)))
   // ccs test
   MSSpectrum spec_ccs;
   float im_val2 = 456.78f;
-  spec_ccs.addIMToFloatDataArray(im_val2, "ccs");
+  spec_ccs.initializeIMFloatDataArray("ccs");
+  spec_ccs.addIMValueToIMArray(im_val2);
 
   const auto& fda_ccs = spec_ccs.getFloatDataArrays();
   TEST_EQUAL(fda_ccs.size(), 1)

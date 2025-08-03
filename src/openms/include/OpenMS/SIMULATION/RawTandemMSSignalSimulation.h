@@ -80,6 +80,17 @@ public:
      */
     void generateRawTandemSignals(const SimTypes::FeatureMapSim&, SimTypes::MSSimExperiment&, SimTypes::MSSimExperiment&);
 
+    // unit of ion mobility
+    String im_unit_;
+
+    // wether ion mobility simulation is activated or not
+    bool im_activated_ = false;
+    /// save IMUnit as member variable
+    void setIMUnit(String& unit);
+
+    void setIMactivated(bool im_activated);
+
+    
 
 protected:
 

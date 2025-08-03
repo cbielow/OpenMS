@@ -9,7 +9,7 @@
 #include <OpenMS/CHEMISTRY/EmpiricalFormula.h>
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/CoarseIsotopePatternGenerator.h>
 #include <OpenMS/CHEMISTRY/ISOTOPEDISTRIBUTION/FineIsotopePatternGenerator.h>
-#include <OpenMS/CONCEPT/LogStream.h>                                        
+#include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/FEATUREFINDER/IsotopeModel.h>
 #include <OpenMS/MATH/STATISTICS/BasicStatistics.h>
 #include <boost/math/distributions/cauchy.hpp>
@@ -130,8 +130,8 @@ void IsotopeModel::setSamples(const EmpiricalFormula& formula)
 
   for (Size i = 0; i < isotope_distribution_.size(); ++i)
   {
-    double mz_offset = (isotope_distribution_[i].getMZ() - isotope_distribution_[0].getMZ())/ charge_; // distance to first peak
-    size_t index = static_cast<size_t>(mz_offset / interpolation_step_ + 0.5);              // +0,5 to round to next index
+    double mz_offset = (isotope_distribution_[i].getMZ() - isotope_distribution_[0].getMZ()) / charge_; // distance to first peak
+    size_t index = static_cast<size_t>(mz_offset / interpolation_step_ + 0.5);                          // +0,5 to round to next index
     if (index < isotopes_exact.size()) { isotopes_exact[index] = isotope_distribution_[i].getIntensity(); }
   }
 

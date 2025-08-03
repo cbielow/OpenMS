@@ -490,6 +490,9 @@ void OfflinePrecursorIonSelection::makePrecursorSelectionForKnownLCMSMap(const F
             p.setIntensity(feature_intensity);
             p.setMZ(features[feature_num].getMZ());
             p.setCharge(features[feature_num].getCharge());
+            // storing index to find FloatDataArray for the determination of the ion mobility
+            p.setMetaValue("ms1_index", (int)i);
+            p.setMetaValue("ms1_peak_index", (int)j);
             pcs.push_back(p);
             parent_feature_ids.push_back((Int)feature_num);
           }

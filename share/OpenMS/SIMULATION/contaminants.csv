@@ -11,7 +11,7 @@
 ## IonSource:      valid names: ESI, MALDI, ALL; during simulation contaminant is included depending on ionization type 
 ##
 ## COLUMNS:
-## Name, SumFormula, RT_start, RT_end, Intensity, Charge, ProfileShape, IonSource
+## Name, SumFormula, RT_start, RT_end, Intensity, Charge, ProfileShape, IonSource, CCS
 ##
 ##
 ## Example:
@@ -19,6 +19,7 @@
 ##  "something with, comma", C7H12O3,  200,      400,     123,      2,      rec,          ALL
 ##  compound 3, C17H12O3,             1000,     1100,      75,      1,      gauss,        MALDI
 
+## Google Gemini über die CCS Werte:
 ## Die CCS-Werte sind typischerweise für Ionen in der Gasphase, meistens [M+H]+ für positive Elektrospray-Ionisation (ESI), in Stickstoff (N2) als Driftgas. Manchmal können es auch andere Addukte sein ([M+Na]+ etc.).
 ## Für Mischungen (z.B. "Acetonitrile/Methanol") habe ich versucht, den CCS-Wert für das protonengebundene Dimer ([A+B+H]+) zu finden, da dies oft in ESI gebildet wird. Wenn kein spezifischer Wert für das Dimer leicht verfügbar war, ist es eine Schätzung oder ein Hinweis auf Komplexität.
 ## "PEG" und "PPG": Ich habe die CCS-Werte für die Monomereinheiten (Ethylenglykol für PEG, Propylenglykol für PPG) als [M+H]+ verwendet. Die Formeln im Original (C2H4OH2O, C3H6OH2O) sind etwas untypisch für die Monomere, deuten aber auf diese hin.

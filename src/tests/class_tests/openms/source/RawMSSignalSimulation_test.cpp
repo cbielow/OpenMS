@@ -195,8 +195,8 @@ END_SECTION
 
 START_SECTION((Test Coarse and FineIsotopePatternGeneration))
 {
-  EmpiricalFormula formula = EmpiricalFormula("C100H159N31O31S2");
-  IsotopeDistribution fine_dist = formula.getIsotopeDistribution(FineIsotopePatternGenerator());
+  EmpiricalFormula formula = EmpiricalFormula("C200H299N51O62S5");
+  IsotopeDistribution fine_dist = formula.getIsotopeDistribution(FineIsotopePatternGenerator(0.00005,ProbabilityMode::relative));
   IsotopeDistribution coarse_dist = formula.getIsotopeDistribution(CoarseIsotopePatternGenerator(100, false));
 
   // Log zur Kontrolle
