@@ -76,7 +76,7 @@
     mkdir -p "$OPENMS_DIR/openms_build"
     cd "$OPENMS_DIR/openms_build"
     cmake \
-      -DCMAKE_PREFIX_PATH="$(brew --prefix);$(brew --prefix qt)" \
+      -DCMAKE_PREFIX_PATH="$(brew --prefix);$(brew --prefix qt);$(brew --prefix libomp)" \
       -DBOOST_USE_STATIC=OFF \
       "$OPENMS_DIR/OpenMS"
     make -j"$(nproc || sysctl -n hw.logicalcpu || echo 2)"
