@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang  $
-// $Authors: Xiao Liang $
+// $Authors: Xiao Liang, Alen Saric $
 // --------------------------------------------------------------------------
 //
 
@@ -45,9 +45,7 @@ namespace OpenMS
       name_(name),
       synonyms_(synonyms),
       regex_description_(std::move(regex_description))
-  {
-    //TODO check if all letters are A-Z?
-    if (cut_before.empty())
+  {    if (cut_before.empty())
     {
       //Maybe assertion?
       throw Exception::MissingInformation(
@@ -56,7 +54,34 @@ namespace OpenMS
           OPENMS_PRETTY_FUNCTION,
           "No cleavage position given when trying to construct a DigestionEnzyme.");
     }
-    else if (!cut_before.hasSuffix("X"))
+    // We now know that cut_before is not empty.
+    // Check if every character given in the Positive Lookbehind Sequence is an A-Z, throw Exception otherwise.
+    for(char c: cut_before)
+    {
+      if (c > 'Z' || c < 'A')
+      {
+        throw Exception::InvalidParameter(
+          __FILE__,
+          __LINE__,
+          OPENMS_PRETTY_FUNCTION,
+          "Amino Acids to get used for cleavage contains unknown character - something else than A-Z: " + c + "."
+        );
+      }
+    }
+    // We also want to verifiy it for the AAs for the Negative Lookahead
+    for(char c: nocut_after)
+    {
+      if (c > 'Z' || c < 'A')
+      {
+        throw Exception::InvalidParameter(
+          __FILE__,
+          __LINE__,
+          OPENMS_PRETTY_FUNCTION,
+          "Amino Acids to stop cleavages contains unknown character - something else than A-Z: " + c + "."
+        );
+      }
+    }
+    if (!cut_before.hasSuffix("X"))
     {
       //TODO think about this
       cut_before = cut_before + "X";
