@@ -30,6 +30,7 @@ MetaInfoDescription.h
 MetaInfoInterface.h
 MetaInfoInterfaceUtils.h
 MetaInfoRegistry.h
+SILACDetector.h
 SpectrumNativeIDParser.h
 PeptideEvidence.h
 PeptideHit.h

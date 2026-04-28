@@ -105,6 +105,7 @@ set(metadata_executables_list
   MetaInfoInterfaceUtils_test
   MetaInfoRegistry_test
   MetaInfo_test
+  SILACDetector_test
   SpectrumNativeIDParser_test
   PeptideEvidence_test
   PeptideHit_test
