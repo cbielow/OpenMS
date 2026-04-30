@@ -10,7 +10,9 @@
  
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/CONCEPT/Types.h>
+#include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/KERNEL/AreaIterator.h>
 #include <functional>
 #include <sstream>
 //#include <map>
@@ -29,7 +31,7 @@ namespace OpenMS
 
 public:
   
-  //bool detectSILAC(MSExperiment experiment);
+  bool detectSILAC(MSExperiment experiment);
 
   //void process_spectrum(self, MSSpectrum spectrum, binned_spectrum); //???????????????????????????
 

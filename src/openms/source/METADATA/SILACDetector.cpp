@@ -296,6 +296,112 @@ namespace OpenMS
     return false;
   }*/
 
+  bool SILACDetector::detectSILAC(MSExperiment experiment)
+  {
+    int spectrum_number = 0;
+    std::vector<int> control_distances = {11, 14, 15, 21, 23, 27};
+    std::vector<int> silac_distances = {4, 6, 8, 10};
+
+    std::map<int,int> distance_count = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
+    double RT_window = 5;
+    int min_index = 0;
+    int max_index = 0;
+    
+    
+    // vielleicht von anfang an nur MS2 spektren nehmen
+
+     for (const auto& spectrum : experiment)
+    {
+       
+      std::cout << "Spectrumnumber: " << spectrum_number << std::endl;
+      spectrum_number++;
+    
+      if (2 == spectrum.getMSLevel())
+      {
+
+       
+        double spectrum_rt = spectrum.getRT();
+        while (experiment[min_index].getRT() < spectrum.getRT() - RT_window)
+        {
+          min_index++;
+        } 
+        while ((experiment[max_index].getRT() < spectrum.getRT() + RT_window) && max_index < experiment.size())
+        {
+          max_index++;
+        } 
+        for (int i = min_index; i < max_index; i++)
+        {
+          if (2 == experiment[i].getMSLevel())
+          {
+            if (spectrum.getPrecursors()[0].getCharge() == experiment[i].getPrecursors()[0].getCharge())
+            {
+              double distance = spectrum.getPrecursors()[0].getMZ() - experiment[i].getPrecursors()[0].getMZ();
+              distance *= spectrum.getPrecursors()[0].getCharge();
+              distance = std::abs(distance);
+              distance += 0.5;
+              int a = distance;
+              //std::cout << distance << std::endl;
+              if (distance_count.find(a) != distance_count.end())
+              {
+                distance_count[a]++;
+              }
+            }
+            
+          }
+          
+        }
+      }
+
+      
+      
+      
+    }
+    double n = 6;
+
+    double control_mean = (distance_count[11] + distance_count[14] + distance_count[15] + distance_count[21] + distance_count[23] + distance_count[27]) / 6;
+    double control_sd = 0;
+    double s;
+    double sd_sum=0;
+    for (int i = 0; i < 6; i++)
+    {
+      s = distance_count[control_distances[i]]-control_mean;
+      s *= s;
+      sd_sum += s;
+
+    }
+    control_sd = std::sqrt(sd_sum/(n-1));
+ 
+    
+    
+
+
+   /*  for (long unsigned int i = 0; i < experiment.size();i++)
+  {
+    
+    if(experiment[i].getMSLevel()==2)
+    {
+      experiment[i].getPrecursors()[0].getCharge();
+      experiment[i].getPrecursors()[0].getMZ();
+      experiment[i].getPrecursors()[0].getUnchargedMass();
+    }
+
+  } */
+    std::cout << "Distanz 4: " << distance_count[4] << " Zscore: " << (distance_count[4]-control_mean)/control_sd<< std::endl;
+    std::cout << "Distanz 6: " << distance_count[6] << " Zscore: " << (distance_count[6]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 8: " << distance_count[8] << " Zscore: " << (distance_count[8]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 10: " << distance_count[10] << " Zscore: " << (distance_count[10]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 11: " << distance_count[11] << " Zscore: " << (distance_count[11]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 14: " << distance_count[14] << " Zscore: " << (distance_count[14]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 15: " << distance_count[15] << " Zscore: " << (distance_count[15]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 21: " << distance_count[21] << " Zscore: " << (distance_count[21]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 23: " << distance_count[23] << " Zscore: " << (distance_count[23]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl;
+
+    
+    return true;
+
+  }
+
   int SILACDetector::testfunktion()
   {
     return 1;
