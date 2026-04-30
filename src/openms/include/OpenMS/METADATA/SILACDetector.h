@@ -33,13 +33,5 @@ public:
   
   bool detectSILAC(MSExperiment experiment);
 
-  //void process_spectrum(self, MSSpectrum spectrum, binned_spectrum); //???????????????????????????
-
-  int testfunktion();
-
-  //void setScanNumber(int scan_number_length){
-    
-  //};
-
   };
 } // namespace OpenMS
