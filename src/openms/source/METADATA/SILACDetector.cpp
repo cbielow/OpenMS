@@ -6,20 +6,29 @@
 // $Authors: Markus Apel, Nora Heese $
 // --------------------------------------------------------------------------
 
-#include <OpenMS/METADATA/SILACDetector.h>
 #include <OpenMS/CONCEPT/Constants.h>
+#include <OpenMS/METADATA/SILACDetector.h>
 #include <OpenMS/KERNEL/DPeak.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
-//#include <map>
-//#include <cmath>
-#include <OpenMS/MATH/StatisticFunctions.h>
-#include <OpenMS/MATH/STATISTICS/MultipleTesting.h>
 
 namespace OpenMS
 {
 
   bool SILACDetector::detectSILAC(MSExperiment experiment)
   {
+    if (experiment.empty())
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Can not detect a SILAC dataset from an empty MS experiment", "");
+    }
+    if (!experiment.containsScanOfLevel(2))
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
+    }
+    if (!experiment.isSorted())
+    {
+      experiment.sortSpectra();
+    }
+
     MSExperiment experimentMS2;
     for (int i = 0; i < experiment.size(); i++)
     {
@@ -35,52 +44,59 @@ namespace OpenMS
     double RT_window = 5; // Frage: RT_window = 5 gut oder meh?
     int min_index = 0;
     int max_index = 0;
+    int experiment_MS2_size = experimentMS2.size();
 
     for (const auto& spectrum : experimentMS2)
     {
       double spectrum_rt = spectrum.getRT();
-      while (experimentMS2[min_index].getRT() < spectrum.getRT() - RT_window)
+      while (experimentMS2[min_index].getRT() < spectrum_rt - RT_window)
       {
         min_index++;
       } 
-      while ((experimentMS2[max_index].getRT() < spectrum.getRT() + RT_window) && max_index < experimentMS2.size())
+      while ((experimentMS2[max_index].getRT() < spectrum_rt + RT_window) && max_index < experiment_MS2_size)
       {
         max_index++;
       } 
 
-      double spectrum_charge = spectrum.getPrecursors()[0].getCharge();
+      Precursor spectrum_precursor = spectrum.getPrecursors()[0];
+      double spectrum_charge = spectrum_precursor.getCharge();
       for (int i = min_index; i < max_index; i++)
       {
-        double experimentMS2_charge = experimentMS2[i].getPrecursors()[0].getCharge();
-        if (spectrum_charge == experimentMS2_charge)
+        if (spectrum_charge == experimentMS2[i].getPrecursors()[0].getCharge())
         {
-          double distance = std::abs((spectrum.getPrecursors()[0].getMZ() - experimentMS2[i].getPrecursors()[0].getMZ()) * spectrum_charge);
+          double distance = std::abs((spectrum_precursor.getMZ() - experimentMS2[i].getPrecursors()[0].getMZ()) * spectrum_charge);
           distance += 0.5;
           int rounded_distance = distance; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
             distance_count[rounded_distance]++;
           }
-  
         }
-          
       }
-      
     }
-    double n = 6;
+    double n = 6; // size of control distances
 
-    double control_mean = (distance_count[11] + distance_count[14] + distance_count[15] + distance_count[21] + distance_count[23] + distance_count[27]) / 6;
+    double sum = 0.0;
+
+    for (int i = 0; i < n; i++)
+    {
+      sum += distance_count[control_distances[i]];
+    }
+
+    double control_mean = sum / n;
     double control_sd = 0;
-    double s;
-    double sd_sum=0;
+    double sd_sum = 0;
     for (int i = 0; i < 6; i++)
     {
-      s = distance_count[control_distances[i]]-control_mean;
-      s *= s;
-      sd_sum += s;
-
+      double s = distance_count[control_distances[i]]-control_mean;
+      sd_sum += s * s;
     }
     control_sd = std::sqrt(sd_sum/(n-1));
+
+    if (sd_sum == 0)
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No counts for control distances found", 0);
+    }
 
     bool is_silac = false;
     double z_score;
@@ -88,7 +104,6 @@ namespace OpenMS
     std::vector<bool> significant_distances = {};
     std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
     std::vector<double> p_values;
-
     const double sqrt2 = std::sqrt(2.0);
 
     for (int i = 4; i <= 10; i += 2)
@@ -97,7 +112,6 @@ namespace OpenMS
       double tail = 0.5 * std::erfc(z_score / sqrt2);
       p_values.push_back(tail);
       std::cout << "Distance " << i << ": Z-score: " << z_score << " - pValue: " << tail << std::endl;
-      //is_silac = is_silac || z_score > 2.5; // 2.5 is the cutoff for significance
       bool is_significant = tail < significance_level;
       is_silac = is_silac || is_significant;
       significant_distances.push_back(is_significant);
