@@ -12,6 +12,8 @@
 #include <OpenMS/KERNEL/MSExperiment.h>
 //#include <map>
 //#include <cmath>
+#include <OpenMS/MATH/StatisticFunctions.h>
+#include <OpenMS/MATH/STATISTICS/MultipleTesting.h>
 
 namespace OpenMS
 {
@@ -26,24 +28,16 @@ namespace OpenMS
         experimentMS2.addSpectrum(experiment[i]);
       }
     }
-    //int spectrum_number = 0;
     std::vector<int> control_distances = {11, 14, 15, 21, 23, 27};
     std::vector<int> silac_distances = {4, 6, 8, 10};
 
     std::map<int,int> distance_count = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
-    double RT_window = 5;
+    double RT_window = 5; // Frage: RT_window = 5 gut oder meh?
     int min_index = 0;
     int max_index = 0;
-    
-    
-    // vielleicht von anfang an nur MS2 spektren nehmen
 
-     for (const auto& spectrum : experimentMS2)
+    for (const auto& spectrum : experimentMS2)
     {
-       
-      //std::cout << "Spectrumnumber: " << spectrum_number << std::endl;
-      //spectrum_number++;
-
       double spectrum_rt = spectrum.getRT();
       while (experimentMS2[min_index].getRT() < spectrum.getRT() - RT_window)
       {
@@ -62,8 +56,7 @@ namespace OpenMS
         {
           double distance = std::abs((spectrum.getPrecursors()[0].getMZ() - experimentMS2[i].getPrecursors()[0].getMZ()) * spectrum_charge);
           distance += 0.5;
-          int rounded_distance = distance;
-          //std::cout << distance << std::endl;
+          int rounded_distance = distance; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
             distance_count[rounded_distance]++;
@@ -91,23 +84,41 @@ namespace OpenMS
 
     bool is_silac = false;
     double z_score;
+    double significance_level = 0.025; // cut-off
+    std::vector<bool> significant_distances = {};
+    std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
+    std::vector<double> p_values;
+
+    const double sqrt2 = std::sqrt(2.0);
 
     for (int i = 4; i <= 10; i += 2)
     {
       z_score = (distance_count[i]-control_mean)/control_sd;
-      std::cout << "Distanz " << i << ": Z-score: " << z_score << std::endl;
-      is_silac = is_silac || z_score > 2.5; // 2.5 is the cutoff for significance
+      double tail = 0.5 * std::erfc(z_score / sqrt2);
+      p_values.push_back(tail);
+      std::cout << "Distance " << i << ": Z-score: " << z_score << " - pValue: " << tail << std::endl;
+      //is_silac = is_silac || z_score > 2.5; // 2.5 is the cutoff for significance
+      bool is_significant = tail < significance_level;
+      is_silac = is_silac || is_significant;
+      significant_distances.push_back(is_significant);
     }
-    
-    /*
-    std::cout << "Distanz 11: " << distance_count[11] << " Zscore: " << (distance_count[11]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 14: " << distance_count[14] << " Zscore: " << (distance_count[14]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 15: " << distance_count[15] << " Zscore: " << (distance_count[15]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 21: " << distance_count[21] << " Zscore: " << (distance_count[21]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 23: " << distance_count[23] << " Zscore: " << (distance_count[23]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl;
-    */
+    std::cout << std::endl;
+        
+    if (is_silac)
+    {
+      std::cout << "Dataset is a SILAC dataset with the following aminoacids:" << std::endl;
+      for (auto i = 0; i < significant_distances.size(); i++)
+      {
+        if (significant_distances[i])
+        {
+          std::cout << aminoacids[i] << " with p-value of " << std::scientific << p_values[i] << std::endl;
+        }
+      }
+    }
+    else
+    {
+      std::cout << "Dataset unable to be detected as a SILAC dataset" << std::endl;
+    }
     return is_silac;
-
   }
 } // namespace OpenMS
