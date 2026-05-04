@@ -7,9 +7,9 @@
 // --------------------------------------------------------------------------
 
 #include <OpenMS/CONCEPT/Constants.h>
-#include <OpenMS/METADATA/SILACDetector.h>
 #include <OpenMS/KERNEL/DPeak.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/METADATA/SILACDetector.h>
 
 namespace OpenMS
 {
@@ -120,7 +120,8 @@ namespace OpenMS
         
     if (is_silac)
     {
-      std::cout << "Dataset is a SILAC dataset with the following aminoacids:" << std::endl;
+      std::cout << "Null hypothesis was rejected on significance level " << significance_level << std::endl;
+      std::cout << "The following aminoacids have been detected:" << std::endl;
       for (auto i = 0; i < significant_distances.size(); i++)
       {
         if (significant_distances[i])
@@ -131,7 +132,7 @@ namespace OpenMS
     }
     else
     {
-      std::cout << "Dataset unable to be detected as a SILAC dataset" << std::endl;
+      std::cout << "Null hypothesis was not rejected" << std::endl;
     }
     return is_silac;
   }
