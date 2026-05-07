@@ -17,6 +17,23 @@ namespace OpenMS
 {
   /** 
   @ingroup Metadata
+  */
+
+  struct SILACTestStatistics
+  {
+    double d4_z_score;
+    double d4_p_value;
+    double d6_z_score;
+    double d6_p_value;
+    double d8_z_score;
+    double d8_p_value;
+    double d10_z_score;
+    double d10_p_value;
+    bool is_silac_dataset;
+  };
+
+  /**
+  
 
   @brief This class is used to detect whether a dataset from a MSexperiment is a SILAC dataset or not
   */
@@ -41,12 +58,21 @@ public:
 
   The z-scores and p-values are being shown on the terminal for each SILAC distance
 
+  The code is based of the code from the param-medic GitHub page: https://github.com/dhmay/param-medic/blob/master/parammedic/mod_inference.py
+
   @param experiment The MS experiment to check
-  @return True if p-value of any SILAC distance is significant on level 0.025, false if none are significant
+  @return True if p-value of any SILAC distance is significant on level 0.025 (2.5%), false if none are significant
   @throw Exception::InvalidValue Throws an exception if the experiment is empty, if the experiment does not contain any MS2 scans, and if no counts are counted for the control distances
    
   */
-  bool detectSILAC(MSExperiment experiment);
+  SILACTestStatistics detectSILAC(MSExperiment experiment);
 
+  };
+
+  struct MS2Data
+  {
+    double RT;
+    double mz;
+    int charge;
   };
 } // namespace OpenMS

@@ -1,4 +1,4 @@
-// Copyright (c) 2002-present, OpenMS Inc. -- EKU Tuebingen, ETH Zurich, and FU Berlin
+/// Copyright (c) 2002-present, OpenMS Inc. -- EKU Tuebingen, ETH Zurich, and FU Berlin
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // --------------------------------------------------------------------------
@@ -14,7 +14,7 @@
 namespace OpenMS
 {
 
-  bool SILACDetector::detectSILAC(MSExperiment experiment)
+  SILACTestStatistics SILACDetector::detectSILAC(MSExperiment experiment)
   {
     if (experiment.empty())
     {
@@ -29,12 +29,16 @@ namespace OpenMS
       experiment.sortSpectra();
     }
 
-    MSExperiment experimentMS2;
+    std::vector<MS2Data> MS2experiments;
     for (int i = 0; i < experiment.size(); i++)
     {
       if (2 == experiment[i].getMSLevel())
       {
-        experimentMS2.addSpectrum(experiment[i]);
+        MS2Data current_MS2_scan;
+        current_MS2_scan.RT = experiment[i].getRT();
+        current_MS2_scan.mz = experiment[i].getPrecursors()[0].getMZ();
+        current_MS2_scan.charge = experiment[i].getPrecursors()[0].getCharge();
+        MS2experiments.push_back(current_MS2_scan);
       }
     }
     std::vector<int> control_distances = {11, 14, 15, 21, 23, 27};
@@ -44,27 +48,25 @@ namespace OpenMS
     double RT_window = 5; // Frage: RT_window = 5 gut oder meh?
     int min_index = 0;
     int max_index = 0;
-    int experiment_MS2_size = experimentMS2.size();
+    int experiment_MS2_size = MS2experiments.size();
 
-    for (const auto& spectrum : experimentMS2)
+    for (const auto& spectrum : MS2experiments)
     {
-      double spectrum_rt = spectrum.getRT();
-      while (experimentMS2[min_index].getRT() < spectrum_rt - RT_window)
+      double spectrum_rt = spectrum.RT;
+      while (MS2experiments[min_index].RT < spectrum_rt - RT_window)
       {
         min_index++;
       } 
-      while ((experimentMS2[max_index].getRT() < spectrum_rt + RT_window) && max_index < experiment_MS2_size)
+      while ((MS2experiments[max_index].RT < spectrum_rt + RT_window) && max_index < experiment_MS2_size)
       {
         max_index++;
       } 
 
-      Precursor spectrum_precursor = spectrum.getPrecursors()[0];
-      double spectrum_charge = spectrum_precursor.getCharge();
       for (int i = min_index; i < max_index; i++)
       {
-        if (spectrum_charge == experimentMS2[i].getPrecursors()[0].getCharge())
+        if (spectrum.charge == MS2experiments[i].charge)
         {
-          double distance = std::abs((spectrum_precursor.getMZ() - experimentMS2[i].getPrecursors()[0].getMZ()) * spectrum_charge);
+          double distance = std::abs((spectrum.mz - MS2experiments[i].mz) * spectrum.charge);
           distance += 0.5;
           int rounded_distance = distance; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
@@ -74,6 +76,7 @@ namespace OpenMS
         }
       }
     }
+    SILACTestStatistics result;
     double n = 6; // size of control distances
 
     double sum = 0.0;
@@ -104,6 +107,7 @@ namespace OpenMS
     std::vector<bool> significant_distances = {};
     std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
     std::vector<double> p_values;
+    std::vector<double> z_scores;
     const double sqrt2 = std::sqrt(2.0);
 
     for (int i = 4; i <= 10; i += 2)
@@ -111,12 +115,23 @@ namespace OpenMS
       z_score = (distance_count[i]-control_mean)/control_sd;
       double tail = 0.5 * std::erfc(z_score / sqrt2);
       p_values.push_back(tail);
-      std::cout << "Distance " << i << ": Z-score: " << z_score << " - pValue: " << tail << std::endl;
+      z_scores.push_back(z_score);
+      std::cout << "Distance " << i << ": Z-score: " << z_score << " - pValue: " << std::scientific << tail << std::defaultfloat << std::endl;
       bool is_significant = tail < significance_level;
       is_silac = is_silac || is_significant;
       significant_distances.push_back(is_significant);
     }
     std::cout << std::endl;
+
+    result.d4_p_value = p_values[0];
+    result.d4_z_score = z_scores[0];
+    result.d6_p_value = p_values[1];
+    result.d6_z_score = z_scores[1];
+    result.d8_p_value = p_values[2];
+    result.d8_z_score = z_scores[2];
+    result.d10_p_value = p_values[3];
+    result.d10_z_score = z_scores[3];
+    result.is_silac_dataset = is_silac;
         
     if (is_silac)
     {
@@ -126,7 +141,7 @@ namespace OpenMS
       {
         if (significant_distances[i])
         {
-          std::cout << aminoacids[i] << " with p-value of " << std::scientific << p_values[i] << std::endl;
+          std::cout << aminoacids[i] << " with p-value of " << std::scientific << p_values[i] << std::defaultfloat << std::endl;
         }
       }
     }
@@ -134,6 +149,6 @@ namespace OpenMS
     {
       std::cout << "Null hypothesis was not rejected" << std::endl;
     }
-    return is_silac;
+    return result;
   }
 } // namespace OpenMS
