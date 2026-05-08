@@ -19,27 +19,6 @@ namespace OpenMS
 {
   /** 
   @ingroup Metadata
-  */
-
-  struct SILACTestStatistics
-  {
-    double d4_z_score = NAN;
-    double d4_p_value = NAN;
-    double d6_z_score = NAN;
-    double d6_p_value = NAN;
-    double d8_z_score = NAN;
-    double d8_p_value = NAN;
-    double d10_z_score = NAN;
-    double d10_p_value = NAN;
-    double significance_level = 0.05;
-    bool is_silac_dataset = false;
-    std::vector<bool> significant_distances = {0, 0, 0, 0};
-
-    friend OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const SILACTestStatistics& silac_statistic);
-  };
-
-  /**
-  
 
   @brief This class is used to detect whether a dataset from a MSexperiment is a SILAC dataset or not
   */
@@ -71,10 +50,64 @@ public:
   @throw Exception::InvalidValue Throws an exception if the experiment is empty, if the experiment does not contain any MS2 scans, and if no counts are counted for the control distances
    
   */
-  SILACTestStatistics detectSILAC(MSExperiment experiment);
+  bool detectSILAC(MSExperiment experiment);
+
+  /// returns the z-scores of the SILAC distances
+  std::vector<double> getZScores() const;
+
+  /// returns the p-values of the SILAC distances
+  std::vector<double> getPValues() const;
+
+  /// returns the z-score of distance 4
+  double getZScoreD4() const;
+
+  /// returns the z-score of distance 6
+  double getZScoreD6() const;
+
+  /// returns the z-score of distance 8
+  double getZScoreD8() const;
+
+  /// returns the z-score of distance 10
+  double getZScoreD10() const;
+
+  /// returns the p-value of distance 4
+  double getPValueD4() const;
+
+  /// returns the p-value of distance 6
+  double getPValueD6() const;
+  
+  /// returns the p-value of distance 8
+  double getPValueD8() const;
+
+  /// returns the p-value of distance 10
+  double getPValueD10() const;
+
+  /// returns the significance level
+  double getSignificanceLevel() const;
+
+  /// returns if the dataset is a SILAC dataset according to the set siginficance level
+  bool getIsSILAC() const;
+
+  /// returns vector wich contains whether a distance is significant or not(1 if significant, 0 if not sigificant)
+  std::vector<bool> getSignificantDistances() const;
+
+  /// ostream iterator to write the statistical data to a stream
+  friend OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic);
+
+private:
+
+  std::vector<double> z_scores_ = {NAN,NAN,NAN,NAN};
+  std::vector<double> p_values_ = {NAN,NAN,NAN,NAN};
+  double significance_level_ = 0.05;
+  bool is_silac_ = false;
+  std::vector<bool> significant_distances_ = {0, 0, 0, 0};
+  std::map<int,int> distance_count_ = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
 
   };
 
+  /**
+  @brief struct which contains the relevant data of a scan for silac detection
+  */
   struct MS2Data
   {
     double RT;

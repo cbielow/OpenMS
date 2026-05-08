@@ -14,7 +14,7 @@
 namespace OpenMS
 {
 
-  SILACTestStatistics SILACDetector::detectSILAC(MSExperiment experiment)
+  bool SILACDetector::detectSILAC(MSExperiment experiment)
   {
     if (experiment.empty())
     {
@@ -71,8 +71,7 @@ namespace OpenMS
         if (spectrum.charge == MS2experiments[i].charge)
         {
           double distance = std::abs((spectrum.mz - MS2experiments[i].mz) * spectrum.charge);
-          distance += 0.5;
-          int rounded_distance = distance; // runden auf Int zu grob?
+          int rounded_distance = distance + 0.5; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
             distance_count[rounded_distance]++;
@@ -80,7 +79,7 @@ namespace OpenMS
         }
       }
     }
-    SILACTestStatistics result;
+    
     double n = 6; // size of control distances
 
     double sum = 0.0;
@@ -109,7 +108,6 @@ namespace OpenMS
     double z_score;
     double significance_level = 0.025; // cut-off
     std::vector<bool> significant_distances = {};
-    //std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
     std::vector<double> p_values;
     std::vector<double> z_scores;
     const double sqrt2 = std::sqrt(2.0);
@@ -120,46 +118,91 @@ namespace OpenMS
       double tail = 0.5 * std::erfc(z_score / sqrt2);
       p_values.push_back(tail);
       z_scores.push_back(z_score);
-      //std::cout << "Distance " << i << ": Z-score: " << z_score << " - pValue: " << std::scientific << tail << std::defaultfloat << std::endl;
       bool is_significant = tail < significance_level;
       is_silac = is_silac || is_significant;
       significant_distances.push_back(is_significant);
     }
-    //std::cout << std::endl;
 
-    result.d4_p_value = p_values[0];
-    result.d4_z_score = z_scores[0];
-    result.d6_p_value = p_values[1];
-    result.d6_z_score = z_scores[1];
-    result.d8_p_value = p_values[2];
-    result.d8_z_score = z_scores[2];
-    result.d10_p_value = p_values[3];
-    result.d10_z_score = z_scores[3];
-    result.significance_level = significance_level;
-    result.is_silac_dataset = is_silac;
-    result.significant_distances = significant_distances;
+    z_scores_ = z_scores;
+    p_values_ = p_values;
+    significance_level_ = significance_level;
+    is_silac_ = is_silac;
+    significant_distances_ = significant_distances;
+    distance_count_ = distance_count;
+    std::cout << std::endl;
 
-    /* if (is_silac)
-    {
-      std::cout << "Null hypothesis was rejected on significance level " << significance_level << std::endl;
-      std::cout << "The following aminoacids have been detected:" << std::endl;
-      for (auto i = 0; i < significant_distances.size(); i++)
-      {
-        if (significant_distances[i])
-        {
-          std::cout << aminoacids[i] << " with p-value of " << std::scientific << p_values[i] << std::defaultfloat << std::endl;
-        }
-      }
-    }
-    else
-    {
-      std::cout << "Null hypothesis was not rejected" << std::endl;
-    } */
-    std::cout << result;
-    return result;
+    std::cout << *this;
+    
+    return is_silac;
   }
 
-  std::ostream& operator<<(std::ostream& os, const SILACTestStatistics& silac_statistic)
+  std::vector<double> SILACDetector::getZScores() const
+  {
+    return z_scores_;
+  }
+
+  std::vector<double> SILACDetector::getPValues() const
+  {
+    return p_values_;
+  }
+
+  double SILACDetector::getZScoreD4() const
+  {
+    return z_scores_[0];
+  }
+
+  double SILACDetector::getZScoreD6() const
+  {
+    return z_scores_[1];
+  }
+
+  double SILACDetector::getZScoreD8() const
+  {
+    return z_scores_[2];
+  }
+
+  double SILACDetector::getZScoreD10() const
+  {
+    return z_scores_[3];
+  }
+
+  double SILACDetector::getPValueD4() const
+  {
+    return p_values_[0];
+  }
+
+  double SILACDetector::getPValueD6() const
+  {
+    return p_values_[1];
+  }
+  
+  double SILACDetector::getPValueD8() const
+  {
+    return p_values_[2];
+  }
+
+  double SILACDetector::getPValueD10() const
+  {
+    return p_values_[3];
+  }
+
+  double SILACDetector::getSignificanceLevel() const
+  {
+    return significance_level_;
+  }
+
+
+  bool SILACDetector::getIsSILAC() const
+  {
+    return is_silac_;
+  }
+
+  std::vector<bool> SILACDetector::getSignificantDistances() const
+  {
+    return significant_distances_;
+  } 
+
+ /*  std::ostream& operator<<(std::ostream& os, const SILACTestStatistics& silac_statistic)
   {
     std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
     std::vector<double> p_values = {silac_statistic.d4_p_value, silac_statistic.d6_p_value, silac_statistic.d8_p_value, silac_statistic.d10_p_value};
@@ -187,5 +230,35 @@ namespace OpenMS
       os << '\n' << "Null hypothesis was not rejected on significance level " << silac_statistic.significance_level << '\n';
     }
     return os;
-  }
+  } */
+
+  std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic)
+  {
+    std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
+    //std::vector<double> p_values = {silac_statistic.getPValueD4(), silac_statistic.getPValueD6(), silac_statistic.getPValueD8(), silac_statistic.getPValueD10()};
+
+    os << "\nDistance 4: Z-score: " << silac_statistic.getZScoreD4() << " - p-value: " << silac_statistic.getPValueD4() << '\n'
+       << "Distance 6: Z-score: " << silac_statistic.getZScoreD6() << " - p-value: " << silac_statistic.getPValueD6() << '\n'
+       << "Distance 8: Z-score: " << silac_statistic.getZScoreD8() << " - p-value: " << silac_statistic.getPValueD8() << '\n'
+       << "Distance 10: Z-score: " << silac_statistic.getZScoreD10() << " - p-value: " << silac_statistic.getPValueD10() << '\n';
+
+    if (silac_statistic.getIsSILAC())
+    {
+      os << '\n' << "Null hypothesis was rejected on significance level " << silac_statistic.getSignificanceLevel() << '\n'
+         << "The following aminoacids have been detected:" << '\n';
+        
+      for (auto i = 0; i < 4; i++)
+      {
+        if(silac_statistic.getSignificantDistances()[i])
+        {
+          os << aminoacids[i] << " with p-value of " << silac_statistic.getPValues()[i] << '\n';
+        }
+      } 
+    }
+    else
+    {
+      os << '\n' << "Null hypothesis was not rejected on significance level " << silac_statistic.getSignificanceLevel() << '\n';
+    }
+    return os;
+  } 
 } // namespace OpenMS
