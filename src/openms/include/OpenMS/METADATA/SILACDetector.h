@@ -12,6 +12,8 @@
 #include <OpenMS/CONCEPT/Types.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/CONCEPT/LogStream.h>
+#include <iostream>
 
 namespace OpenMS
 {
@@ -21,15 +23,19 @@ namespace OpenMS
 
   struct SILACTestStatistics
   {
-    double d4_z_score;
-    double d4_p_value;
-    double d6_z_score;
-    double d6_p_value;
-    double d8_z_score;
-    double d8_p_value;
-    double d10_z_score;
-    double d10_p_value;
-    bool is_silac_dataset;
+    double d4_z_score = NAN;
+    double d4_p_value = NAN;
+    double d6_z_score = NAN;
+    double d6_p_value = NAN;
+    double d8_z_score = NAN;
+    double d8_p_value = NAN;
+    double d10_z_score = NAN;
+    double d10_p_value = NAN;
+    double significance_level = 0.05;
+    bool is_silac_dataset = false;
+    std::vector<bool> significant_distances = {0, 0, 0, 0};
+
+    friend OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const SILACTestStatistics& silac_statistic);
   };
 
   /**
@@ -74,5 +80,6 @@ public:
     double RT;
     double mz;
     int charge;
+    int index;
   };
 } // namespace OpenMS
