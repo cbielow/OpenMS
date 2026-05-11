@@ -31,7 +31,7 @@ namespace OpenMS
 
     std::vector<MS2Data> MS2experiments;
     int position = 0;
-    for (int i = 0; i < experiment.size(); i++)
+    for (unsigned int i = 0; i < experiment.size(); i++)
     {
       if (2 == experiment[i].getMSLevel())
       {
@@ -44,6 +44,7 @@ namespace OpenMS
         MS2experiments.push_back(current_MS2_scan);
       }
     }
+    double exact_mass_lookup_table[28] = {0, 0, 0, 0, 4.025106983784, 0, 6.020129012016, 0, 8.014198800046, 0, 10.008268588075996, 11, 0, 0, 14, 15, 0 ,0 ,0 ,0 ,0 ,21 ,0 ,23 ,0 ,0 ,0 , 27};
     std::vector<int> control_distances = {11, 14, 15, 21, 23, 27};
     std::vector<int> silac_distances = {4, 6, 8, 10};
 
@@ -74,7 +75,10 @@ namespace OpenMS
           int rounded_distance = distance + 0.5; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
-            distance_count[rounded_distance]++;
+            if (distance - exact_mass_lookup_table[rounded_distance] < 0.000005) 
+            {
+              distance_count[rounded_distance]++;
+            }      
           }
         }
       }
@@ -132,6 +136,17 @@ namespace OpenMS
     std::cout << std::endl;
 
     std::cout << *this;
+
+    std::cout << "Distanz 4: " << distance_count[4] << " Zscore: " << (distance_count[4]-control_mean)/control_sd<< std::endl;
+    std::cout << "Distanz 6: " << distance_count[6] << " Zscore: " << (distance_count[6]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 8: " << distance_count[8] << " Zscore: " << (distance_count[8]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 10: " << distance_count[10] << " Zscore: " << (distance_count[10]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 11: " << distance_count[11] << " Zscore: " << (distance_count[11]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 14: " << distance_count[14] << " Zscore: " << (distance_count[14]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 15: " << distance_count[15] << " Zscore: " << (distance_count[15]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 21: " << distance_count[21] << " Zscore: " << (distance_count[21]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 23: " << distance_count[23] << " Zscore: " << (distance_count[23]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl;
     
     return is_silac;
   }
@@ -190,7 +205,6 @@ namespace OpenMS
   {
     return significance_level_;
   }
-
 
   bool SILACDetector::getIsSILAC() const
   {
