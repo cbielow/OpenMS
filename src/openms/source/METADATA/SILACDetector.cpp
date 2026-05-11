@@ -10,6 +10,7 @@
 #include <OpenMS/KERNEL/DPeak.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/METADATA/SILACDetector.h>
+#include <fstream>
 
 namespace OpenMS
 {
@@ -75,7 +76,7 @@ namespace OpenMS
           int rounded_distance = distance + 0.5; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
-            if (distance - exact_mass_lookup_table[rounded_distance] < 0.000005) 
+            if (std::abs(distance - exact_mass_lookup_table[rounded_distance]) < 0.001) 
             {
               distance_count[rounded_distance]++;
             }      
@@ -110,7 +111,8 @@ namespace OpenMS
 
     bool is_silac = false;
     double z_score;
-    double significance_level = 0.025; // cut-off
+    //double significance_level = 0.00003167124; // cut-off
+    double significance_level = 0.025;
     std::vector<bool> significant_distances = {};
     std::vector<double> p_values;
     std::vector<double> z_scores;
@@ -135,7 +137,7 @@ namespace OpenMS
     distance_count_ = distance_count;
     std::cout << std::endl;
 
-    std::cout << *this;
+    /* std::cout << *this;
 
     std::cout << "Distanz 4: " << distance_count[4] << " Zscore: " << (distance_count[4]-control_mean)/control_sd<< std::endl;
     std::cout << "Distanz 6: " << distance_count[6] << " Zscore: " << (distance_count[6]-control_mean)/control_sd<<std::endl;
@@ -146,7 +148,7 @@ namespace OpenMS
     std::cout << "Distanz 15: " << distance_count[15] << " Zscore: " << (distance_count[15]-control_mean)/control_sd<<std::endl;
     std::cout << "Distanz 21: " << distance_count[21] << " Zscore: " << (distance_count[21]-control_mean)/control_sd<<std::endl;
     std::cout << "Distanz 23: " << distance_count[23] << " Zscore: " << (distance_count[23]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl;
+    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl; */
     
     return is_silac;
   }
@@ -248,7 +250,7 @@ namespace OpenMS
 
   std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic)
   {
-    std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
+    std::vector<String> aminoacids = {"Medium Lysine(K4)", "Heavy Lysine(K6) or Medium Arginine(R6)", "Heavy Lysine(K8)", "Heavy Arginine(R10)"};
     //std::vector<double> p_values = {silac_statistic.getPValueD4(), silac_statistic.getPValueD6(), silac_statistic.getPValueD8(), silac_statistic.getPValueD10()};
 
     os << "\nDistance 4: Z-score: " << silac_statistic.getZScoreD4() << " - p-value: " << silac_statistic.getPValueD4() << '\n'
@@ -275,4 +277,7 @@ namespace OpenMS
     }
     return os;
   } 
+
 } // namespace OpenMS
+
+
