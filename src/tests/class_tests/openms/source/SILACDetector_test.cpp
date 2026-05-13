@@ -149,7 +149,9 @@ START_SECTION(void SILACDetector::storeMS2Data(MSExperiment experiment, String f
   MSExperiment experiment = MSExperiment();
   TEST_EXCEPTION(Exception::InvalidValue, test.msExperimentToMS2Data(experiment))
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_1.mzML"),experiment);
-  test.storeMS2Data(experiment, OPENMS_GET_TEST_DATA_PATH("SILACstoreTest"));
+  test.storeMS2Data(experiment, OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
+  std::vector<MS2Data> output = test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
+  TEST_REAL_SIMILAR(output[0].RT, 5.2000000000000002);
 }
 END_SECTION
 
@@ -166,7 +168,6 @@ START_SECTION(std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment
   TEST_EQUAL(output[0].index, 0)
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_6_uncompressed.mzML"),experiment);
   TEST_EXCEPTION(Exception::InvalidValue, test.msExperimentToMS2Data(experiment))
-
 }
 END_SECTION
 
