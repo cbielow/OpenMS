@@ -12,13 +12,28 @@
 #include <OpenMS/CONCEPT/Types.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <iostream>
+#include <fstream>
 
 namespace OpenMS
 {
+
+  /**
+  @brief struct which contains the relevant data of a scan for silac detection
+  */
+  struct MS2Data
+  {
+    double RT;
+    double mz;
+    int charge;
+    int index;
+  };
   /** 
   @ingroup Metadata
+
+  
 
   @brief This class is used to detect whether a dataset from a MSexperiment is a SILAC dataset or not
   */
@@ -50,7 +65,7 @@ public:
   @throw Exception::InvalidValue Throws an exception if the experiment is empty, if the experiment does not contain any MS2 scans, and if no counts are counted for the control distances
    
   */
-  bool detectSILAC(MSExperiment experiment);
+  bool detectSILAC(std::vector<MS2Data> MS2experiments);
 
   /// returns the z-scores of the SILAC distances
   std::vector<double> getZScores() const;
@@ -94,6 +109,14 @@ public:
   /// ostream iterator to write the statistical data to a stream
   friend OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic);
 
+  void storeMS2Data(MSExperiment experiment, String filename);
+
+  /// turns MSExperiment into vector with MS2Data
+  std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment);
+
+  /// djl
+  std::vector<MS2Data> txtFileToMS2Data(std::string file_name);
+
 private:
 
   std::vector<double> z_scores_ = {NAN,NAN,NAN,NAN};
@@ -103,16 +126,5 @@ private:
   std::vector<bool> significant_distances_ = {0, 0, 0, 0};
   std::map<int,int> distance_count_ = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
 
-  };
-
-  /**
-  @brief struct which contains the relevant data of a scan for silac detection
-  */
-  struct MS2Data
-  {
-    double RT;
-    double mz;
-    int charge;
-    int index;
   };
 } // namespace OpenMS

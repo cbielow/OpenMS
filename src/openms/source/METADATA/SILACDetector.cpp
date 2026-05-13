@@ -8,41 +8,24 @@
 
 #include <OpenMS/CONCEPT/Constants.h>
 #include <OpenMS/KERNEL/DPeak.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/METADATA/SILACDetector.h>
-#include <fstream>
+
+//TODO rearrange function in useful order
 
 namespace OpenMS
 {
-
-  bool SILACDetector::detectSILAC(MSExperiment experiment)
+  bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2experiments)
   {
-    if (experiment.empty())
+    // TODO check if input is sorted
+    if (MS2experiments.empty())
     {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Can not detect a SILAC dataset from an empty MS experiment", "");
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No Input data", "");
     }
-    if (!experiment.containsScanOfLevel(2))
+    for (Size i = 1; i < MS2experiments.size(); i++)
     {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
-    }
-    if (!experiment.isSorted())
-    {
-      experiment.sortSpectra();
-    }
-
-    std::vector<MS2Data> MS2experiments;
-    int position = 0;
-    for (unsigned int i = 0; i < experiment.size(); i++)
-    {
-      if (2 == experiment[i].getMSLevel())
+      if (MS2experiments[i-1].RT > MS2experiments[i].RT)
       {
-        position ++;
-        MS2Data current_MS2_scan;
-        current_MS2_scan.RT = experiment[i].getRT();
-        current_MS2_scan.mz = experiment[i].getPrecursors()[0].getMZ();
-        current_MS2_scan.charge = experiment[i].getPrecursors()[0].getCharge();
-        current_MS2_scan.index = position;
-        MS2experiments.push_back(current_MS2_scan);
+        throw Exception::NotSorted(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "input data is not sorted by retention time");
       }
     }
     double exact_mass_lookup_table[28] = {0, 0, 0, 0, 4.025106983784, 0, 6.020129012016, 0, 8.014198800046, 0, 10.008268588075996, 11, 0, 0, 14, 15, 0 ,0 ,0 ,0 ,0 ,21 ,0 ,23 ,0 ,0 ,0 , 27};
@@ -59,10 +42,6 @@ namespace OpenMS
     {
       double spectrum_rt = spectrum.RT;
       min_index = spectrum.index + 1;
-      /* while (MS2experiments[min_index].RT < spectrum_rt - RT_window)
-      {
-        min_index++;
-      }  */
       while ((MS2experiments[max_index].RT < spectrum_rt + RT_window) && max_index < experiment_MS2_size)
       {
         max_index++;
@@ -76,7 +55,7 @@ namespace OpenMS
           int rounded_distance = distance + 0.5; // runden auf Int zu grob?
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
-            if (std::abs(distance - exact_mass_lookup_table[rounded_distance]) < 0.001) 
+            if (std::abs(distance - exact_mass_lookup_table[rounded_distance]) < 0.005) 
             {
               distance_count[rounded_distance]++;
             }      
@@ -86,7 +65,6 @@ namespace OpenMS
     }
     
     double n = 6; // size of control distances
-
     double sum = 0.0;
 
     for (int i = 0; i < n; i++)
@@ -106,13 +84,13 @@ namespace OpenMS
 
     if (sd_sum == 0)
     {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No counts for control distances found", 0);
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No counts for control distances found", "");
     }
 
     bool is_silac = false;
     double z_score;
     //double significance_level = 0.00003167124; // cut-off
-    double significance_level = 0.025;
+    double significance_level = 0.0125;
     std::vector<bool> significant_distances = {};
     std::vector<double> p_values;
     std::vector<double> z_scores;
@@ -148,7 +126,7 @@ namespace OpenMS
     std::cout << "Distanz 15: " << distance_count[15] << " Zscore: " << (distance_count[15]-control_mean)/control_sd<<std::endl;
     std::cout << "Distanz 21: " << distance_count[21] << " Zscore: " << (distance_count[21]-control_mean)/control_sd<<std::endl;
     std::cout << "Distanz 23: " << distance_count[23] << " Zscore: " << (distance_count[23]-control_mean)/control_sd<<std::endl;
-    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl; */
+    std::cout << "Distanz 27: " << distance_count[27] << " Zscore: " << (distance_count[27]-control_mean)/control_sd<<std::endl;  */
     
     return is_silac;
   }
@@ -218,36 +196,6 @@ namespace OpenMS
     return significant_distances_;
   } 
 
- /*  std::ostream& operator<<(std::ostream& os, const SILACTestStatistics& silac_statistic)
-  {
-    std::vector<String> aminoacids = {"Medium Lysine", "Heavy Lysine(K6) or Medium Arginine", "Heavy Lysine(K8)", "Heavy Arginine"};
-    std::vector<double> p_values = {silac_statistic.d4_p_value, silac_statistic.d6_p_value, silac_statistic.d8_p_value, silac_statistic.d10_p_value};
-
-    os << "Distance 4: Z-score: " << silac_statistic.d4_z_score << " - p-value: " << silac_statistic.d4_p_value << '\n'
-       << "Distance 6: Z-score: " << silac_statistic.d6_z_score << " - p-value: " << silac_statistic.d6_p_value << '\n'
-       << "Distance 8: Z-score: " << silac_statistic.d8_z_score << " - p-value: " << silac_statistic.d8_p_value << '\n'
-       << "Distance 10: Z-score: " << silac_statistic.d10_z_score << " - p-value: " << silac_statistic.d10_p_value << '\n';
-
-    if (silac_statistic.is_silac_dataset)
-    {
-      os << '\n' << "Null hypothesis was rejected on significance level " << silac_statistic.significance_level << '\n'
-         << "The following aminoacids have been detected:" << '\n';
-        
-      for (auto i = 0; i < 4; i++)
-      {
-        if(silac_statistic.significant_distances[i])
-        {
-          os << aminoacids[i] << " with p-value of " << p_values[i] << '\n';
-        }
-      } 
-    }
-    else
-    {
-      os << '\n' << "Null hypothesis was not rejected on significance level " << silac_statistic.significance_level << '\n';
-    }
-    return os;
-  } */
-
   std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic)
   {
     std::vector<String> aminoacids = {"Medium Lysine(K4)", "Heavy Lysine(K6) or Medium Arginine(R6)", "Heavy Lysine(K8)", "Heavy Arginine(R10)"};
@@ -270,6 +218,12 @@ namespace OpenMS
           os << aminoacids[i] << " with p-value of " << silac_statistic.getPValues()[i] << '\n';
         }
       } 
+      if ((silac_statistic.getSignificantDistances()[0]&&silac_statistic.getSignificantDistances()[2])
+      ||(silac_statistic.getSignificantDistances()[1]&&silac_statistic.getSignificantDistances()[3])
+      || (silac_statistic.getSignificantDistances()[0]&&silac_statistic.getSignificantDistances()[1]))
+      {
+        os << "\nThis Datasaet is likely a triple SILAC\n";
+      }
     }
     else
     {
@@ -278,6 +232,146 @@ namespace OpenMS
     return os;
   } 
 
+  void SILACDetector::storeMS2Data(MSExperiment experiment, String filename)
+  {
+    if (experiment.empty())
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "MSExperiment is empty", "");
+    }
+    if (!experiment.containsScanOfLevel(2))
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
+    }
+    if (!experiment.isSorted())
+    {
+      experiment.sortSpectra();
+    }
+    
+    std::ofstream out(filename);
+    std::vector<MS2Data> MS2experiments;
+    int position = 0;
+    for (unsigned int i = 0; i < experiment.size(); i++)
+    {
+      if (2 == experiment[i].getMSLevel())
+      {
+        MS2Data current_MS2_scan;
+        current_MS2_scan.RT = experiment[i].getRT();
+        current_MS2_scan.mz = experiment[i].getPrecursors()[0].getMZ();
+        current_MS2_scan.charge = experiment[i].getPrecursors()[0].getCharge();
+        current_MS2_scan.index = position;
+        MS2experiments.push_back(current_MS2_scan);
+        position ++;
+      }
+    }
+    for (unsigned int i = 0; i < MS2experiments.size();i++)
+    {
+      out << std::setprecision(17);
+      out << MS2experiments[i].RT << " " << MS2experiments[i].mz<< " "<< MS2experiments[i].charge << "\n";
+    }
+  }
+
+  std::vector<MS2Data> SILACDetector::msExperimentToMS2Data(MSExperiment experiment)
+  {
+    if (experiment.empty())
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "MSExperiment is empty", "");
+    }
+    if (!experiment.containsScanOfLevel(2))
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
+    }
+    if (!experiment.isSorted())
+    {
+      experiment.sortSpectra();
+    }
+
+    std::vector<MS2Data> MS2experiments;
+    int position = 0;
+    for (unsigned int i = 0; i < experiment.size(); i++)
+    {
+      if (2 == experiment[i].getMSLevel())
+      {
+        MS2Data current_MS2_scan;
+        current_MS2_scan.RT = experiment[i].getRT();
+        current_MS2_scan.mz = experiment[i].getPrecursors()[0].getMZ();
+        current_MS2_scan.charge = experiment[i].getPrecursors()[0].getCharge();
+        current_MS2_scan.index = position;
+        MS2experiments.push_back(current_MS2_scan);
+        position ++;
+      }
+    }
+    return MS2experiments;
+  }
+
+  std::vector<MS2Data> SILACDetector::txtFileToMS2Data(std::string file_name)
+  {
+    if (file_name.substr(file_name.size() - 4, 4) != ".txt")
+    {
+      throw Exception::InvalidFileType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name, "file is not a txt file");
+    }
+    std::vector<MS2Data> result;
+    int i = 0;
+    std::ifstream input_file (file_name);   
+    std::string current_line;
+    if (!input_file.is_open())
+    {
+      throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name);
+    }
+    if (input_file.is_open())
+    {
+      while (input_file.peek()!=EOF)
+      {    
+        std::getline (input_file, current_line);
+        std::vector<std::string> tokens;
+        size_t pos = 0;
+        std::string token;
+        while ((pos = current_line.find(" ")) != std::string::npos) 
+        {
+          token = current_line.substr(0, pos);
+          tokens.push_back(token);
+          current_line.erase(0, pos + 1);
+        }
+        tokens.push_back(current_line);
+        if (tokens.size() !=3 ) 
+        {
+          throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, tokens.size(), "File does not have exactly 3 colums");
+        }
+        /* if (tokens[0].empty() || tokens[1].empty() || tokens[2].empty())
+        {
+          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Entry in file empty", "");
+        } */
+        MS2Data current_data; 
+        try
+        {
+          current_data.RT = std::stod(tokens[0]);
+        }
+        catch(const std::exception& e)
+        {
+          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", tokens[0]);
+        }
+        try
+        {
+          current_data.mz = std::stod(tokens[1]);
+        }
+        catch(const std::exception& e)
+        {
+          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", tokens[1]);
+        }
+        try
+        {
+          current_data.charge = std::stoi(tokens[2]);
+        }
+        catch(const std::exception& e)
+        {
+          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to integer", tokens[2]);
+        }
+        current_data.index = i;
+        result.push_back(current_data);
+        i++;
+      }
+    }
+    return result;
+  }
 } // namespace OpenMS
 
 
