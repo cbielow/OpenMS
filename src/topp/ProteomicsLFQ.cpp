@@ -173,7 +173,7 @@ protected:
       "3. IDFilter (pep:score = 0.05)\n"
       "To obtain well calibrated PEPs and an initial reduction of PSMs\n"
       "ID files must be provided in same order as spectra files.");
-    setValidFormats_("ids", ListUtils::create<String>("idXML,mzId"));
+    setValidFormats_("ids", ListUtils::create<String>("idXML,mzId,idparquet"));
 
     registerInputFile_("design", "<file>", "", "design file", false);
     setValidFormats_("design", ListUtils::create<String>("tsv"));
@@ -249,8 +249,8 @@ protected:
     registerStringOption_("mass_recalibration", "<option>", "false", "Mass recalibration.", false, true);
     setValidStrings_("mass_recalibration", ListUtils::create<String>("true,false"));
 
-    registerStringOption_("alignment_order", "<option>", "star", "If star, aligns all maps to the reference with most IDs.", false, true);
-    setValidStrings_("alignment_order", ListUtils::create<String>("star")); // TODO: fix and reenable tree guided
+    registerStringOption_("alignment_order", "<option>", "star", "If star, aligns all maps to the reference with most IDs. If tree_guided, aligns maps in tree order (most similar pairs first).", false, true);
+    setValidStrings_("alignment_order", ListUtils::create<String>("star,tree_guided"));
 
     registerStringOption_("keep_feature_top_psm_only", "<option>", "true", "If false, also keeps lower ranked PSMs that have the top-scoring"
                                                                      " sequence as a candidate per feature in the same file.", false, true);
@@ -755,7 +755,8 @@ protected:
   {
 
     const String& mz_file_abs_path = File::absolutePath(mz_file);
-    FileHandler().loadIdentifications(id_file_abs_path, protein_ids, peptide_ids, {FileTypes::IDXML}, log_type_);
+    FileHandler().loadIdentifications(id_file_abs_path, protein_ids, peptide_ids,
+        {FileTypes::IDXML, FileTypes::MZIDENTML, FileTypes::IDPARQUET}, log_type_);
 
     ExitCodes e = checkSingleRunPerID_(protein_ids, id_file_abs_path);
     if (e != EXECUTION_OK) return e;

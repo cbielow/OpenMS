@@ -71,7 +71,7 @@ if (MSVC)
 else()
   set_source_files_properties(${OpenMS_percolator_sources}
     PROPERTIES
-      COMPILE_FLAGS "-Wno-sign-compare -Wno-unused-parameter -Wno-deprecated-declarations -Wno-unused-variable -Wno-overloaded-virtual")
+      COMPILE_FLAGS "-Wno-sign-compare -Wno-unused-parameter -Wno-deprecated-declarations -Wno-unused-variable -Wno-overloaded-virtual -Wno-reorder -Wno-reorder-ctor -Wno-uninitialized -Wno-ignored-qualifiers -Wno-unused-but-set-variable")
   set_source_files_properties(${OpenMS_percolator_sources}
     PROPERTIES COMPILE_OPTIONS "-fvisibility=hidden")
 endif()
@@ -195,6 +195,11 @@ target_compile_definitions(OpenMS PRIVATE BOOST_PROCESS_USE_STD_FS)
 
 if (WITH_OPENTIMS)
     target_compile_definitions(OpenMS PUBLIC WITH_OPENTIMS=1)
+endif()
+
+if(WITH_WNETALIGN)
+  target_include_directories(OpenMS SYSTEM PRIVATE ${WNETALIGN_INCLUDE_DIRS})
+  target_compile_definitions(OpenMS PRIVATE LEMON_ONLY_TEMPLATES OPENMS_HAS_WNETALIGN)
 endif()
 
 ## Enable test-only hooks when class tests are being built.
