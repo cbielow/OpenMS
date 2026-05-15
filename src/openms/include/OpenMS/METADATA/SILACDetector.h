@@ -58,57 +58,57 @@ public:
 
   Control distances: 11, 14, 15, 21, 23, 27
 
-  The z-scores and p-values are being shown on the terminal for each SILAC distance
+  The z-scores and p-values will be saved inside the SILACDetector object for each SILAC distance
 
   The code is based of the code from the param-medic GitHub page: https://github.com/dhmay/param-medic/blob/master/parammedic/mod_inference.py
 
-  @param MS2Scans A vector of the relevant data of the MS2 scans of an experiment (RT, mz, charge)
+  @param MS2Scans A vector of the relevant data of the MS2 scans of an experiment (RT, mz, charge). The vector can be created from an MSExperiment using the msExperimentToMS2Data() function
   @return True if p-value of any SILAC distance is significant on level 0.0125 (1.25%), false if none are significant
   @throw Exception::InvalidValue Throws an exception if the input vector is empty and if no counts are counted for the control distances
   @throw Exception::NotSorted Throws an exception if the input data is not sorted by retention time
   */
-  bool detectSILAC(std::vector<MS2Data> MS2Scans);
+  bool detectSILAC(const std::vector<MS2Data> MS2Scans);
 
-  /// returns the z-scores of the SILAC distances
+  /// Returns the z-scores of the SILAC distances
   std::vector<double> getZScores() const;
 
-  /// returns the p-values of the SILAC distances
+  /// Returns the p-values of the SILAC distances
   std::vector<double> getPValues() const;
 
-  /// returns the z-score of distance 4
+  /// Returns the z-score of distance 4
   double getZScoreD4() const;
 
-  /// returns the z-score of distance 6
+  /// Returns the z-score of distance 6
   double getZScoreD6() const;
 
-  /// returns the z-score of distance 8
+  /// Returns the z-score of distance 8
   double getZScoreD8() const;
 
-  /// returns the z-score of distance 10
+  /// Returns the z-score of distance 10
   double getZScoreD10() const;
 
-  /// returns the p-value of distance 4
+  /// Returns the p-value of distance 4
   double getPValueD4() const;
 
-  /// returns the p-value of distance 6
+  /// Returns the p-value of distance 6
   double getPValueD6() const;
   
-  /// returns the p-value of distance 8
+  /// Returns the p-value of distance 8
   double getPValueD8() const;
 
-  /// returns the p-value of distance 10
+  /// Returns the p-value of distance 10
   double getPValueD10() const;
 
-  /// returns the significance level
+  /// Returns the significance level
   double getSignificanceLevel() const;
 
-  /// returns if the dataset is a SILAC dataset according to the set siginficance level
+  /// Returns if the dataset is a SILAC dataset according to the set siginficance level
   bool getIsSILAC() const;
 
-  /// returns vector wich contains whether a distance is significant or not(1 if significant, 0 if not sigificant)
+  /// Returns vector wich contains whether a distance is significant or not(1 if significant, 0 if not sigificant)
   std::vector<bool> getSignificantDistances() const;
 
-  /// ostream iterator to write the statistical data to a stream
+  /// Ostream iterator to write the statistical data to a stream
   friend OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic);
 
   /**
@@ -121,7 +121,7 @@ public:
   @param filename The name of the file to store the data in 
   @throw Exception::InvalidValue Throws an exception if the experiment is empty or if the experiment does not contain any MS2 scans
    */
-  void storeMS2Data(MSExperiment experiment, String filename);
+  void storeMS2Data(MSExperiment experiment, const String filename) const;
 
   /**
   @brief Takes the relevant data of an MSExperiment for a SILACDetector anlysis and returns it in a vector
@@ -129,7 +129,7 @@ public:
   @return A vector with the relevant MS2Data (RT, mz, charge) for SILACDetector
   @throw Exception::InvalidValue Throws an exception if the experiment is empty or if the experiment does not contain any MS2 scans
    */
-  std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment);
+  std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment) const;
 
   /**
   @brief Takes a txt file with the relevant MS2Data and stores them into a vector
@@ -147,26 +147,26 @@ public:
   @throw Exception::InvalidSize Throws an exception if the file does not contain exactly 3 columns
   @throw Exception::InvalidValue Throws an exception if the data inside the file can not be converted into doubles (RT or mz) or int (charge)
    */
-  std::vector<MS2Data> txtFileToMS2Data(std::string file_name);
+  std::vector<MS2Data> txtFileToMS2Data(const std::string file_name) const;
 
 private:
 
-  /// stores the z scores for the distances (4, 6, 8, 10)
+  /// Stores the z scores for the distances (4, 6, 8, 10)
   std::vector<double> z_scores_ = {NAN,NAN,NAN,NAN};
 
-  /// stores the p values for the distances (4, 6, 8, 10)
+  /// Stores the p values for the distances (4, 6, 8, 10)
   std::vector<double> p_values_ = {NAN,NAN,NAN,NAN};
 
-  /// significance level as a cut off value
+  /// Significance level as a cut off value
   double significance_level_ = 0.05;
 
-  /// true if the dataset is likely a SILAC dataset, false otherwise
+  /// True if the dataset is likely a SILAC dataset, false otherwise
   bool is_silac_ = false;
 
-  /// stores which distances are significant or not (for 4, 6, 8, 10), true is significant, false is not significant
+  /// Stores which distances are significant or not (for 4, 6, 8, 10), true is significant, false is not significant
   std::vector<bool> significant_distances_ = {0, 0, 0, 0};
 
-  /// map for counting the detected distances for both relevant and control distances
+  /// Map for counting the detected distances for both relevant and control distances
   std::map<int,int> distance_count_ = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
 
   };
