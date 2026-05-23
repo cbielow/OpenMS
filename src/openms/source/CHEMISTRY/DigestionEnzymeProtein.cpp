@@ -63,9 +63,9 @@ namespace OpenMS
   DigestionEnzymeProtein::DigestionEnzymeProtein(const String& name,
                              String cut_before,
                              Sense sense,
-                             const String& nocut_after = "",
-                             const std::set<String>& synonyms = std::set<String>(),
-                             String regex_description = ""):
+                             const String& nocut_after,
+                             const std::set<String>& synonyms,
+                             String regex_description):
     DigestionEnzyme(name, buildRegex_(cut_before, nocut_after, sense), synonyms, std::move(regex_description))
   {
   }

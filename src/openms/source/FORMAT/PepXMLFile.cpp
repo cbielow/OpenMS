@@ -1254,7 +1254,7 @@ namespace OpenMS
           value = attributeAsDouble_(attributes, "value");
           peptide_hit_.setMetaValue("Comet:lnrSp", value); // name: Comet:lnrSp
           peptide_hit_.setMetaValue("COMET:lnRankSP", value); // name: COMET:lnRankSP
-        }              
+        }
         else if (name == "deltLCn")
         {
           value = attributeAsDouble_(attributes, "value");
@@ -1263,7 +1263,7 @@ namespace OpenMS
         else if (name == "lnExpect")
         {
           value = attributeAsDouble_(attributes, "value");
-          peptide_hit_.setMetaValue("COMET:lnExpect", value); // name: Comet:lnExpect          
+          peptide_hit_.setMetaValue("COMET:lnExpect", value); // name: Comet:lnExpect
         }
         else if (name == "IonFrac")
         {
@@ -1275,7 +1275,7 @@ namespace OpenMS
         {
           value = attributeAsDouble_(attributes, "value");
           peptide_hit_.setMetaValue("COMET:lnNumSP", value); // name: Comet:lnNumSP
-        }        
+        }
       }
       else if (parse_unknown_scores_)
       {
@@ -1295,7 +1295,7 @@ namespace OpenMS
             //TODO warn about non-numeric score? Or even do not catch the conversion error?
             peptide_hit_.setMetaValue(name, attributeAsString_(attributes, "value")); // Any other generic score (fallback String)
           }
-          
+
         }
       }
     }
@@ -1350,7 +1350,7 @@ namespace OpenMS
       {
         bool current_prot_is_decoy = protein.hasPrefix(decoy_prefix_);
         auto current_type = peptide_hit_.getTargetDecoyType();
-        
+
         if (current_type == PeptideHit::TargetDecoyType::UNKNOWN)
         {
           // No annotation yet, set based on current protein
@@ -1403,8 +1403,8 @@ namespace OpenMS
         current_peptide_.setSpectrumReference( String("scan=") + String(scannr_));
       }
       //TODO else error?
-      
-        
+
+
       if (!experiment_label_.empty())
       {
         current_peptide_.setExperimentLabel(experiment_label_);
@@ -1650,7 +1650,7 @@ namespace OpenMS
       {
         bool current_prot_is_decoy = protein.hasPrefix(decoy_prefix_);
         auto current_type = peptide_hit_.getTargetDecoyType();
-        
+
         if (current_type == PeptideHit::TargetDecoyType::UNKNOWN)
         {
           // No annotation yet, set based on current protein
@@ -1664,7 +1664,7 @@ namespace OpenMS
           // Peptide matches both target and decoy proteins
           peptide_hit_.setTargetDecoyType(PeptideHit::TargetDecoyType::TARGET_DECOY);
         }
-        
+
         hit.setTargetDecoyType(current_prot_is_decoy ?
           ProteinHit::TargetDecoyType::DECOY :
           ProteinHit::TargetDecoyType::TARGET);
@@ -1926,16 +1926,17 @@ namespace OpenMS
       String cut_before = attributeAsString_(attributes, "cut");
       String no_cut_after = attributeAsString_(attributes, "no_cut");
       String sense = attributeAsString_(attributes, "sense");
-      params_.digestion_enzyme = DigestionEnzymeProtein(DigestionEnzyme(
+      DigestionEnzymeProtein::Sense sen = (sense.toLower() == "c") ? sen = DigestionEnzymeProtein::Sense::C_TERM : sen = DigestionEnzymeProtein::Sense::N_TERM;
+      params_.digestion_enzyme = DigestionEnzymeProtein(
           "user-defined," + enzyme_ + "," + cut_before + "," + no_cut_after + "," + sense,
-          cut_before, no_cut_after, sense));
+          cut_before, sen, no_cut_after);
     }
     else if (element == "enzymatic_search_constraint") // parent: "search_summary"
     {
       //TODO we should not overwrite the enzyme here! Luckily in most files it is the same
       // enzyme as in sample_enzyme or something useless like "default".
       ///<enzymatic_search_constraint enzyme="nonspecific" max_num_internal_cleavages="1" min_number_termini="2"/>
-      enzyme_ = attributeAsString_(attributes, "enzyme");    
+      enzyme_ = attributeAsString_(attributes, "enzyme");
       if (enzyme_ == "stricttrypsin") enzyme_ = "Trypsin/P"; // MSFragger synonyme
 
       if (ProteaseDB::getInstance()->hasEnzyme(enzyme_))

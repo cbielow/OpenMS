@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang $
-// $Authors: Xiao Liang $
+// $Authors: Xiao Liang, Alen Saric $
 // --------------------------------------------------------------------------
 //
 
@@ -60,7 +60,7 @@ namespace OpenMS
                              const std::set<String>& synonyms = std::set<String>(),
                              String regex_description = "");
 
-    /// Destructor
+    ///  Destructor
     ~DigestionEnzymeProtein() override;
     //@}
 

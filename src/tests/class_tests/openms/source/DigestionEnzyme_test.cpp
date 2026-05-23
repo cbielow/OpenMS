@@ -42,7 +42,7 @@ START_SECTION(bool setValueFromFile(const String& key, const String&  value))
 
   // Test the Name Setting.
   TEST_EQUAL(enzyme.setValueFromFile("test:Name","Trypsin"),true)
-  TEST_EQUAL(enzyme.getName(),"Tryp")
+  TEST_EQUAL(enzyme.getName(),"Trypsin")
 
   // Test the RegEx Setting.
   TEST_EQUAL(enzyme.setValueFromFile("test:RegEx","Reg"),true)
@@ -53,8 +53,8 @@ START_SECTION(bool setValueFromFile(const String& key, const String&  value))
   TEST_EQUAL(enzyme.getRegExDescription(),"Desc")
 
   // Test Synonym Setting
-  TEST_EQUAL(enzyme.setValueFromFile("syn:Synonyms","Trypsin"),true)
-  TEST_EQUAL(enzyme.setValueFromFile("test:Synonyms","TrypsinI"),true)
+  TEST_EQUAL(enzyme.setValueFromFile("syn:Synonyms:","Trypsin"),true)
+  TEST_EQUAL(enzyme.setValueFromFile("test:Synonyms:","TrypsinI"),true)
 
   // Since Synonyms are a set, test using set functions.
   TEST_EQUAL(enzyme.getSynonyms().count("Trypsin"),1)
@@ -77,7 +77,7 @@ START_SECTION(bool operator!=(const String& cleavage_regex) const)
   enzyme.setRegEx("Verify");
 
   TEST_EQUAL(enzyme != "Accept",true)
-  TEST_NOT_EQUAL(enzyme != "Verfiy",true)
+  TEST_NOT_EQUAL(enzyme != "Verify",true)
 END_SECTION
 
 // < compares the names of the enzymes.
@@ -109,7 +109,7 @@ START_SECTION(std::ostream& operator<<(std::ostream& os, const DigestionEnzyme& 
   ss << enzyme;
   String output = ss.str();
 
-  TEST_EQUAL(output.hasSubstring("digestion enzyme: TestEnzyme"),true)
+  TEST_EQUAL(output.hasSubstring("digestion enzyme:TestEnzyme"),true)
   TEST_EQUAL(output.hasSubstring("(cleavage: [K] - cuts at K)"),true)
 END_SECTION
 
