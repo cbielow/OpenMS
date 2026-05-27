@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang $
-// $Authors: Xiao Liang $
+// $Authors: Xiao Liang, Alen Saric $
 // --------------------------------------------------------------------------
 //
 
@@ -23,7 +23,7 @@ namespace OpenMS
     public DigestionEnzyme
   {
   public:
-
+    enum Sense {C_TERM,N_TERM};
     /** @name Constructors
     */
     //@{
@@ -53,7 +53,14 @@ namespace OpenMS
                                     Int msgf_id = -1,
                                     Int omssa_id = -1);
 
-    /// Destructor
+    explicit DigestionEnzymeProtein(const String& name,
+                             String cut_before,
+                             Sense sense,
+                             const String& nocut_after = "",
+                             const std::set<String>& synonyms = std::set<String>(),
+                             String regex_description = "");
+
+    ///  Destructor
     ~DigestionEnzymeProtein() override;
     //@}
 
@@ -159,10 +166,11 @@ namespace OpenMS
 
     Int omssa_id_;
 
+    String buildRegex_(String& cut_before, const String& nocut_after,const DigestionEnzymeProtein::Sense& sense);
   };
+
 
   OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const DigestionEnzymeProtein& enzyme);
 
   typedef DigestionEnzymeProtein Protease;
 }
-
