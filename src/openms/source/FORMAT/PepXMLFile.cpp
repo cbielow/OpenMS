@@ -1926,7 +1926,7 @@ namespace OpenMS
       String cut_before = attributeAsString_(attributes, "cut");
       String no_cut_after = attributeAsString_(attributes, "no_cut");
       String sense = attributeAsString_(attributes, "sense");
-      DigestionEnzymeProtein::Sense sen = (sense.toLower() == "c") ? sen = DigestionEnzymeProtein::Sense::C_TERM : sen = DigestionEnzymeProtein::Sense::N_TERM;
+      const DigestionEnzymeProtein::Sense sen = (sense.toLower() == "c") ? DigestionEnzymeProtein::Sense::C_TERM : DigestionEnzymeProtein::Sense::N_TERM;
       params_.digestion_enzyme = DigestionEnzymeProtein(
           "user-defined," + enzyme_ + "," + cut_before + "," + no_cut_after + "," + sense,
           cut_before, sen, no_cut_after);

@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang $
-// $Authors: Xiao Liang, Alen Saric $
+// $Authors: Xiao Liang, Alen Šarić $
 // --------------------------------------------------------------------------
 //
 
@@ -17,13 +17,25 @@ namespace OpenMS
   /**
       @ingroup Chemistry
 
-      @brief Representation of a digestion enzyme for proteins (protease)
+       * @brief Constructs a DigestionEnzymeProtein from amino acid cleavage rules.
+*
+* @param name Name of the enzyme
+* @param cut_before Set of amino acids before/after which cleavage occurs (e.g. "KR" for Trypsin)
+* @param sense Whether cleavage is C-terminal or N-terminal
+* @param nocut_after Set of amino acids that inhibit cleavage (e.g. "P" for Trypsin)
+* @param synonyms Optional synonyms for the enzyme
+* @param regex_description Optional description of the regex
+*
+* @throw Exception::MissingInformation if cut_before is empty
+* @throw Exception::InvalidParameter if cut_before or nocut_after contain non-uppercase amino acid characters
+*
+* @note 'X' is automatically appended to cut_before to match any amino acid
   */
   class OPENMS_DLLAPI DigestionEnzymeProtein :
     public DigestionEnzyme
   {
   public:
-    enum Sense {C_TERM,N_TERM};
+    enum class Sense {C_TERM,N_TERM};
     /** @name Constructors
     */
     //@{
@@ -44,21 +56,21 @@ namespace OpenMS
     explicit DigestionEnzymeProtein(const String& name,
                                     const String& cleavage_regex,
                                     const std::set<String>& synonyms = std::set<String>(),
-                                    String regex_description = "",
+                                    const String& regex_description = "",
                                     EmpiricalFormula n_term_gain = EmpiricalFormula("H"),
                                     EmpiricalFormula c_term_gain = EmpiricalFormula("OH"),
-                                    String psi_id = "",
-                                    String xtandem_id = "",
+                                    const String& psi_id = "",
+                                    const String& xtandem_id = "",
                                     Int comet_id = -1,
                                     Int msgf_id = -1,
                                     Int omssa_id = -1);
 
     explicit DigestionEnzymeProtein(const String& name,
-                             String cut_before,
+                             const String& cut_before,
                              Sense sense,
                              const String& nocut_after = "",
                              const std::set<String>& synonyms = std::set<String>(),
-                             String regex_description = "");
+                             const String& regex_description = "");
 
     ///  Destructor
     ~DigestionEnzymeProtein() override;
@@ -166,7 +178,10 @@ namespace OpenMS
 
     Int omssa_id_;
 
-    String buildRegex_(String& cut_before, const String& nocut_after,const DigestionEnzymeProtein::Sense& sense);
+    // @param cut_before: a set of Amino Acids, before which a cut in a given sequence should be set
+    // @param nocut_after: a set of Amino Acids, which disvalidate a cut, even though a given Amino Acids from cut_before has been met
+    // @param sense: the sense, as to how the sequence has to be read.
+    String buildRegex_(String cut_before, const String& nocut_after,const DigestionEnzymeProtein::Sense& sense);
   };
 
 

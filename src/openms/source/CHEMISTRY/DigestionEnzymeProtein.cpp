@@ -3,12 +3,13 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang  $
-// $Authors: Xiao Liang, Alen Saric $
+// $Authors: Xiao Liang, Alen Šarić $
 // --------------------------------------------------------------------------
 //
 
 #include <OpenMS/CHEMISTRY/DigestionEnzymeProtein.h>
 
+#include <algorithm>
 #include <iostream>
 
 using namespace std;
@@ -42,31 +43,31 @@ namespace OpenMS
   DigestionEnzymeProtein::DigestionEnzymeProtein(const String& name,
                                                  const String& cleavage_regex,
                                                  const std::set<String>& synonyms,
-                                                 String regex_description,
+                                                 const String& regex_description,
                                                  EmpiricalFormula n_term_gain,
                                                  EmpiricalFormula c_term_gain,
-                                                 String psi_id,
-                                                 String xtandem_id,
+                                                 const String& psi_id,
+                                                 const String& xtandem_id,
                                                  Int comet_id,
                                                  Int msgf_id,
                                                  Int omssa_id) :
-    DigestionEnzyme(name, cleavage_regex, synonyms, std::move(regex_description)),
+    DigestionEnzyme(name, cleavage_regex, synonyms,regex_description),
     n_term_gain_(std::move(n_term_gain)),
     c_term_gain_(std::move(c_term_gain)),
-    psi_id_(std::move(psi_id)),
-    xtandem_id_(std::move(xtandem_id)),
+    psi_id_(psi_id),
+    xtandem_id_(xtandem_id),
     comet_id_(comet_id),
     msgf_id_(msgf_id),
     omssa_id_(omssa_id)
   {
   }
   DigestionEnzymeProtein::DigestionEnzymeProtein(const String& name,
-                             String cut_before,
+                             const String& cut_before,
                              Sense sense,
                              const String& nocut_after,
                              const std::set<String>& synonyms,
-                             String regex_description):
-    DigestionEnzyme(name, buildRegex_(cut_before, nocut_after, sense), synonyms, std::move(regex_description))
+                             const String& regex_description):
+    DigestionEnzyme(name, buildRegex_(cut_before, nocut_after, sense), synonyms, regex_description)
   {
   }
 
@@ -219,7 +220,7 @@ namespace OpenMS
     return false;
   }
 
-  String DigestionEnzymeProtein::buildRegex_(String& cut_before, const String& nocut_after, const DigestionEnzymeProtein::Sense& sense)
+  String DigestionEnzymeProtein::buildRegex_(String cut_before, const String& nocut_after, const DigestionEnzymeProtein::Sense& sense)
   {
   if (cut_before.empty())
   {
@@ -250,6 +251,9 @@ namespace OpenMS
 
   if (!cut_before.hasSuffix("X"))
   {
+    if(cut_before.find('X') != std::string::npos){
+        throw Exception::InvalidParameter(__FILE__,__LINE__,OPENMS_PRETTY_FUNCTION,"cut_before must not contain X in the set of cleavage points, as this creates a Protease which would cleave everywhere.");
+    }
     cut_before += "X";
   }
 

@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang $
-// $Authors: Xiao Liang, Alen Saric  $
+// $Authors: Xiao Liang, Alen Šarić  $
 // --------------------------------------------------------------------------
 //
 
@@ -294,6 +294,9 @@ START_SECTION([Extra] Validation of Cleavage Characters)
     TEST_EXCEPTION(Exception::InvalidParameter, DigestionEnzymeProtein("Fail2", "K?", DigestionEnzymeProtein::Sense::C_TERM))
 
     TEST_EXCEPTION(Exception::InvalidParameter, DigestionEnzymeProtein("Fail3", "K", DigestionEnzymeProtein::Sense::C_TERM, "P!"))
+
+    TEST_EXCEPTION(Exception::InvalidParameter,DigestionEnzymeProtein("XPrefix", "XK", DigestionEnzymeProtein::Sense::C_TERM))
+    TEST_EXCEPTION(Exception::InvalidParameter,DigestionEnzymeProtein("Xbetween","KXP",DigestionEnzymeProtein::Sense::C_TERM))
 
     TEST_EXCEPTION(Exception::MissingInformation, DigestionEnzymeProtein("Fail4", "", DigestionEnzymeProtein::Sense::C_TERM))
 }
