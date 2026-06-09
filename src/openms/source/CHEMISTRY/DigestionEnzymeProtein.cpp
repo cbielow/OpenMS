@@ -3,12 +3,13 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang  $
-// $Authors: Xiao Liang $
+// $Authors: Xiao Liang, Alen Šarić $
 // --------------------------------------------------------------------------
 //
 
 #include <OpenMS/CHEMISTRY/DigestionEnzymeProtein.h>
 
+#include <algorithm>
 #include <iostream>
 
 using namespace std;
@@ -42,22 +43,31 @@ namespace OpenMS
   DigestionEnzymeProtein::DigestionEnzymeProtein(const String& name,
                                                  const String& cleavage_regex,
                                                  const std::set<String>& synonyms,
-                                                 String regex_description,
+                                                 const String& regex_description,
                                                  EmpiricalFormula n_term_gain,
                                                  EmpiricalFormula c_term_gain,
-                                                 String psi_id,
-                                                 String xtandem_id,
+                                                 const String& psi_id,
+                                                 const String& xtandem_id,
                                                  Int comet_id,
                                                  Int msgf_id,
                                                  Int omssa_id) :
-    DigestionEnzyme(name, cleavage_regex, synonyms, std::move(regex_description)),
+    DigestionEnzyme(name, cleavage_regex, synonyms,regex_description),
     n_term_gain_(std::move(n_term_gain)),
     c_term_gain_(std::move(c_term_gain)),
-    psi_id_(std::move(psi_id)),
-    xtandem_id_(std::move(xtandem_id)),
+    psi_id_(psi_id),
+    xtandem_id_(xtandem_id),
     comet_id_(comet_id),
     msgf_id_(msgf_id),
     omssa_id_(omssa_id)
+  {
+  }
+  DigestionEnzymeProtein::DigestionEnzymeProtein(const String& name,
+                             const String& cut_before,
+                             Sense sense,
+                             const String& nocut_after,
+                             const std::set<String>& synonyms,
+                             const String& regex_description):
+    DigestionEnzyme(name, buildRegex_(cut_before, nocut_after, sense), synonyms, regex_description)
   {
   }
 
@@ -210,6 +220,70 @@ namespace OpenMS
     return false;
   }
 
+  String DigestionEnzymeProtein::buildRegex_(String cut_before, const String& nocut_after, const DigestionEnzymeProtein::Sense& sense)
+  {
+  if (cut_before.empty())
+  {
+    throw Exception::MissingInformation(
+        __FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+        "No cleavage position given when trying to construct a DigestionEnzyme.");
+  }
+
+  for(char c : cut_before)
+  {
+    if (c > 'Z' || c < 'A')
+    {
+      throw Exception::InvalidParameter(
+        __FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+        "Amino Acids for cleavage contain unknown character: " + String(c));
+    }
+  }
+
+  for(char c : nocut_after)
+  {
+    if (c > 'Z' || c < 'A')
+    {
+      throw Exception::InvalidParameter(
+        __FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+        "Amino Acids to stop cleavage contain unknown character: " + String(c));
+    }
+  }
+
+  if (!cut_before.hasSuffix("X"))
+  {
+    if(cut_before.find('X') != std::string::npos){
+        throw Exception::InvalidParameter(__FILE__,__LINE__,OPENMS_PRETTY_FUNCTION,"cut_before must not contain X in the set of cleavage points, as this creates a Protease which would cleave everywhere.");
+    }
+    cut_before += "X";
+  }
+
+  String result = "";
+  if (sense == DigestionEnzymeProtein::Sense::C_TERM)
+  {
+    result = "(?<=[" + cut_before + "])";
+    if (!nocut_after.empty())
+    {
+      result += "(?!" + nocut_after + "])";
+    }
+  }
+  else if (sense == DigestionEnzymeProtein::Sense::N_TERM)
+  {
+    if (!nocut_after.empty())
+    {
+      result = "(?<![" + nocut_after + "])";
+    }
+    result += "(?=[" + cut_before + "])";
+  }
+  else
+  {
+    throw Exception::MissingInformation(
+        __FILE__, __LINE__, OPENMS_PRETTY_FUNCTION,
+        "Cannot infer cleavage sense. Has to be N or C.");
+  }
+
+  return result;
+  }
+
   ostream& operator<<(ostream& os, const DigestionEnzymeProtein& enzyme)
   {
     os << static_cast<const DigestionEnzyme&>(enzyme) << " "
@@ -218,4 +292,3 @@ namespace OpenMS
   }
 
 }
-

@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang $
-// $Authors: Xiao Liang $
+// $Authors: Xiao Liang, Alen Šarić  $
 // --------------------------------------------------------------------------
 //
 
@@ -275,5 +275,40 @@ END_SECTION
 
 delete e_ptr;
 
-END_TEST
+START_SECTION((DigestionEnzymeProtein(const String& name, String cut_before, Sense sense, const String& nocut_after, const std::set<String>& synonyms, String regex_description)))
+{
+    DigestionEnzymeProtein trypsin_style("TrypsinStyle", "K", DigestionEnzymeProtein::Sense::C_TERM, "P");
+    TEST_EQUAL(trypsin_style.getRegEx(), "(?<=[KX])(?!P])")
 
+    DigestionEnzymeProtein arg_c("Arg-C_Style", "R", DigestionEnzymeProtein::Sense::C_TERM);
+    TEST_EQUAL(arg_c.getRegEx(), "(?<=[RX])")
+
+    DigestionEnzymeProtein n_term_test("N-Term_Style", "D", DigestionEnzymeProtein::Sense::N_TERM, "E");
+    TEST_EQUAL(n_term_test.getRegEx(), "(?<![E])(?=[DX])")
+}
+END_SECTION
+
+START_SECTION([Extra] Validation of Cleavage Characters)
+{
+    TEST_EXCEPTION(Exception::InvalidParameter, DigestionEnzymeProtein("Fail1", "K1", DigestionEnzymeProtein::Sense::C_TERM))
+    TEST_EXCEPTION(Exception::InvalidParameter, DigestionEnzymeProtein("Fail2", "K?", DigestionEnzymeProtein::Sense::C_TERM))
+
+    TEST_EXCEPTION(Exception::InvalidParameter, DigestionEnzymeProtein("Fail3", "K", DigestionEnzymeProtein::Sense::C_TERM, "P!"))
+
+    TEST_EXCEPTION(Exception::InvalidParameter,DigestionEnzymeProtein("XPrefix", "XK", DigestionEnzymeProtein::Sense::C_TERM))
+    TEST_EXCEPTION(Exception::InvalidParameter,DigestionEnzymeProtein("Xbetween","KXP",DigestionEnzymeProtein::Sense::C_TERM))
+
+    TEST_EXCEPTION(Exception::MissingInformation, DigestionEnzymeProtein("Fail4", "", DigestionEnzymeProtein::Sense::C_TERM))
+}
+END_SECTION
+
+START_SECTION([Extra] Automatic X-Suffix)
+{
+    DigestionEnzymeProtein with_x("AlreadyX", "KX", DigestionEnzymeProtein::Sense::C_TERM);
+    TEST_EQUAL(with_x.getRegEx(), "(?<=[KX])")
+
+    TEST_EXCEPTION(Exception::InvalidParameter, DigestionEnzymeProtein("SmallX", "Kx", DigestionEnzymeProtein::Sense::C_TERM))
+}
+END_SECTION
+
+END_TEST

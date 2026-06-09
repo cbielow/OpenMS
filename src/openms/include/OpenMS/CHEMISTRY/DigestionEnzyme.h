@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Xiao Liang $
-// $Authors: Xiao Liang $
+// $Authors: Xiao Liang, Alen Šarić $
 // --------------------------------------------------------------------------
 //
 
@@ -25,13 +25,14 @@ namespace OpenMS
 
      @brief Base class for digestion enzymes
   */
-  class OPENMS_DLLAPI DigestionEnzyme
-  {
-  public:
+ class OPENMS_DLLAPI DigestionEnzyme
+ {
 
-    /** @name Constructors
+   /** @name Constructors
     */
-    //@{
+   //@{
+   public:
+
     /// Copy constructor
     DigestionEnzyme(const DigestionEnzyme&) = default;
 
@@ -41,14 +42,6 @@ namespace OpenMS
     /// Detailed constructor
     explicit DigestionEnzyme(const String& name,
                              const String& cleavage_regex,
-                             const std::set<String>& synonyms = std::set<String>(),
-                             String regex_description = "");
-
-    /// Detailed constructor 2
-    explicit DigestionEnzyme(const String& name,
-                             String cut_before,
-                             const String& nocut_after = "",
-                             String sense = "C",
                              const std::set<String>& synonyms = std::set<String>(),
                              String regex_description = "");
 
@@ -128,8 +121,6 @@ namespace OpenMS
 
   protected:
 
-    /// default constructor
-    DigestionEnzyme();
 
     // basic
     String name_;
@@ -139,6 +130,10 @@ namespace OpenMS
     std::set<String> synonyms_;
 
     String regex_description_;
+
+    /// default constructor
+    DigestionEnzyme();
+
   };
 
   OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const DigestionEnzyme& enzyme);
@@ -164,4 +159,3 @@ namespace std
     }
   };
 } // namespace std
-

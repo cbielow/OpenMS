@@ -3,7 +3,7 @@
 //
 // --------------------------------------------------------------------------
 // $Maintainer: Hannes Roest $
-// $Authors: Hannes Roest, Luis Jacob Keller, Alen Saric$
+// $Authors: Hannes Roest, Luis Jacob Keller, Alen Šarić$
 // --------------------------------------------------------------------------
 
 #include <OpenMS/CONCEPT/ClassTest.h>

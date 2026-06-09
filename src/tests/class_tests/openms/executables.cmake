@@ -420,6 +420,7 @@ set(chemistry_executables_list
   CoarseIsotopeDistribution_test
   CrossLinksDB_test
   DecoyGenerator_test
+  DigestionEnzyme_test
   DigestionEnzymeProtein_test
   ElementDB_test
   Element_test
@@ -615,7 +616,7 @@ set(transformations_executables_list
   EmgFitter1D_test
   EmgModel_test
   ExtendedIsotopeFitter1D_test
-  ExtendedIsotopeModel_test  
+  ExtendedIsotopeModel_test
   FeatureFinderAlgorithmPickedHelperStructs_test
   FeatureFinderAlgorithmPicked_test
   FeatureFinderIdentificationAlgorithm_test
