@@ -9,7 +9,7 @@
 #include <OpenMS/VISUAL/DIALOGS/PythonSelector.h>
 #include <ui_PythonSelector.h>
 
-#include <OpenMS/DATASTRUCTURES/String.h>
+#include <OpenMS/DATASTRUCTURES/StringUtils.h>
 #include <OpenMS/SYSTEM/PythonInfo.h>
 #include <OpenMS/VISUAL/MISC/Qt5Port.h>
 
@@ -58,9 +58,9 @@ namespace OpenMS
 
     void PythonSelector::validate_()
     {
-      String exe = fromQString(ui_->line_edit->text());
+      std::string exe = fromQString(ui_->line_edit->text());
       
-      String error;
+      std::string error;
       bool success = PythonInfo::canRun(exe, error);
       if (success)
       {

@@ -130,6 +130,7 @@ set(system_executables_list
   File_test
   Network_test
   JavaInfo_test
+  PathUtils_test
   PythonInfo_test
   StopWatch_test
   SysInfo_test
@@ -173,6 +174,8 @@ set(format_executables_list
   AbsoluteQuantitationStandardsFile_test
   Base64_test
   BrukerTimsFile_test
+  BrukerTimsImagingFile_test
+  PASEFHillCentroider_test
   MSNumpressCoder_test
   Bzip2Ifstream_test
   Bzip2InputStream_test
@@ -235,6 +238,7 @@ set(format_executables_list
   OMSSACSVFile_test
   OMSSAXMLFile_test
   OSWFile_test
+  OSWFileInference_test
   PTMXMLFile_test
   ParamCTDFile_test
   ParamJSONFile_test
@@ -259,6 +263,7 @@ set(format_executables_list
   SpecArrayFile_test
   SqMassFile_test
   MRMFile_test
+  ThermoRawFile_test
   SwathMapMassCorrection_test
   SwathFile_test
   SwathFileConsumer_test
@@ -321,6 +326,7 @@ set(math_executables_list
   CrossValidation_test
   Histogram_test
   KernelDensityEstimation_test
+  LevelContextInference_test
   LinearInterpolation_test
   LinearRegression_test
   MathFunctions_test
@@ -422,6 +428,7 @@ set(chemistry_executables_list
   EnzymaticDigestion_test
   FineIsotopeDistribution_test
   HydrophobicityProfile_test
+  IsoelectricPoint_test
   IMSAlphabetParser_test
   IMSAlphabetTextParser_test
   IMSAlphabet_test
@@ -494,9 +501,7 @@ set(analysis_executables_list
   FeatureGroupingAlgorithmLabeled_test
   FeatureGroupingAlgorithmQT_test
   FeatureGroupingAlgorithmUnlabeled_test
-  FeatureGroupingAlgorithmWNet_test
   FeatureGroupingAlgorithm_test
-  WNetMatcher_test
   FeatureHandle_test
   FIAMSDataProcessor_test
   FLASHDeconvAlgorithm_test
@@ -588,6 +593,10 @@ set(analysis_executables_list
   XQuestScores_test
 )
 
+if(WITH_WNETALIGN)
+  list(APPEND analysis_executables_list FeatureGroupingAlgorithmWNet_test WNetMatcher_test)
+endif()
+
 set(applications_executables_list
   INIUpdater_test
   #MapAlignerBase_test
@@ -644,6 +653,12 @@ set(ionmobility_executables_list
   IMTypes_test
 )
 
+set(imaging_executables_list
+  IonImage_test
+  MSImagingGeometry_test
+  MSImagingExperiment_test
+)
+
 if(NOT DISABLE_OPENSWATH)
   set(swath_executables_list
     MRMAssay_test
@@ -678,6 +693,8 @@ if(NOT DISABLE_OPENSWATH)
     MRMFeatureFinderScoring_test
     MRMFeatureFilter_test
     MRMFeatureQC_test
+    OpenSwathExport_test
+    PeptidoformInference_test
     SpectrumHelpers_test
     StatsHelpers_test
     SwathQC_test
@@ -734,6 +751,7 @@ set(TEST_executables
     ${applications_executables_list}
     ${transformations_executables_list}
     ${ionmobility_executables_list}
+    ${imaging_executables_list}
     ${swath_executables_list}
     ${qc_executables_list}
 )
