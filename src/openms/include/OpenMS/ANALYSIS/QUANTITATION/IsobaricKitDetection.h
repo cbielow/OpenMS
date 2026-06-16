@@ -36,6 +36,36 @@ namespace OpenMS
     Per-channel statistics (median Δppm, Δppm std-dev, population fraction, relative intensity and
     outlier flags) are logged via OPENMS_LOG_INFO for every candidate kit.
 
+    @par How a channel is classified (per candidate kit)
+    Presence/abundance is judged first; mass accuracy only on the channels that survive. A channel is
+    "ok" only if it reaches the bottom of this tree:
+    @code
+      n_populated == 0 ?
+       |- yes --------------------------------------------------------> OUTLIER: "missing"
+       '- no
+           under-populated?  (population_fraction < underpop_factor * kit_max_pop)
+            |- yes ---------------------------------------------------> OUTLIER: "underpopulated"
+            '- no   (channel is well-populated)
+                noisy_abs = stddev_dppm > noise_sd_frac_of_tol * tol_ppm           (absolute: vs the
+                                                                                    uniform-noise level
+                                                                                    of the +-tol window)
+                noisy_rel = use_relative_test                                      (relative: robust
+                            && stddev_dppm > median_sd + ppm_outlier_mad * MAD_sd   median/MAD outlier
+                                                                                    among reliable chans)
+                noisy_abs OR noisy_rel ?
+                 |- yes --------------------------------------------> OUTLIER: "high delta-ppm variance"
+                 '- no ---------------------------------------------> OK
+    @endcode
+    where
+      - @c kit_max_pop = max population_fraction over the kit's channels;
+      - the @em reliable channels (which define @c median_sd and @c MAD_sd) are those with
+        @c n_populated @c >= @c 2 AND not under-populated -- weak/absent channels never distort the baseline;
+      - @c use_relative_test = (#reliable @c >= @c min_channels_for_mad) AND @c MAD_sd @c > @c 0
+        (below that the robust baseline is too unstable, so only the absolute test is used);
+      - @c tol_ppm = per-channel match tolerance in ppm = min(max_tolerance_ppm, half the distance to
+        the channel's nearest neighbour among all reference channels). Sparse neighbourhoods (e.g. iTRAQ)
+        keep the full ppm tolerance; the dense TMTpro N/ND/C/CD quartets get a tight cap.
+
     @ingroup Quantitation
   */
   class OPENMS_DLLAPI IsobaricKitDetection
@@ -52,8 +82,15 @@ namespace OpenMS
       double present_fraction = 0.3;
       /// within a kit, a channel is an 'underpopulated' outlier if its population fraction < underpop_factor * (max population fraction within that kit)
       double underpop_factor = 0.3;
-      /// within a kit, a channel is a 'noisy' outlier if its Δppm std-dev > median(std-dev) + ppm_outlier_mad * MAD(std-dev) over the kit's populated channels
+      /// absolute mass-accuracy test: a channel is 'noisy' if its Δppm std-dev exceeds noise_sd_frac_of_tol * (matching tolerance in ppm).
+      /// Random matches within the +-tol window are ~uniform, with std-dev ~tol/sqrt(3) ~= 0.58*tol, so a real channel sits well below this.
+      double noise_sd_frac_of_tol = 0.4;
+      /// relative mass-accuracy test: a (reliable) channel is also 'noisy' if its Δppm std-dev > median(std-dev) + ppm_outlier_mad * MAD(std-dev),
+      /// where median/MAD are taken over the kit's reliable channels only (see min_channels_for_mad)
       double ppm_outlier_mad = 3.0;
+      /// minimum number of reliable (well-populated) channels required before the relative (median/MAD) test is applied;
+      /// below this the robust baseline is too unstable and only the absolute test is used
+      Size min_channels_for_mad = 4;
     };
 
     /// Per-channel detection statistics, aggregated across all MS2 spectra.

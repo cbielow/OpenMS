@@ -148,17 +148,18 @@ namespace OpenMS
     if (n_ref == 0) { return {}; }
 
     // ---------------------------------------------------------------------
-    // 2) matching tolerance: <= max_tolerance_ppm, but never more than half the
-    //    minimum distance between any two reference channels (avoids cross-talk)
+    // 2) matching tolerance per channel: <= max_tolerance_ppm, but never more than half the distance
+    //    to this channel's *nearest* neighbour among all reference channels (avoids cross-talk to an
+    //    adjacent channel). Channels in a sparse neighbourhood (e.g. iTRAQ, ~1 Th apart) thus keep the
+    //    full ppm tolerance, while the dense TMTpro N/ND/C/CD quartets (~2.9 mDa) get a tight cap.
     // ---------------------------------------------------------------------
-    double min_dist = std::numeric_limits<double>::max();
-    for (Size i = 1; i < n_ref; ++i) { min_dist = std::min(min_dist, refs[i].mz - refs[i - 1].mz); }
-    const double half_min = 0.5 * min_dist;
-
     std::vector<double> tol(n_ref);
     for (Size i = 0; i < n_ref; ++i)
     {
-      tol[i] = std::min(Math::ppmToMass(params.max_tolerance_ppm, refs[i].mz), half_min);
+      double nn = std::numeric_limits<double>::max(); // distance to nearest neighbour (left/right); stays inf for a lone channel
+      if (i > 0)         { nn = std::min(nn, refs[i].mz - refs[i - 1].mz); }
+      if (i + 1 < n_ref) { nn = std::min(nn, refs[i + 1].mz - refs[i].mz); }
+      tol[i] = std::min(Math::ppmToMass(params.max_tolerance_ppm, refs[i].mz), 0.5 * nn);
     }
     const double region_lo = refs.front().mz - 0.2;
     const double region_hi = refs.back().mz + 0.2;
@@ -283,33 +284,58 @@ namespace OpenMS
         kr.channels.back().name = c.first; // use the kit's own channel label (e.g. "131" vs "131N")
       }
 
-      // outlier detection within the kit
+      // ---- per-channel classification: presence/abundance FIRST, then mass accuracy ----
       double kit_max_pop = 0.0;
       for (Size ri : kit_ref_idx) { kit_max_pop = std::max(kit_max_pop, ref_stats[ri].population_fraction); }
 
-      std::vector<double> stddevs; // Δppm std-dev of the kit's populated channels
-      for (Size k = 0; k < kit_ref_idx.size(); ++k)
+      // a channel is under-populated if it is far weaker than the best channel of this kit
+      auto is_underpop = [&](const ChannelStats& ch)
       {
-        if (present[kit_ref_idx[k]]) { stddevs.push_back(kr.channels[k].stddev_delta_ppm); }
+        return kit_max_pop > 0.0 && ch.population_fraction < params.underpop_factor * kit_max_pop;
+      };
+
+      // Reliable channels = well-populated (not under-populated) AND with enough samples (>=2) to trust their Δppm scatter.
+      // Only these define the robust mass-accuracy baseline, so weak/absent channels cannot distort it or mask real outliers.
+      std::vector<double> reliable_sd;
+      for (const auto& ch : kr.channels)
+      {
+        if (ch.n_populated >= 2 && !is_underpop(ch)) { reliable_sd.push_back(ch.stddev_delta_ppm); }
       }
-      const double med_sd = stddevs.empty() ? 0.0 : Math::median(stddevs.begin(), stddevs.end(), false);
-      const double mad_sd = stddevs.empty() ? 0.0 : Math::MAD(stddevs.begin(), stddevs.end(), med_sd);
+      const double med_sd = reliable_sd.empty() ? 0.0 : Math::median(reliable_sd.begin(), reliable_sd.end(), false);
+      const double mad_sd = reliable_sd.empty() ? 0.0 : Math::MAD(reliable_sd.begin(), reliable_sd.end(), med_sd);
+      const bool use_relative_test = reliable_sd.size() >= params.min_channels_for_mad && mad_sd > 0.0;
 
       for (Size k = 0; k < kr.channels.size(); ++k)
       {
         ChannelStats& ch = kr.channels[k];
         const Size ri = kit_ref_idx[k];
+        ch.is_outlier = false;
+        ch.outlier_reason.clear();
+
         if (ch.n_populated == 0)
         { // channel never observed -> not part of the data at all
           ch.is_outlier = true;
           ch.outlier_reason = "missing";
           continue;
         }
-        const bool underpop = kit_max_pop > 0.0 && ch.population_fraction < params.underpop_factor * kit_max_pop;
-        const bool noisy = present[ri] && mad_sd > 0.0 && ch.stddev_delta_ppm > med_sd + params.ppm_outlier_mad * mad_sd;
-        ch.is_outlier = underpop || noisy;
-        if (underpop) { ch.outlier_reason = "underpopulated"; }
-        else if (noisy) { ch.outlier_reason = "high delta-ppm variance"; }
+        if (is_underpop(ch))
+        { // present, but far weaker than the kit's best channel
+          ch.is_outlier = true;
+          ch.outlier_reason = "underpopulated";
+          continue;
+        }
+        // mass-accuracy ('noisy') tests, judged only on the remaining well-populated channels:
+        //  - absolute: scatter approaches the uniform-noise level implied by the +-tol matching window
+        //              (scale-free; works even for tiny kits with too few channels for robust statistics)
+        //  - relative: scatter is a robust (median/MAD) outlier among this kit's reliable channels
+        const double tol_ppm = (refs[ri].mz > 0.0) ? tol[ri] / refs[ri].mz * 1e6 : 0.0;
+        const bool noisy_abs = tol_ppm > 0.0 && ch.stddev_delta_ppm > params.noise_sd_frac_of_tol * tol_ppm;
+        const bool noisy_rel = use_relative_test && ch.stddev_delta_ppm > med_sd + params.ppm_outlier_mad * mad_sd;
+        if (noisy_abs || noisy_rel)
+        {
+          ch.is_outlier = true;
+          ch.outlier_reason = "high delta-ppm variance";
+        }
       }
 
       // how many globally present channels does this kit explain?

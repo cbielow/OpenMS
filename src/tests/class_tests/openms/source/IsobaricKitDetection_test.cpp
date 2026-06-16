@@ -57,11 +57,42 @@ namespace
     return makeExperiment(mzs, n);
   }
 
+  // Like makeExperiment(), but channel @p noisy_idx is placed with an alternating +/- @p jitter_da
+  // offset each spectrum -> the channel is still matched (jitter < tolerance) but has a large Δppm scatter.
+  PeakMap makeExperimentNoisy(const vector<double>& reporter_mz, Size n, Size noisy_idx, double jitter_da)
+  {
+    PeakMap exp;
+    for (Size s = 0; s < n; ++s)
+    {
+      MSSpectrum spec;
+      spec.setMSLevel(2);
+      spec.setType(SpectrumSettings::SpectrumType::CENTROID);
+      for (Size c = 0; c < reporter_mz.size(); ++c)
+      {
+        double mz = reporter_mz[c];
+        if (c == noisy_idx) { mz += (s % 2 == 0 ? jitter_da : -jitter_da); }
+        spec.emplace_back(mz, 1000.0f);
+      }
+      spec.emplace_back(123.5, 500.0f); // non-reporter background within the region
+      spec.sortByPosition();
+      exp.addSpectrum(spec);
+    }
+    exp.updateRanges();
+    return exp;
+  }
+
   // index of the result for a given kit
   Size kitIndex(const vector<IsobaricKitDetection::KitResult>& res, MethodType mt)
   {
     for (Size i = 0; i < res.size(); ++i) { if (res[i].type == mt) { return i; } }
     return res.size();
+  }
+
+  // find a channel by its label within a kit result (nullptr if absent)
+  const IsobaricKitDetection::ChannelStats* findChannel(const IsobaricKitDetection::KitResult& kr, const std::string& name)
+  {
+    for (const auto& ch : kr.channels) { if (ch.name == name) { return &ch; } }
+    return nullptr;
   }
 }
 
@@ -174,6 +205,45 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   // iTRAQ 8-plex (a superset) must rank below iTRAQ 4-plex
   TEST_TRUE(res_itraq[kitIndex(res_itraq, MethodType::ITRAQ_8PLEX)].probability
             < res_itraq[kitIndex(res_itraq, MethodType::ITRAQ_4PLEX)].probability)
+
+  // ---- iTRAQ keeps the full ppm tolerance (per-channel nearest-neighbour cap, not a global one) ----
+  // Offset channel "115" by 2.5 mDa (~22 ppm): that exceeds the dense-TMTpro global spacing cap (~1.46 mDa)
+  // but is within 30 ppm. iTRAQ channels are ~1 Th apart, so the channel must still be matched (populated).
+  vector<double> itraq4_mz;
+  {
+    auto m = IsobaricQuantitationMethod::create(MethodType::ITRAQ_4PLEX);
+    for (const auto& c : m->getChannelInformation()) { itraq4_mz.push_back(c.center); }
+  }
+  PeakMap exp_itraq_tol = makeExperimentNoisy(itraq4_mz, 8, 1, 0.0025);
+  auto res_it_tol = IsobaricKitDetection::detect(exp_itraq_tol);
+  const Size ii4 = kitIndex(res_it_tol, MethodType::ITRAQ_4PLEX);
+  ABORT_IF(ii4 >= res_it_tol.size())
+  const IsobaricKitDetection::ChannelStats* ch_it = findChannel(res_it_tol[ii4], "115");
+  ABORT_IF(ch_it == nullptr)
+  TEST_EQUAL(ch_it->n_populated, 8) // would be 0 under a single global (~1.46 mDa) tolerance cap
+
+  // ---- a well-populated but mass-inaccurate channel is flagged 'noisy' ----
+  // jitter the 128C channel (index 2) by +-1.1 mDa each scan: still matched (< tolerance) but with large Δppm scatter
+  PeakMap exp_noisy = makeExperimentNoisy(tmt6, 10, 2, 0.0011);
+  auto res_noisy = IsobaricKitDetection::detect(exp_noisy);
+  TEST_FALSE(res_noisy.empty())
+  ABORT_IF(res_noisy.empty())
+  const Size i6 = kitIndex(res_noisy, MethodType::TMT_6PLEX);
+  ABORT_IF(i6 >= res_noisy.size())
+  const IsobaricKitDetection::ChannelStats* ch_noisy = findChannel(res_noisy[i6], "128"); // TMT6 label for 128C
+  const IsobaricKitDetection::ChannelStats* ch_clean = findChannel(res_noisy[i6], "126");
+  ABORT_IF(ch_noisy == nullptr || ch_clean == nullptr)
+  TEST_TRUE(ch_noisy->is_outlier)
+  TEST_EQUAL(ch_noisy->outlier_reason, "high delta-ppm variance")
+  TEST_FALSE(ch_clean->is_outlier) // an exact channel stays 'ok'
+
+  // ---- a channel of a too-large kit that is absent from the data is flagged 'missing' ----
+  const Size i11 = kitIndex(res6, MethodType::TMT_11PLEX);
+  ABORT_IF(i11 >= res6.size())
+  const IsobaricKitDetection::ChannelStats* ch_missing = findChannel(res6[i11], "131C"); // not part of a 6-plex sample
+  ABORT_IF(ch_missing == nullptr)
+  TEST_TRUE(ch_missing->is_outlier)
+  TEST_EQUAL(ch_missing->outlier_reason, "missing")
 
   // ---- no reporter signal -> empty result --------------------------------
   PeakMap empty_exp;
