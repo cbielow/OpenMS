@@ -6,16 +6,18 @@
 // $Authors: Chris Bielow $
 // --------------------------------------------------------------------------
 
-#include <OpenMS/ANALYSIS/QUANTITATION/TMTPlexDetection.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/IsobaricKitDetection.h>
 
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/DATASTRUCTURES/StringUtils.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/MATH/MathFunctions.h>
 #include <OpenMS/MATH/StatisticFunctions.h>
 #include <OpenMS/PROCESSING/CENTROIDING/PeakPickerHiRes.h>
 
 #include <algorithm>
-#include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 #include <map>
 #include <set>
@@ -25,11 +27,16 @@ namespace OpenMS
   namespace
   {
     /// Stable integer key for a reporter m/z, used to relate identical channels across kits.
-    /// 1e5 resolution (= 10 mDa) safely distinguishes neighbouring TMTpro channels (>= ~2.9 mDa apart map to >= 290 key units)
-    /// while collapsing the sub-mDa rounding noise that used to differ between kit definitions.
-    inline long long massKey(double mz)
+    /// Exact bit pattern of the double: the same physical channel is populated from the same shared
+    /// constant in every kit (see TMTMasses.h / the iTRAQ method literals), so identical channels yield
+    /// bit-identical doubles and therefore equal keys. For positive, finite doubles the bit pattern is
+    /// monotonic in value, so a std::map keyed on it also iterates in ascending m/z order.
+    inline uint64_t massKey(double mz)
     {
-      return std::llround(mz * 1e5);
+      static_assert(sizeof(uint64_t) == sizeof(double), "massKey assumes double and uint64_t have the same size");
+      uint64_t dest;
+      std::memcpy(&dest, &mz, sizeof dest);
+      return dest;
     }
 
     /// Channel labels and centers of one kit (created via the IsobaricQuantitationMethod factory).
@@ -53,36 +60,43 @@ namespace OpenMS
     }
   } // anonymous namespace
 
-  const std::vector<TMTPlexDetection::MethodType>& TMTPlexDetection::supportedKits()
+  std::string IsobaricKitDetection::methodName(MethodType mt)
   {
-    // ordered from fewest to most channels (subset before superset)
-    static const std::vector<MethodType> kits = {
-      MethodType::TMT_6PLEX,
-      MethodType::TMT_10PLEX,
-      MethodType::TMT_11PLEX,
-      MethodType::TMT_16PLEX,
-      MethodType::TMT_18PLEX,
-      MethodType::TMT_32PLEX,
-      MethodType::TMT_35PLEX
-    };
+    return std::string(IsobaricQuantitationMethod::methodDisplayName(mt));
+  }
+
+  const std::vector<IsobaricKitDetection::MethodType>& IsobaricKitDetection::supportedKits()
+  {
+    // Derived directly from the IsobaricQuantitationMethod::MethodType enum so that every concrete
+    // isobaric method (TMT *and* iTRAQ) is automatically considered - new methods need no change here.
+    // UNKNOWN (the disabled/none sentinel) and the SIZE_OF_METHODTYPE marker are excluded.
+    static const std::vector<MethodType> kits = []
+    {
+      std::vector<MethodType> v;
+      for (int i = static_cast<int>(MethodType::UNKNOWN) + 1; i < static_cast<int>(MethodType::SIZE_OF_METHODTYPE); ++i)
+      {
+        v.push_back(static_cast<MethodType>(i));
+      }
+      return v;
+    }();
     return kits;
   }
 
-  std::vector<TMTPlexDetection::HierarchyNode> TMTPlexDetection::buildHierarchy()
+  std::vector<IsobaricKitDetection::HierarchyNode> IsobaricKitDetection::buildHierarchy()
   {
     const auto& kits = supportedKits();
     const Size n = kits.size();
 
     // channel-mass key set per kit
-    std::vector<std::set<long long>> keys(n);
+    std::vector<std::set<uint64_t>> keys(n);
     for (Size i = 0; i < n; ++i)
     {
       for (const auto& c : getKitChannels(kits[i])) { keys[i].insert(massKey(c.second)); }
     }
 
-    auto isSubset = [](const std::set<long long>& a, const std::set<long long>& b)
+    auto isSubset = [](const std::set<uint64_t>& a, const std::set<uint64_t>& b)
     {
-      for (long long k : a) { if (b.find(k) == b.end()) { return false; } }
+      for (uint64_t k : a) { if (b.find(k) == b.end()) { return false; } }
       return true;
     };
 
@@ -117,21 +131,20 @@ namespace OpenMS
     return nodes;
   }
 
-  std::vector<TMTPlexDetection::KitResult> TMTPlexDetection::detect(const PeakMap& exp, const Parameters& params)
+  std::vector<IsobaricKitDetection::KitResult> IsobaricKitDetection::detect(const PeakMap& exp, const Parameters& params)
   {
     // ---------------------------------------------------------------------
     // 1) reference channels = union of all reporter ions over all kits
     // ---------------------------------------------------------------------
     struct RefChannel { std::string name; double mz; };
-    std::map<long long, RefChannel> ref_map; // keyed by mass-key -> unique channel
+    std::map<uint64_t, RefChannel> ref_map; // keyed by mass-key -> unique channel
     for (MethodType mt : supportedKits())
     {
       for (const auto& c : getKitChannels(mt)) { ref_map.emplace(massKey(c.second), RefChannel{c.first, c.second}); }
     }
-    std::vector<RefChannel> refs;
-    refs.reserve(ref_map.size());
-    for (const auto& kv : ref_map) { refs.push_back(kv.second); } // std::map iterates by key == ascending m/z
-    const Size n_ref = refs.size();
+    std::vector<RefChannel> refs;  ///< all possible channels, sorted by ascending m/z
+    for (const auto& [mass_key, ref_channel] : ref_map) { refs.push_back(ref_channel); } // std::map iterates by key == ascending m/z
+    const Size n_ref = refs.size(); ///< number of unique channels across all kits
     if (n_ref == 0) { return {}; }
 
     // ---------------------------------------------------------------------
@@ -145,7 +158,7 @@ namespace OpenMS
     std::vector<double> tol(n_ref);
     for (Size i = 0; i < n_ref; ++i)
     {
-      tol[i] = std::min(params.max_tolerance_ppm * refs[i].mz * 1e-6, half_min);
+      tol[i] = std::min(Math::ppmToMass(params.max_tolerance_ppm, refs[i].mz), half_min);
     }
     const double region_lo = refs.front().mz - 0.2;
     const double region_hi = refs.back().mz + 0.2;
@@ -156,7 +169,7 @@ namespace OpenMS
     std::vector<std::vector<double>> dppm(n_ref);    // per-channel Δppm samples
     std::vector<std::vector<double>> rel_int(n_ref); // per-channel relative-intensity samples
     std::vector<Size> n_pop(n_ref, 0);               // per-channel population count
-    Size n_ms2_signal = 0;                           // MS2 spectra that carried any reporter-region signal
+    Size n_ms2_signal = 0;                           // MS2 spectra that carried any signal in reporter region (includes non-reporter ions)
 
     PeakPickerHiRes picker;
     for (const auto& s : exp)
@@ -192,7 +205,7 @@ namespace OpenMS
         Int idx = ps->findNearest(refs[i].mz, tol[i]);
         if (idx < 0) { continue; }
         const double obs = (*ps)[idx].getMZ();
-        dppm[i].push_back((obs - refs[i].mz) / refs[i].mz * 1e6);
+        dppm[i].push_back(Math::getPPM(obs, refs[i].mz));
         rel_int[i].push_back((*ps)[idx].getIntensity() / region_sum);
         ++n_pop[i];
       }
@@ -200,8 +213,8 @@ namespace OpenMS
 
     if (n_ms2_signal == 0)
     {
-      OPENMS_LOG_INFO << "TMTPlexDetection: no MS2 spectra with signal in the TMT reporter region ["
-                      << region_lo << ", " << region_hi << "] Th were found - cannot detect a TMT kit." << std::endl;
+      OPENMS_LOG_INFO << "IsobaricKitDetection: no MS2 spectra with signal in the reporter region ["
+                      << region_lo << ", " << region_hi << "] Th were found - cannot detect an isobaric kit." << std::endl;
       return {};
     }
 
@@ -242,7 +255,7 @@ namespace OpenMS
       }
     }
 
-    std::map<long long, Size> key2ref;
+    std::map<uint64_t, Size> key2ref;
     for (Size i = 0; i < n_ref; ++i) { key2ref[massKey(refs[i].mz)] = i; }
 
     // ---------------------------------------------------------------------
@@ -253,17 +266,16 @@ namespace OpenMS
     {
       KitResult kr;
       kr.type = mt;
-      kr.name = std::string(IsobaricQuantitationMethod::methodDisplayName(mt));
 
       const auto chans = getKitChannels(mt);
       kr.num_channels = chans.size();
 
       std::vector<Size> kit_ref_idx;
-      std::set<long long> kit_keys;
+      std::set<uint64_t> kit_keys;
       kit_ref_idx.reserve(chans.size());
       for (const auto& c : chans)
       {
-        const long long k = massKey(c.second);
+        const uint64_t k = massKey(c.second);
         kit_keys.insert(k);
         const Size ri = key2ref[k];
         kit_ref_idx.push_back(ri);
@@ -287,6 +299,12 @@ namespace OpenMS
       {
         ChannelStats& ch = kr.channels[k];
         const Size ri = kit_ref_idx[k];
+        if (ch.n_populated == 0)
+        { // channel never observed -> not part of the data at all
+          ch.is_outlier = true;
+          ch.outlier_reason = "missing";
+          continue;
+        }
         const bool underpop = kit_max_pop > 0.0 && ch.population_fraction < params.underpop_factor * kit_max_pop;
         const bool noisy = present[ri] && mad_sd > 0.0 && ch.stddev_delta_ppm > med_sd + params.ppm_outlier_mad * mad_sd;
         ch.is_outlier = underpop || noisy;
@@ -331,28 +349,31 @@ namespace OpenMS
     return results;
   }
 
-  void TMTPlexDetection::logResults_(const std::vector<KitResult>& results, Size present_count, Size n_ms2_signal)
+  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size present_count, Size n_ms2_signal)
   {
-    OPENMS_LOG_INFO << "\n-- TMT plex detection --\n"
+    OPENMS_LOG_INFO << "\n-- Isobaric kit detection --\n"
                     << "MS2 spectra with reporter-region signal: " << n_ms2_signal << "\n"
                     << "Channels detected as present in the data: " << present_count << "\n" << std::endl;
 
     for (const auto& kr : results)
     {
-      OPENMS_LOG_INFO << kr.name << "  (" << kr.num_channels << " channels)"
+      OPENMS_LOG_INFO << methodName(kr.type) << "  (" << kr.num_channels << " channels)"
                       << "   probability=" << StringUtils::number(kr.probability * 100.0, 1) << "%"
                       << "   explains " << kr.num_explained << "/" << present_count << " present channels"
                       << (kr.num_unexplained_present > 0 ? "  [too small]" : "") << "\n";
       OPENMS_LOG_INFO << "    channel    exp.m/z     med.dppm   sd.dppm   pop%    rel.int    flag\n";
       for (const auto& ch : kr.channels)
       {
+        // "missing" (never observed) is shown plainly; other anomalies as "outlier: <reason>"
+        std::string flag = "ok";
+        if (ch.is_outlier) { flag = (ch.outlier_reason == "missing") ? ch.outlier_reason : ("outlier: " + ch.outlier_reason); }
         OPENMS_LOG_INFO << "    " << StringUtils::fillRight(std::string(ch.name), ' ', 8)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.expected_mz, 5), ' ', 11)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.median_delta_ppm, 2), ' ', 9)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.stddev_delta_ppm, 2), ' ', 7)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.population_fraction * 100.0, 1), ' ', 5)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.median_rel_intensity, 4), ' ', 8)
-                        << "  " << (ch.is_outlier ? ("outlier: " + ch.outlier_reason) : std::string("ok"))
+                        << "  " << flag
                         << "\n";
       }
       OPENMS_LOG_INFO << std::endl;
@@ -370,17 +391,17 @@ namespace OpenMS
 
     if (!results.empty())
     {
-      OPENMS_LOG_INFO << "Most likely TMT kit: " << results.front().name
+      OPENMS_LOG_INFO << "Most likely isobaric kit: " << methodName(results.front().type)
                       << "  (probability " << StringUtils::number(results.front().probability * 100.0, 1) << "%)" << std::endl;
     }
     if (parsimonious != nullptr)
     {
-      OPENMS_LOG_INFO << "Most parsimonious kit explaining all present channels: " << parsimonious->name
+      OPENMS_LOG_INFO << "Most parsimonious kit explaining all present channels: " << methodName(parsimonious->type)
                       << "  (" << parsimonious->num_channels << " channels)" << std::endl;
     }
     else if (present_count == 0)
     {
-      OPENMS_LOG_INFO << "No TMT reporter channels were reliably detected." << std::endl;
+      OPENMS_LOG_INFO << "No isobaric reporter channels were reliably detected." << std::endl;
     }
   }
 

@@ -11,6 +11,7 @@
 #include <OpenMS/config.h>
 
 #include <OpenMS/ANALYSIS/OPENSWATH/TransitionPQPFile.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/IsobaricKitDetection.h>
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
 #include <OpenMS/DATASTRUCTURES/ListUtilsIO.h> // for operator<< on StringList
 #include <OpenMS/DATASTRUCTURES/StringListUtils.h>
@@ -33,7 +34,6 @@
 #include <OpenMS/FORMAT/PeakTypeEstimator.h>
 #include <OpenMS/FORMAT/PepXMLFile.h>
 #include <OpenMS/FORMAT/TransformationXMLFile.h>
-#include <OpenMS/ANALYSIS/QUANTITATION/TMTPlexDetection.h>
 #include <OpenMS/IONMOBILITY/FAIMSHelper.h>
 #include <OpenMS/KERNEL/Feature.h>
 #include <OpenMS/KERNEL/FeatureMap.h>
@@ -167,7 +167,7 @@ protected:
     registerFlag_("s", "Computes a five-number statistics of intensities, qualities, and widths");
     registerFlag_("d", "Show detailed listing of all spectra and chromatograms (peak files only)");
     registerFlag_("c", "Check for corrupt data in the file (peak files only)");
-    registerFlag_("tmt", "Detect the TMT labelling kit (plex) from MS2 reporter ions (peak files only)");
+    registerFlag_("isobaric", "Detect the isobaric labelling kit (TMT/iTRAQ plex) from MS2 reporter ions (peak files only)");
     registerFlag_("v", "Validate the file only (for mzML, mzData, mzXML, featureXML, idXML, consensusXML, pepXML)");
     registerFlag_("i", "Check whether a given mzML file contains valid indices (conforming to the indexedmzML standard)");
   }
@@ -1425,6 +1425,37 @@ protected:
       // report memory consumption
       OPENMS_LOG_INFO << "\n\n" << mu.delta("loading MS data") << std::endl;
 
+      
+      //-------------------------------------------------------------
+      // Isobaric kit (TMT/iTRAQ) detection
+      //-------------------------------------------------------------
+      if (getFlag_("isobaric"))
+      {
+        os << '\n' << "-- Isobaric kit detection --" << '\n';
+        if (exp.empty())
+        {
+          os << "No spectra available - isobaric kit detection requires a peak (MS) file with MS2 spectra.\n";
+          return ExitCodes::INCOMPATIBLE_INPUT_DATA;
+        }
+        // detailed per-channel statistics are logged via LOG_INFO inside detect();
+        // here we summarize the ranked kits into the FileInfo output streams.
+        const auto kits = IsobaricKitDetection::detect(exp);
+        if (kits.empty()) { os << "No MS2 reporter-ion signal found - the data does not appear to be isobarically labelled.\n"; }
+        else
+        {
+          os << "Candidate isobaric kits (by probability):\n";
+          for (const auto& kr : kits)
+          {
+            const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
+            os << "  " << kit_name << " (" << kr.num_channels << " channels): " << StringUtils::number(kr.probability * 100.0, 1) << "%"
+                << " (explains " << kr.num_explained << " of present channels" << (kr.num_unexplained_present > 0 ? ", too small)" : ")") << '\n';
+            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.probability << '\n';
+          }
+          os << "Most likely isobaric kit: " << IsobaricKitDetection::methodName(kits.front().type) << '\n';
+        }
+        return EXECUTION_OK;
+      }
+
       os << '\n';
 
       os << "Instrument: " << exp.getInstrument().getName() << '\n';
@@ -2260,46 +2291,6 @@ protected:
         }
       }
     }
-
-    //-------------------------------------------------------------
-    // TMT plex detection
-    //-------------------------------------------------------------
-    if (getFlag_("tmt"))
-    {
-      os << '\n'
-         << "-- TMT plex detection --"
-         << '\n';
-      if (exp.empty())
-      {
-        os << "No spectra available - TMT plex detection requires a peak (MS) file with MS2 spectra.\n";
-      }
-      else
-      {
-        // detailed per-channel statistics are logged via LOG_INFO inside detect();
-        // here we summarize the ranked kits into the FileInfo output streams.
-        const auto kits = TMTPlexDetection::detect(exp);
-        if (kits.empty())
-        {
-          os << "No MS2 reporter-ion signal found - the data does not appear to be TMT labelled.\n";
-        }
-        else
-        {
-          os << "Candidate TMT kits (by probability):\n";
-          for (const auto& kr : kits)
-          {
-            os << "  " << kr.name << " (" << kr.num_channels << " channels): "
-               << StringUtils::number(kr.probability * 100.0, 1) << "%"
-               << " (explains " << kr.num_explained << " of present channels"
-               << (kr.num_unexplained_present > 0 ? ", too small)" : ")") << '\n';
-            os_tsv << "tmt plex" << '\t' << kr.name << '\t' << kr.probability << '\n';
-          }
-          os << "Most likely TMT kit: " << kits.front().name << '\n';
-        }
-      }
-    }
-
-    os << '\n'
-       << '\n';
 
     return EXECUTION_OK;
   }

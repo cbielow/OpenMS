@@ -18,7 +18,7 @@ namespace OpenMS
     (e.g. TMTSixPlexQuantitationMethod) populate their channel centers from these constants so that the
     same physical reporter ion always has a bit-identical m/z regardless of the kit it appears in.
     This avoids floating-point equality problems when comparing/relating channels across methods (e.g.
-    when computing the kit subset/superset hierarchy in TMTPlexDetection).
+    when computing the kit subset/superset hierarchy in IsobaricKitDetection).
 
     @note Values are stored as @c double, not @c float: the masses carry 9 significant digits
           (e.g. 126.127726) which exceeds the ~7 digits a 32-bit @c float can represent. Using @c float
@@ -32,7 +32,8 @@ namespace OpenMS
   */
   namespace TMTMasses
   {
-    // classic TMT + TMTpro shared backbone (nominal 126..134)
+    // nominal 126..131: the full classic-TMT set (all 11 are the TMT 11-plex channels; the smaller
+    // TMT 6/10-plex kits use only a subset). All of these are also reused by the TMTpro kits (16/18/32/35-plex).
     static constexpr double TMT_126   = 126.127726;
     static constexpr double TMT_127N  = 127.124761;
     static constexpr double TMT_127C  = 127.131081;
@@ -43,7 +44,7 @@ namespace OpenMS
     static constexpr double TMT_130N  = 130.134825;
     static constexpr double TMT_130C  = 130.141145;
     static constexpr double TMT_131N  = 131.138180;
-    static constexpr double TMT_131C  = 131.144500;
+    static constexpr double TMT_131C  = 131.144500;  ///< TMT 11-plex and above
 
     // TMTpro extension (nominal 132..135), used by TMT 16/18/32/35-plex
     static constexpr double TMT_132N  = 132.141535;

@@ -3,9 +3,12 @@ set(directory source/ANALYSIS/QUANTITATION)
 
 ### list all filenames of the directory here
 set(sources_list
+AbsoluteQuantitation.cpp
+AbsoluteQuantitationMethod.cpp
 DDAWorkflowCommons.cpp
 IsobaricChannelExtractor.cpp
 IsobaricIsotopeCorrector.cpp
+IsobaricKitDetection.cpp
 IsobaricNormalizer.cpp
 IsobaricQuantifier.cpp
 IsobaricQuantifierStatistics.cpp
@@ -17,16 +20,13 @@ ItraqFourPlexQuantitationMethod.cpp
 KDTreeFeatureMaps.cpp
 KDTreeFeatureNode.cpp
 PeptideAndProteinQuant.cpp
-TMTPlexDetection.cpp
 TMTEighteenPlexQuantitationMethod.cpp
-TMTSixteenPlexQuantitationMethod.cpp
 TMTElevenPlexQuantitationMethod.cpp
 TMTSixPlexQuantitationMethod.cpp
+TMTSixteenPlexQuantitationMethod.cpp
 TMTTenPlexQuantitationMethod.cpp
-TMTThirtyTwoPlexQuantitationMethod.cpp
 TMTThirtyFivePlexQuantitationMethod.cpp
-AbsoluteQuantitation.cpp
-AbsoluteQuantitationMethod.cpp
+TMTThirtyTwoPlexQuantitationMethod.cpp
 )
 
 ### add path to the filenames
