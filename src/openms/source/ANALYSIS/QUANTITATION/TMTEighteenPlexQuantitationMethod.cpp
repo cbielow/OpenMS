@@ -8,6 +8,7 @@
 
 #include <OpenMS/ANALYSIS/QUANTITATION/TMTEighteenPlexQuantitationMethod.h>
 
+#include <OpenMS/ANALYSIS/QUANTITATION/TMTMasses.h>
 #include <OpenMS/DATASTRUCTURES/ListUtils.h>
 #include <OpenMS/DATASTRUCTURES/Matrix.h>
 
@@ -26,24 +27,24 @@ TMTEighteenPlexQuantitationMethod::TMTEighteenPlexQuantitationMethod() :
     setName("TMTEighteenPlexQuantitationMethod");
 
     // create the channel map
-    channels_.push_back(IsobaricChannelInformation("126",   0, "", 126.127726, {-1, -1, -1, -1,    1,  2,  3,  4}));
-    channels_.push_back(IsobaricChannelInformation("127N",  1, "", 127.124761, {-1, -1, -1,  0,   -1,  3, -1,  5}));
-    channels_.push_back(IsobaricChannelInformation("127C",  2, "", 127.131081, {-1, -1,  0, -1,    3,  4,  5,  6}));
-    channels_.push_back(IsobaricChannelInformation("128N",  3, "", 128.128116, {-1,  0,  1,  2,   -1,  5, -1,  7}));
-    channels_.push_back(IsobaricChannelInformation("128C",  4, "", 128.134436, { 0, -1,  2, -1,    5,  6,  7,  8}));
-    channels_.push_back(IsobaricChannelInformation("129N",  5, "", 129.131471, { 1,  2,  3,  4,   -1,  7, -1,  9}));
-    channels_.push_back(IsobaricChannelInformation("129C",  6, "", 129.137790, { 2, -1,  4, -1,    7,  8,  9, 10}));
-    channels_.push_back(IsobaricChannelInformation("130N",  7, "", 130.134825, { 3,  4,  5,  6,   -1,  9, -1, 11}));
-    channels_.push_back(IsobaricChannelInformation("130C",  8, "", 130.141145, { 4, -1,  6, -1,    9, 10, 11, 12}));
-    channels_.push_back(IsobaricChannelInformation("131N",  9, "", 131.138180, { 5,  6,  7,  8,   -1, 11, -1, 13}));
-    channels_.push_back(IsobaricChannelInformation("131C", 10, "", 131.144500, { 6, -1,  8, -1,   11, 12, 13, 14}));
-    channels_.push_back(IsobaricChannelInformation("132N", 11, "", 132.141535, { 7,  8,  9, 10,   -1, 13, -1, 15}));
-    channels_.push_back(IsobaricChannelInformation("132C", 12, "", 132.147855, { 8, -1, 10, -1,   13, 14, 15, 16}));
-    channels_.push_back(IsobaricChannelInformation("133N", 13, "", 133.144890, { 9, 10, 11, 12,   -1, 15, -1, 17}));
-    channels_.push_back(IsobaricChannelInformation("133C", 14, "", 133.151210, {10, -1, 12, -1,   15, 16, 17, -1}));
-    channels_.push_back(IsobaricChannelInformation("134N", 15, "", 134.148245, {11, 12, 13, 14,   -1, 17, -1, -1}));
-    channels_.push_back(IsobaricChannelInformation("134C", 16, "", 134.154565, {12, -1, 14, -1,   17, -1, -1, -1}));
-    channels_.push_back(IsobaricChannelInformation("135N", 17, "", 135.151600, {13, 14, 15, 16,   -1, -1, -1, -1}));
+    channels_.push_back(IsobaricChannelInformation("126",   0, "", TMTMasses::TMT_126,  {-1, -1, -1, -1,    1,  2,  3,  4}));
+    channels_.push_back(IsobaricChannelInformation("127N",  1, "", TMTMasses::TMT_127N, {-1, -1, -1,  0,   -1,  3, -1,  5}));
+    channels_.push_back(IsobaricChannelInformation("127C",  2, "", TMTMasses::TMT_127C, {-1, -1,  0, -1,    3,  4,  5,  6}));
+    channels_.push_back(IsobaricChannelInformation("128N",  3, "", TMTMasses::TMT_128N, {-1,  0,  1,  2,   -1,  5, -1,  7}));
+    channels_.push_back(IsobaricChannelInformation("128C",  4, "", TMTMasses::TMT_128C, { 0, -1,  2, -1,    5,  6,  7,  8}));
+    channels_.push_back(IsobaricChannelInformation("129N",  5, "", TMTMasses::TMT_129N, { 1,  2,  3,  4,   -1,  7, -1,  9}));
+    channels_.push_back(IsobaricChannelInformation("129C",  6, "", TMTMasses::TMT_129C, { 2, -1,  4, -1,    7,  8,  9, 10}));
+    channels_.push_back(IsobaricChannelInformation("130N",  7, "", TMTMasses::TMT_130N, { 3,  4,  5,  6,   -1,  9, -1, 11}));
+    channels_.push_back(IsobaricChannelInformation("130C",  8, "", TMTMasses::TMT_130C, { 4, -1,  6, -1,    9, 10, 11, 12}));
+    channels_.push_back(IsobaricChannelInformation("131N",  9, "", TMTMasses::TMT_131N, { 5,  6,  7,  8,   -1, 11, -1, 13}));
+    channels_.push_back(IsobaricChannelInformation("131C", 10, "", TMTMasses::TMT_131C, { 6, -1,  8, -1,   11, 12, 13, 14}));
+    channels_.push_back(IsobaricChannelInformation("132N", 11, "", TMTMasses::TMT_132N, { 7,  8,  9, 10,   -1, 13, -1, 15}));
+    channels_.push_back(IsobaricChannelInformation("132C", 12, "", TMTMasses::TMT_132C, { 8, -1, 10, -1,   13, 14, 15, 16}));
+    channels_.push_back(IsobaricChannelInformation("133N", 13, "", TMTMasses::TMT_133N, { 9, 10, 11, 12,   -1, 15, -1, 17}));
+    channels_.push_back(IsobaricChannelInformation("133C", 14, "", TMTMasses::TMT_133C, {10, -1, 12, -1,   15, 16, 17, -1}));
+    channels_.push_back(IsobaricChannelInformation("134N", 15, "", TMTMasses::TMT_134N, {11, 12, 13, 14,   -1, 17, -1, -1}));
+    channels_.push_back(IsobaricChannelInformation("134C", 16, "", TMTMasses::TMT_134C, {12, -1, 14, -1,   17, -1, -1, -1}));
+    channels_.push_back(IsobaricChannelInformation("135N", 17, "", TMTMasses::TMT_135N, {13, 14, 15, 16,   -1, -1, -1, -1}));
 
     // we assume 126 to be the reference
     reference_channel_ = 0;

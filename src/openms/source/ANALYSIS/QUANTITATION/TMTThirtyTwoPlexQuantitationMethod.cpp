@@ -7,6 +7,7 @@
 // --------------------------------------------------------------------------
 
 #include <OpenMS/ANALYSIS/QUANTITATION/TMTThirtyTwoPlexQuantitationMethod.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/TMTMasses.h>
 #include <OpenMS/DATASTRUCTURES/ListUtils.h>
 #include <OpenMS/DATASTRUCTURES/Matrix.h>
 #include <OpenMS/CONCEPT/Exception.h>
@@ -69,13 +70,14 @@ namespace OpenMS{
                                         {{ 21, 23, -1, -1, 25, 27, -1, 31, -1, -1, -1, -1, -1, -1 }},
                                         {{ 24, 26, 25, 27, 28, 29, 30, -1, -1, -1, -1, -1, -1, -1 }}
     }};
+    // Reporter-ion m/z from the central TMTMasses.h table (channel order matches channel_names_ above).
     static const std::array<double, 32> o_mass32 = {
-        126.127726, 127.124761, 127.131081, 127.134003, 128.128116, 128.134436,
-        128.131038, 128.137358, 129.131471, 129.137790, 129.134393, 129.140713,
-        130.134825, 130.141145, 130.137748, 130.144068, 131.138180, 131.144500,
-        131.141103, 131.147423, 132.141535, 132.147855, 132.144458, 132.150778,
-        133.144890, 133.151210, 133.147813, 133.154133, 134.148245, 134.151171,
-        134.157491, 135.154526
+        TMTMasses::TMT_126,   TMTMasses::TMT_127N,  TMTMasses::TMT_127C,  TMTMasses::TMT_127D,  TMTMasses::TMT_128N,  TMTMasses::TMT_128C,
+        TMTMasses::TMT_128ND, TMTMasses::TMT_128CD, TMTMasses::TMT_129N,  TMTMasses::TMT_129C,  TMTMasses::TMT_129ND, TMTMasses::TMT_129CD,
+        TMTMasses::TMT_130N,  TMTMasses::TMT_130C,  TMTMasses::TMT_130ND, TMTMasses::TMT_130CD, TMTMasses::TMT_131N,  TMTMasses::TMT_131C,
+        TMTMasses::TMT_131ND, TMTMasses::TMT_131CD, TMTMasses::TMT_132N,  TMTMasses::TMT_132C,  TMTMasses::TMT_132ND, TMTMasses::TMT_132CD,
+        TMTMasses::TMT_133N,  TMTMasses::TMT_133C,  TMTMasses::TMT_133ND, TMTMasses::TMT_133CD, TMTMasses::TMT_134N,  TMTMasses::TMT_134ND,
+        TMTMasses::TMT_134CD, TMTMasses::TMT_135ND
     };
 
     TMTThirtyTwoPlexQuantitationMethod::TMTThirtyTwoPlexQuantitationMethod() :

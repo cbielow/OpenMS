@@ -17,6 +17,7 @@ ItraqFourPlexQuantitationMethod.cpp
 KDTreeFeatureMaps.cpp
 KDTreeFeatureNode.cpp
 PeptideAndProteinQuant.cpp
+TMTPlexDetection.cpp
 TMTEighteenPlexQuantitationMethod.cpp
 TMTSixteenPlexQuantitationMethod.cpp
 TMTElevenPlexQuantitationMethod.cpp

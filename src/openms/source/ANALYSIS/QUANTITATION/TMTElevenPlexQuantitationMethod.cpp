@@ -8,6 +8,7 @@
 
 #include <OpenMS/ANALYSIS/QUANTITATION/TMTElevenPlexQuantitationMethod.h>
 
+#include <OpenMS/ANALYSIS/QUANTITATION/TMTMasses.h>
 #include <OpenMS/DATASTRUCTURES/ListUtils.h>
 #include <OpenMS/DATASTRUCTURES/Matrix.h>
 
@@ -37,17 +38,17 @@ TMTElevenPlexQuantitationMethod::TMTElevenPlexQuantitationMethod() :
     //    "131C", 131.144500, 129C, 130C, x, x
 
     // create the channel map                                                //-2  -1  +1  +2
-    channels_.push_back(IsobaricChannelInformation("126",   0, "", 126.127726, {-1, -1, 2, 4}));
-    channels_.push_back(IsobaricChannelInformation("127N",  1, "", 127.124761, {-1, -1, 3, 5}));
-    channels_.push_back(IsobaricChannelInformation("127C",  2, "", 127.131081, {-1, 0, 4, 6}));
-    channels_.push_back(IsobaricChannelInformation("128N",  3, "", 128.128116, {-1, 1, 5, 7}));
-    channels_.push_back(IsobaricChannelInformation("128C",  4, "", 128.134436, {0, 2, 6, 8}));
-    channels_.push_back(IsobaricChannelInformation("129N",  5, "", 129.131471, {1, 3, 7, 9}));
-    channels_.push_back(IsobaricChannelInformation("129C",  6, "", 129.137790, {2, 4, 8, 10}));
-    channels_.push_back(IsobaricChannelInformation("130N",  7, "", 130.134825, {3, 5, 9, -1}));
-    channels_.push_back(IsobaricChannelInformation("130C",  8, "", 130.141145, {4, 6, 10, -1}));
-    channels_.push_back(IsobaricChannelInformation("131N",  9, "", 131.138180, {5, 7, -1, -1}));
-    channels_.push_back(IsobaricChannelInformation("131C", 10, "", 131.144500, {6, 8, -1, -1}));
+    channels_.push_back(IsobaricChannelInformation("126",   0, "", TMTMasses::TMT_126,  {-1, -1, 2, 4}));
+    channels_.push_back(IsobaricChannelInformation("127N",  1, "", TMTMasses::TMT_127N, {-1, -1, 3, 5}));
+    channels_.push_back(IsobaricChannelInformation("127C",  2, "", TMTMasses::TMT_127C, {-1, 0, 4, 6}));
+    channels_.push_back(IsobaricChannelInformation("128N",  3, "", TMTMasses::TMT_128N, {-1, 1, 5, 7}));
+    channels_.push_back(IsobaricChannelInformation("128C",  4, "", TMTMasses::TMT_128C, {0, 2, 6, 8}));
+    channels_.push_back(IsobaricChannelInformation("129N",  5, "", TMTMasses::TMT_129N, {1, 3, 7, 9}));
+    channels_.push_back(IsobaricChannelInformation("129C",  6, "", TMTMasses::TMT_129C, {2, 4, 8, 10}));
+    channels_.push_back(IsobaricChannelInformation("130N",  7, "", TMTMasses::TMT_130N, {3, 5, 9, -1}));
+    channels_.push_back(IsobaricChannelInformation("130C",  8, "", TMTMasses::TMT_130C, {4, 6, 10, -1}));
+    channels_.push_back(IsobaricChannelInformation("131N",  9, "", TMTMasses::TMT_131N, {5, 7, -1, -1}));
+    channels_.push_back(IsobaricChannelInformation("131C", 10, "", TMTMasses::TMT_131C, {6, 8, -1, -1}));
 
 
     // Original 10plex channel

@@ -8,6 +8,7 @@
 
 #include <OpenMS/ANALYSIS/QUANTITATION/TMTSixPlexQuantitationMethod.h>
 
+#include <OpenMS/ANALYSIS/QUANTITATION/TMTMasses.h>
 #include <OpenMS/DATASTRUCTURES/Matrix.h>
 #include <OpenMS/DATASTRUCTURES/ListUtils.h>
 
@@ -19,13 +20,14 @@ namespace OpenMS
   {
     setName("TMTSixPlexQuantitationMethod");
 
-    // create the channel map
-    channels_.push_back(IsobaricChannelInformation("126", 0, "", 126.127725, {-1, -1, 1, 2}));
-    channels_.push_back(IsobaricChannelInformation("127", 1, "", 127.124760, {-1, 0, 2, 3}));
-    channels_.push_back(IsobaricChannelInformation("128", 2, "", 128.134433, {0, 1, 3, 4}));
-    channels_.push_back(IsobaricChannelInformation("129", 3, "", 129.131468, {1, 2, 4, 5}));
-    channels_.push_back(IsobaricChannelInformation("130", 4, "", 130.141141, {2, 3, 5, -1}));
-    channels_.push_back(IsobaricChannelInformation("131", 5, "", 131.138176, {3, 4, -1, -1}));
+    // create the channel map (masses from TMTMasses.h; the 6-plex channels are the
+    // 126 / 127N / 128C / 129N / 130C / 131N reporter ions of the larger kits)
+    channels_.push_back(IsobaricChannelInformation("126", 0, "", TMTMasses::TMT_126,  {-1, -1, 1, 2}));
+    channels_.push_back(IsobaricChannelInformation("127", 1, "", TMTMasses::TMT_127N, {-1, 0, 2, 3}));
+    channels_.push_back(IsobaricChannelInformation("128", 2, "", TMTMasses::TMT_128C, {0, 1, 3, 4}));
+    channels_.push_back(IsobaricChannelInformation("129", 3, "", TMTMasses::TMT_129N, {1, 2, 4, 5}));
+    channels_.push_back(IsobaricChannelInformation("130", 4, "", TMTMasses::TMT_130C, {2, 3, 5, -1}));
+    channels_.push_back(IsobaricChannelInformation("131", 5, "", TMTMasses::TMT_131N, {3, 4, -1, -1}));
 
     // we assume 126 to be the reference
     reference_channel_ = 0;

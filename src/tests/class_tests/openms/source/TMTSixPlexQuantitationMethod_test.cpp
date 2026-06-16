@@ -62,29 +62,31 @@ START_SECTION((const IsobaricChannelList& getChannelInformation() const ))
   TEST_STRING_EQUAL(channel_list[5].description, "")
     
   // check masses&co
+  // Masses come from the central TMTMasses.h table: the 6-plex channels are the
+  // 126 / 127N / 128C / 129N / 130C / 131N reporter ions shared with the larger TMT kits.
   TEST_EQUAL(channel_list[0].name, 126)
   TEST_EQUAL(channel_list[0].id, 0)
-  TEST_EQUAL(channel_list[0].center, 126.127725)
-        
+  TEST_EQUAL(channel_list[0].center, 126.127726)
+
   TEST_EQUAL(channel_list[1].name, 127)
   TEST_EQUAL(channel_list[1].id, 1)
-  TEST_EQUAL(channel_list[1].center, 127.124760)
+  TEST_EQUAL(channel_list[1].center, 127.124761)
 
   TEST_EQUAL(channel_list[2].name, 128)
   TEST_EQUAL(channel_list[2].id, 2)
-  TEST_EQUAL(channel_list[2].center, 128.134433)
+  TEST_EQUAL(channel_list[2].center, 128.134436)
 
   TEST_EQUAL(channel_list[3].name, 129)
   TEST_EQUAL(channel_list[3].id, 3)
-  TEST_EQUAL(channel_list[3].center, 129.131468)
+  TEST_EQUAL(channel_list[3].center, 129.131471)
 
   TEST_EQUAL(channel_list[4].name, 130)
   TEST_EQUAL(channel_list[4].id, 4)
-  TEST_EQUAL(channel_list[4].center, 130.141141)
+  TEST_EQUAL(channel_list[4].center, 130.141145)
 
   TEST_EQUAL(channel_list[5].name, 131)
   TEST_EQUAL(channel_list[5].id, 5)
-  TEST_EQUAL(channel_list[5].center, 131.138176)
+  TEST_EQUAL(channel_list[5].center, 131.138180)
 
 }
 END_SECTION
