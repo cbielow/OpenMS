@@ -93,6 +93,13 @@ namespace OpenMS
       Size min_channels_for_mad = 4;
     };
 
+    /// A reporter-ion reference channel: its label and theoretical m/z.
+    struct OPENMS_DLLAPI ChannelRef
+    {
+      std::string name; ///< channel label, e.g. "129C"
+      double mz = 0.0;  ///< theoretical reporter-ion m/z
+    };
+
     /// Per-channel detection statistics, aggregated across all MS2 spectra.
     struct OPENMS_DLLAPI ChannelStats
     {
@@ -115,6 +122,7 @@ namespace OpenMS
       Size num_channels = 0;                 ///< number of channels this kit defines
       Size num_explained = 0;                ///< number of present channels that this kit contains
       Size num_unexplained_present = 0;      ///< number of present channels NOT in this kit (i.e. kit is too small)
+      double ok_signal_fraction = 0.0;       ///< fraction [0,1] of the reporter-region signal captured by this kit's non-outlier ('ok') channels (sum of their median relative intensities); a diagnostic only -- NOT used for scoring
       std::vector<ChannelStats> channels;    ///< per-channel statistics for this kit's channels
     };
 
@@ -149,6 +157,41 @@ namespace OpenMS
 
     /// The isobaric kits considered by detect()/buildHierarchy(): all concrete IsobaricQuantitationMethod::MethodType values.
     static const std::vector<MethodType>& supportedKits();
+
+    /// @name Composable building blocks of detect()
+    /// These are the individually-testable, side-effect-free steps that detect() orchestrates.
+    /// @{
+
+    /// The union of all reporter ions of all supported kits, de-duplicated and sorted by ascending m/z.
+    static std::vector<ChannelRef> referenceChannels();
+
+    /// Per-channel matching tolerance in Th (parallel to @p refs): min(@p max_tolerance_ppm, half the
+    /// distance to the channel's nearest neighbour). @p refs must be sorted by ascending m/z.
+    static std::vector<double> channelTolerances(const std::vector<ChannelRef>& refs, double max_tolerance_ppm);
+
+    /// Boolean mask (parallel to @p channel_stats) of channels considered 'present' in the data:
+    /// populated and with population fraction >= @p present_fraction * (max population fraction over all channels).
+    static std::vector<bool> determinePresentChannels(const std::vector<ChannelStats>& channel_stats, double present_fraction);
+
+    /**
+      @brief Classify each channel of a single kit as ok / missing / underpopulated / noisy.
+
+      Sets @c is_outlier and @c outlier_reason on every entry of @p channels following the decision tree
+      documented on the class. Presence/abundance is decided first; the mass-accuracy tests are applied
+      only to the surviving well-populated channels.
+
+      @param[in,out] channels per-channel stats of ONE kit; @c n_populated, @c population_fraction and
+                              @c stddev_delta_ppm must be filled in. Only the outlier fields are written.
+      @param channel_tol_ppm matching tolerance in ppm for each channel (parallel to @p channels).
+      @param params classification thresholds.
+    */
+    static void classifyChannels(std::vector<ChannelStats>& channels, const std::vector<double>& channel_tol_ppm, const Parameters& params);
+
+    /// Overlap score of a kit's channel set against the present-channel set (Jaccard): num_explained / (num_channels + present_count - num_explained).
+    /// 1.0 exactly when the kit equals the present set; penalised for both missing and surplus channels.
+    static double kitScore(Size num_channels, Size present_count, Size num_explained);
+
+    /// @}
 
   private:
     /// Log per-kit / per-channel statistics and the final decision via OPENMS_LOG_INFO.

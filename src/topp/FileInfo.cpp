@@ -1448,8 +1448,9 @@ protected:
           {
             const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
             os << "  " << kit_name << " (" << kr.num_channels << " channels): " << StringUtils::number(kr.probability * 100.0, 1) << "%"
+                << ", ok-signal " << StringUtils::number(kr.ok_signal_fraction * 100.0, 1) << "%"
                 << " (explains " << kr.num_explained << " of present channels" << (kr.num_unexplained_present > 0 ? ", too small)" : ")") << '\n';
-            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.probability << '\n';
+            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.probability << '\t' << kr.ok_signal_fraction << '\n';
           }
           os << "Most likely isobaric kit: " << IsobaricKitDetection::methodName(kits.front().type) << '\n';
         }

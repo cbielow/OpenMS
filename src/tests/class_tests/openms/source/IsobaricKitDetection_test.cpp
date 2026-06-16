@@ -124,6 +124,110 @@ START_SECTION((static std::string methodName(MethodType mt)))
 }
 END_SECTION
 
+START_SECTION((static std::vector<ChannelRef> referenceChannels()))
+{
+  const auto refs = IsobaricKitDetection::referenceChannels();
+  // 35 unique TMT channels (TMT35 is the TMT superset) + 8 iTRAQ channels (113..119,121), disjoint
+  TEST_EQUAL(refs.size(), 43)
+  // strictly ascending in m/z (and hence unique)
+  bool ascending = true;
+  for (Size i = 1; i < refs.size(); ++i) { if (!(refs[i].mz > refs[i - 1].mz)) { ascending = false; } }
+  TEST_TRUE(ascending)
+  // contains an iTRAQ-8-only channel and a TMT-35-only channel
+  auto has = [&](const std::string& name) { for (const auto& r : refs) { if (r.name == name) { return true; } } return false; };
+  TEST_TRUE(has("113"))    // iTRAQ 8-plex only
+  TEST_TRUE(has("135CD"))  // TMT 35-plex only
+}
+END_SECTION
+
+START_SECTION((static std::vector<double> channelTolerances(const std::vector<ChannelRef>& refs, double max_tolerance_ppm)))
+{
+  const auto refs = IsobaricKitDetection::referenceChannels();
+  const auto tol = IsobaricKitDetection::channelTolerances(refs, 30.0);
+  TEST_EQUAL(tol.size(), refs.size())
+
+  double tol_114 = -1.0, mz_114 = 0.0, tol_128ND = -1.0, mz_128ND = 0.0;
+  for (Size i = 0; i < refs.size(); ++i)
+  {
+    if (refs[i].name == "114")   { tol_114 = tol[i];   mz_114 = refs[i].mz; }    // iTRAQ: sparse neighbourhood
+    if (refs[i].name == "128ND") { tol_128ND = tol[i]; mz_128ND = refs[i].mz; }  // TMTpro deuterated quartet: dense
+  }
+  ABORT_IF(tol_114 < 0.0 || tol_128ND < 0.0)
+  // iTRAQ keeps the full 30 ppm (nearest neighbour ~1 Th away)
+  TEST_REAL_SIMILAR(tol_114, 30e-6 * mz_114)
+  // dense TMTpro quartet (~2.9 mDa spacing) is capped well below 30 ppm
+  TEST_TRUE(tol_128ND < 30e-6 * mz_128ND)
+}
+END_SECTION
+
+START_SECTION((static std::vector<bool> determinePresentChannels(const std::vector<ChannelStats>& channel_stats, double present_fraction)))
+{
+  std::vector<IsobaricKitDetection::ChannelStats> ch(4);
+  ch[0].population_fraction = 1.0;  ch[0].n_populated = 10; // best channel
+  ch[1].population_fraction = 0.5;  ch[1].n_populated = 5;  // 0.5 >= 0.3*1.0 -> present
+  ch[2].population_fraction = 0.2;  ch[2].n_populated = 2;  // 0.2 <  0.3*1.0 -> not present
+  ch[3].population_fraction = 0.0;  ch[3].n_populated = 0;  // absent
+  const auto present = IsobaricKitDetection::determinePresentChannels(ch, 0.3);
+  TEST_EQUAL(present.size(), 4)
+  TEST_TRUE(present[0])
+  TEST_TRUE(present[1])
+  TEST_FALSE(present[2])
+  TEST_FALSE(present[3])
+}
+END_SECTION
+
+START_SECTION((static void classifyChannels(std::vector<ChannelStats>& channels, const std::vector<double>& channel_tol_ppm, const Parameters& params)))
+{
+  using ChannelStats = IsobaricKitDetection::ChannelStats;
+  const IsobaricKitDetection::Parameters params; // defaults
+
+  auto set = [](ChannelStats& c, double pop, Size n, double sd) { c.population_fraction = pop; c.n_populated = n; c.stddev_delta_ppm = sd; };
+
+  // --- presence/abundance classification + absolute noise test ---
+  std::vector<ChannelStats> ch(6);
+  set(ch[0], 1.0, 10, 0.5); // ok
+  set(ch[1], 1.0, 10, 0.5); // ok (made noisy below)
+  set(ch[2], 1.0, 10, 0.5); // ok
+  set(ch[3], 1.0, 10, 0.5); // ok
+  set(ch[4], 0.0,  0, 0.0); // missing
+  set(ch[5], 0.05, 1, 0.0); // underpopulated (0.05 < 0.3 * 1.0)
+  std::vector<double> tol_ppm(6, 12.0);
+
+  IsobaricKitDetection::classifyChannels(ch, tol_ppm, params);
+  TEST_FALSE(ch[0].is_outlier)
+  TEST_TRUE(ch[4].is_outlier)
+  TEST_EQUAL(ch[4].outlier_reason, "missing")
+  TEST_TRUE(ch[5].is_outlier)
+  TEST_EQUAL(ch[5].outlier_reason, "underpopulated")
+
+  // absolute test: sd 6 ppm > noise_sd_frac_of_tol(0.4) * 12 ppm = 4.8 ppm
+  ch[1].stddev_delta_ppm = 6.0;
+  IsobaricKitDetection::classifyChannels(ch, tol_ppm, params);
+  TEST_TRUE(ch[1].is_outlier)
+  TEST_EQUAL(ch[1].outlier_reason, "high delta-ppm variance")
+  TEST_FALSE(ch[0].is_outlier) // an exact channel stays ok
+
+  // --- relative (median/MAD) noise test, with the absolute test disabled by a wide tolerance ---
+  std::vector<ChannelStats> ch2(5);
+  const double sds[] = {1.0, 2.0, 3.0, 4.0, 20.0}; // median 3, MAD 1 -> threshold 3 + 3*1 = 6
+  for (Size i = 0; i < 5; ++i) { set(ch2[i], 1.0, 10, sds[i]); }
+  std::vector<double> tol2(5, 200.0); // 0.4*200 = 80 ppm: absolute test cannot fire
+  IsobaricKitDetection::classifyChannels(ch2, tol2, params);
+  TEST_TRUE(ch2[4].is_outlier) // sd 20 > 6
+  TEST_EQUAL(ch2[4].outlier_reason, "high delta-ppm variance")
+  TEST_FALSE(ch2[3].is_outlier) // sd 4 < 6
+}
+END_SECTION
+
+START_SECTION((static double kitScore(Size num_channels, Size present_count, Size num_explained)))
+{
+  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(11, 11, 11), 1.0)         // exact match
+  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(10, 11, 10), 10.0 / 11.0) // too small (misses one present channel)
+  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(16, 11, 11), 11.0 / 16.0) // too big (surplus channels)
+  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(4, 0, 0), 0.0)            // nothing present
+}
+END_SECTION
+
 START_SECTION((static std::vector<HierarchyNode> buildHierarchy()))
 {
   const auto nodes = IsobaricKitDetection::buildHierarchy();
@@ -194,6 +298,8 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   ABORT_IF(res6.empty())
   TEST_TRUE(res6.front().type == MethodType::TMT_6PLEX)
   TEST_EQUAL(res6.front().num_unexplained_present, 0)
+  // ok-signal: the 6 reporter peaks (1000 each) out of a region of 6*1000 + 500 background = 6000/6500 ~= 0.923
+  TEST_TRUE(res6.front().ok_signal_fraction > 0.9 && res6.front().ok_signal_fraction <= 1.0)
 
   // ---- iTRAQ 4-plex sample ------------------------------------------------
   PeakMap exp_itraq = makeExperimentForKit(MethodType::ITRAQ_4PLEX, 8);
