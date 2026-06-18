@@ -733,7 +733,9 @@ protected:
           int scan_number = 0;
           if ((elements[2].empty()) || (elements[2] == "-1"))
           {
-            scan_number = StringUtils::toInt32(elements[1]);
+            // SpecID may be "controllerType=0 controllerNumber=1 scan=17"; take the value after the last '='
+            // (suffix() now returns the whole string when '=' is absent, matching develop's previous ternary)
+            scan_number = StringUtils::toInt32(StringUtils::suffix(elements[1], '='));
           }
           else
           {

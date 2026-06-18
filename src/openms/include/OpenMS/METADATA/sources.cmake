@@ -11,6 +11,7 @@ CVTerm.h
 CVTermList.h
 CVTermListInterface.h
 ChromatogramSettings.h
+CometNativeIDRemapper.h
 ContactPerson.h
 DataArrays.h
 DataProcessing.h

@@ -317,6 +317,23 @@ START_SECTION(static std::string getUserDirectory())
   // OpenMS.ini file exists at the new location.
 END_SECTION
 
+START_SECTION((static std::string getOpenMSConfigDir()))
+  std::string config_dir = File::getOpenMSConfigDir();
+  TEST_NOT_EQUAL(config_dir, std::string())
+  // every platform branch resolves to a folder named "OpenMS" with no trailing separator
+  TEST_EQUAL(StringUtils::hasSuffix(config_dir, "OpenMS"), true)
+  TEST_EQUAL(StringUtils::hasSuffix(config_dir, "/"), false)
+#ifdef __unix__
+  // on unix-like systems, XDG_CONFIG_HOME takes precedence when set
+  const char* xdg_backup = getenv("XDG_CONFIG_HOME");
+  setenv("XDG_CONFIG_HOME", "/tmp/openms_xdg_test", 1);
+  TEST_EQUAL(File::getOpenMSConfigDir(), "/tmp/openms_xdg_test/OpenMS")
+  // restore previous environment to avoid side effects on later tests
+  if (xdg_backup) { setenv("XDG_CONFIG_HOME", xdg_backup, 1); }
+  else { unsetenv("XDG_CONFIG_HOME"); }
+#endif
+END_SECTION
+
 START_SECTION(static Param getSystemParameters())
   Param p = File::getSystemParameters();
   TEST_EQUAL(!p.empty(), true)
@@ -349,7 +366,7 @@ START_SECTION(static bool findExecutable(std::string& exe_filename))
 }
 END_SECTION
 
-START_SECTION(static StringList getPathLocations(const std::string& path = std::getenv("PATH")))
+START_SECTION(static StringList getPathLocations(const std::string& path))
 {
   // set env-variables is not portable across platforms, thus we inject the PATH values
 #ifdef OPENMS_WINDOWSPLATFORM
@@ -363,6 +380,13 @@ START_SECTION(static StringList getPathLocations(const std::string& path = std::
 #else
   TEST_EQUAL(ListUtils::contains(l, "/usr/bin/"), true)
 #endif
+
+  StringList empty = File::getPathLocations("");
+  TEST_EQUAL(empty.empty(), true)
+
+  // Also exercise the no-argument overload, which reads PATH safely even when the
+  // environment lookup would otherwise return nullptr.
+  File::getPathLocations();
 }
 END_SECTION
 
