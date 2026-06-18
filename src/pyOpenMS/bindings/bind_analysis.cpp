@@ -688,6 +688,10 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
         .def_rw("noise_sd_frac_of_tol", &OpenMS::IsobaricKitDetection::Parameters::noise_sd_frac_of_tol)
         .def_rw("ppm_outlier_mad", &OpenMS::IsobaricKitDetection::Parameters::ppm_outlier_mad)
         .def_rw("min_channels_for_mad", &OpenMS::IsobaricKitDetection::Parameters::min_channels_for_mad)
+        .def_rw("offset_consistency_ppm", &OpenMS::IsobaricKitDetection::Parameters::offset_consistency_ppm)
+        .def_rw("min_region_coverage", &OpenMS::IsobaricKitDetection::Parameters::min_region_coverage)
+        .def_rw("min_valid_spectra_fraction", &OpenMS::IsobaricKitDetection::Parameters::min_valid_spectra_fraction)
+        .def_rw("kit_region_buffer", &OpenMS::IsobaricKitDetection::Parameters::kit_region_buffer)
         ;
 
     nb::class_<OpenMS::IsobaricKitDetection::ChannelRef>(ikd_class, "ChannelRef", "A reporter-ion reference channel (label + theoretical m/z)")
@@ -726,6 +730,8 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
         .def_rw("num_explained", &OpenMS::IsobaricKitDetection::KitResult::num_explained)
         .def_rw("num_unexplained_present", &OpenMS::IsobaricKitDetection::KitResult::num_unexplained_present)
         .def_rw("ok_signal_fraction", &OpenMS::IsobaricKitDetection::KitResult::ok_signal_fraction)
+        .def_rw("valid_fraction", &OpenMS::IsobaricKitDetection::KitResult::valid_fraction)
+        .def_rw("is_valid", &OpenMS::IsobaricKitDetection::KitResult::is_valid)
         .def_rw("channels", &OpenMS::IsobaricKitDetection::KitResult::channels)
         ;
 

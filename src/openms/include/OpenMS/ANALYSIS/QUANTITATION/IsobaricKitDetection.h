@@ -54,17 +54,32 @@ namespace OpenMS
                                                                                     among reliable chans)
                 noisy_abs OR noisy_rel ?
                  |- yes --------------------------------------------> OUTLIER: "high delta-ppm variance"
-                 '- no ---------------------------------------------> OK
+                 '- no
+                     |median_dppm - consensus_offset| > offset_consistency_ppm ?  (all real reporter
+                                                                                    channels share one
+                                                                                    instrument calibration
+                                                                                    offset)
+                      |- yes -------------------------------------> OUTLIER: "median deltaPPM inconsistent"
+                      '- no --------------------------------------> OK
     @endcode
     where
       - @c kit_max_pop = max population_fraction over the kit's channels;
-      - the @em reliable channels (which define @c median_sd and @c MAD_sd) are those with
-        @c n_populated @c >= @c 2 AND not under-populated -- weak/absent channels never distort the baseline;
+      - the @em reliable channels (which define @c median_sd, @c MAD_sd and @c consensus_offset) are those
+        with @c n_populated @c >= @c 2 AND not under-populated -- weak/absent channels never distort the baseline;
       - @c use_relative_test = (#reliable @c >= @c min_channels_for_mad) AND @c MAD_sd @c > @c 0
         (below that the robust baseline is too unstable, so only the absolute test is used);
+      - @c consensus_offset = median of the reliable channels' @c median_delta_ppm (the test needs @c >= @c 2
+        reliable channels);
       - @c tol_ppm = per-channel match tolerance in ppm = min(max_tolerance_ppm, half the distance to
         the channel's nearest neighbour among all reference channels). Sparse neighbourhoods (e.g. iTRAQ)
         keep the full ppm tolerance; the dense TMTpro N/ND/C/CD quartets get a tight cap.
+
+    @par Kit validity gate (per-kit, not per-channel)
+    Before a kit is ranked, it must be @em valid: in at least @c min_valid_spectra_fraction of the MS2
+    spectra, the intensity matched to the kit's own channels must be at least @c min_region_coverage of the
+    total intensity in the kit's reporter region (the kit's lowest-to-highest channel m/z, widened by
+    @c kit_region_buffer on each side). Kits that fail this (e.g. label-free data whose 126-131 region is
+    just peptide-fragment noise) get probability 0 and are never reported as the detected kit. See KitResult::is_valid.
 
     @ingroup Quantitation
   */
@@ -91,6 +106,18 @@ namespace OpenMS
       /// minimum number of reliable (well-populated) channels required before the relative (median/MAD) test is applied;
       /// below this the robust baseline is too unstable and only the absolute test is used
       Size min_channels_for_mad = 4;
+      /// median-offset consistency: a channel is an outlier if its median Δppm deviates from the reliable channels'
+      /// consensus (their median of median Δppm) by more than this many ppm. Real reporter channels share one
+      /// instrument calibration offset, so coincidental noise matches (with random offsets) are caught here.
+      double offset_consistency_ppm = 5.0;
+      /// kit validity gate (per spectrum): the kit's channels must capture at least this fraction of the total
+      /// intensity in the kit's own reporter region for the spectrum to count as 'explained'
+      double min_region_coverage = 0.5;
+      /// kit validity gate (over spectra): a kit is only considered valid if at least this fraction of MS2 spectra
+      /// are 'explained' (see min_region_coverage). Invalid kits get probability 0
+      double min_valid_spectra_fraction = 0.5;
+      /// outward buffer (in Th) added on each side of a kit's lowest..highest channel m/z to define its reporter region
+      double kit_region_buffer = 0.1;
     };
 
     /// A reporter-ion reference channel: its label and theoretical m/z.
@@ -123,6 +150,8 @@ namespace OpenMS
       Size num_explained = 0;                ///< number of present channels that this kit contains
       Size num_unexplained_present = 0;      ///< number of present channels NOT in this kit (i.e. kit is too small)
       double ok_signal_fraction = 0.0;       ///< fraction [0,1] of the reporter-region signal captured by this kit's non-outlier ('ok') channels (sum of their median relative intensities); a diagnostic only -- NOT used for scoring
+      double valid_fraction = 0.0;           ///< fraction [0,1] of MS2 spectra in which this kit's channels capture >= min_region_coverage of the kit's reporter-region intensity (see the validity gate)
+      bool is_valid = false;                 ///< whether @p valid_fraction >= min_valid_spectra_fraction; invalid kits get probability 0 and are never reported as detected
       std::vector<ChannelStats> channels;    ///< per-channel statistics for this kit's channels
     };
 
@@ -174,11 +203,12 @@ namespace OpenMS
     static std::vector<bool> determinePresentChannels(const std::vector<ChannelStats>& channel_stats, double present_fraction);
 
     /**
-      @brief Classify each channel of a single kit as ok / missing / underpopulated / noisy.
+      @brief Classify each channel of a single kit as ok / missing / underpopulated / noisy / offset-inconsistent.
 
       Sets @c is_outlier and @c outlier_reason on every entry of @p channels following the decision tree
-      documented on the class. Presence/abundance is decided first; the mass-accuracy tests are applied
-      only to the surviving well-populated channels.
+      documented on the class. Presence/abundance is decided first; the mass-accuracy tests (Δppm scatter,
+      then median-Δppm consistency against the reliable channels' consensus) are applied only to the
+      surviving well-populated channels.
 
       @param[in,out] channels per-channel stats of ONE kit; @c n_populated, @c population_fraction and
                               @c stddev_delta_ppm must be filled in. Only the outlier fields are written.

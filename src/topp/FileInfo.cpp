@@ -1448,11 +1448,19 @@ protected:
           {
             const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
             os << "  " << kit_name << " (" << kr.num_channels << " channels): " << StringUtils::number(kr.probability * 100.0, 1) << "%"
+                << ", valid " << StringUtils::number(kr.valid_fraction * 100.0, 1) << "%" << (kr.is_valid ? "" : " [INVALID]")
                 << ", ok-signal " << StringUtils::number(kr.ok_signal_fraction * 100.0, 1) << "%"
                 << " (explains " << kr.num_explained << " of present channels" << (kr.num_unexplained_present > 0 ? ", too small)" : ")") << '\n';
-            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.probability << '\t' << kr.ok_signal_fraction << '\n';
+            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.probability << '\t' << kr.valid_fraction << '\t' << kr.ok_signal_fraction << '\n';
           }
-          os << "Most likely isobaric kit: " << IsobaricKitDetection::methodName(kits.front().type) << '\n';
+          if (!kits.empty() && kits.front().is_valid && kits.front().probability > 0.0)
+          {
+            os << "Most likely isobaric kit: " << IsobaricKitDetection::methodName(kits.front().type) << '\n';
+          }
+          else
+          {
+            os << "No valid isobaric kit detected - the data does not appear to be isobarically labelled.\n";
+          }
         }
         return EXECUTION_OK;
       }

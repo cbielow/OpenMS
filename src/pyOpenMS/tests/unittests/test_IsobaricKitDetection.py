@@ -115,11 +115,28 @@ class TestIsobaricKitDetection(unittest.TestCase):
         self.assertEqual(results[0].type, MT.TMT_11PLEX)
         self.assertEqual(results[0].num_unexplained_present, 0)
         self.assertGreater(results[0].ok_signal_fraction, 0.9)
+        self.assertTrue(results[0].is_valid)                # kit channels dominate the reporter region
+        self.assertGreater(results[0].valid_fraction, 0.5)
         # too-small TMT 10-plex ranks below TMT 11-plex
         by_type = {r.type: r for r in results}
         self.assertLess(by_type[MT.TMT_10PLEX].probability, by_type[MT.TMT_11PLEX].probability)
         # per-channel stats are populated
         self.assertEqual(len(results[0].channels), 11)
+
+    def test_detect_lfq_noise_has_no_valid_kit(self):
+        # a few weak peaks at TMT positions, but a huge non-reporter peak dominates the region (LFQ-like)
+        exp = pyopenms.MSExperiment()
+        for _ in range(10):
+            s = pyopenms.MSSpectrum()
+            s.setMSLevel(2)
+            s.setType(pyopenms.SpectrumSettings.SpectrumType.CENTROID)
+            s.set_peaks(([126.127726, 127.124761, 130.0], [100.0, 100.0, 100000.0]))
+            exp.addSpectrum(s)
+        results = pyopenms.IsobaricKitDetection.detect(exp)
+        self.assertTrue(len(results) > 0)
+        self.assertFalse(results[0].is_valid)               # no kit's channels dominate its region
+        self.assertAlmostEqual(results[0].probability, 0.0)
+        self.assertTrue(all(not r.is_valid for r in results))
 
 
 if __name__ == "__main__":

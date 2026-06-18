@@ -216,6 +216,20 @@ START_SECTION((static void classifyChannels(std::vector<ChannelStats>& channels,
   TEST_TRUE(ch2[4].is_outlier) // sd 20 > 6
   TEST_EQUAL(ch2[4].outlier_reason, "high delta-ppm variance")
   TEST_FALSE(ch2[3].is_outlier) // sd 4 < 6
+
+  // --- median-Δppm consistency: a channel whose median offset deviates from the consensus is flagged ---
+  std::vector<ChannelStats> ch3(5);
+  const double offs[] = {1.0, 1.2, 0.8, 1.1, 10.0}; // consensus ~1.1; the 10 ppm channel deviates ~9 > offset_consistency_ppm (5)
+  for (Size i = 0; i < 5; ++i)
+  {
+    set(ch3[i], 1.0, 10, 0.5);             // well-populated, low scatter (not noisy)
+    ch3[i].median_delta_ppm = offs[i];
+  }
+  std::vector<double> tol3(5, 200.0);       // wide tolerance: absolute noise test cannot fire
+  IsobaricKitDetection::classifyChannels(ch3, tol3, params);
+  TEST_TRUE(ch3[4].is_outlier)
+  TEST_EQUAL(ch3[4].outlier_reason, "median deltaPPM inconsistent")
+  TEST_FALSE(ch3[0].is_outlier) // consistent channel stays ok
 }
 END_SECTION
 
@@ -350,6 +364,31 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   ABORT_IF(ch_missing == nullptr)
   TEST_TRUE(ch_missing->is_outlier)
   TEST_EQUAL(ch_missing->outlier_reason, "missing")
+
+  // ---- validity gate: reporter region dominated by non-reporter signal -> no valid kit (LFQ-like) ----
+  // a few weak peaks at TMT positions, but a huge non-reporter peak dominates the region every scan
+  PeakMap exp_lfq;
+  for (Size s = 0; s < 10; ++s)
+  {
+    MSSpectrum spec;
+    spec.setMSLevel(2);
+    spec.setType(SpectrumSettings::SpectrumType::CENTROID);
+    spec.emplace_back(TMTMasses::TMT_126, 100.0f);
+    spec.emplace_back(TMTMasses::TMT_127N, 100.0f);
+    spec.emplace_back(130.0, 100000.0f); // huge non-reporter peak (not at any channel m/z)
+    spec.sortByPosition();
+    exp_lfq.addSpectrum(spec);
+  }
+  exp_lfq.updateRanges();
+  auto res_lfq = IsobaricKitDetection::detect(exp_lfq);
+  TEST_FALSE(res_lfq.empty())
+  ABORT_IF(res_lfq.empty())
+  // no kit may be valid, and the top result must have probability 0 (nothing detected)
+  TEST_FALSE(res_lfq.front().is_valid)
+  TEST_REAL_SIMILAR(res_lfq.front().probability, 0.0)
+  for (const auto& kr : res_lfq) { TEST_FALSE(kr.is_valid) }
+  // by contrast, the clean TMT 11-plex sample yields a valid top kit
+  TEST_TRUE(res11.front().is_valid)
 
   // ---- no reporter signal -> empty result --------------------------------
   PeakMap empty_exp;
