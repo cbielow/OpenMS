@@ -59,6 +59,7 @@
 #include <OpenMS/ANALYSIS/OPENSWATH/SwathWindowLoader.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/AbsoluteQuantitationMethod.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricIsotopeCorrector.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/IsobaricKitDetection.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricNormalizer.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricQuantifierStatistics.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricQuantitationMethod.h>
@@ -647,6 +648,124 @@ isobaric labeling experiments
             auto stats = OpenMS::IsobaricIsotopeCorrector::correctIsotopicImpurities(consensus_map_in, consensus_map_out, quant_method);
             return std::make_pair(consensus_map_out, stats);
         }, "consensus_map_in"_a, "quant_method"_a, "Correct isotopic impurities in a ConsensusMap, returns (corrected_map, statistics)")
+        ;
+
+    // -----------------------------------------------------------------------
+    // IsobaricKitDetection
+    // -----------------------------------------------------------------------
+    auto ikd_class = nb::class_<OpenMS::IsobaricKitDetection>(m, "IsobaricKitDetection",
+        R"doc(
+Detects which isobaric labelling kit (TMT/TMTpro or iTRAQ plex) was used in an LC-MS/MS experiment.
+
+Given an MSExperiment with MS2 spectra, detect() quantifies the reporter-ion region against the union
+of all reporter ions of all supported kits and returns one KitResult per kit, sorted by probability
+(highest first). The composable, individually-testable building blocks (referenceChannels,
+channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exposed as static methods.
+)doc");
+
+    // MethodType enum (IsobaricKitDetection::MethodType is an alias of IsobaricQuantitationMethod::MethodType)
+    nb::enum_<OpenMS::IsobaricQuantitationMethod::MethodType>(ikd_class, "MethodType", nb::is_arithmetic(), "Isobaric quantitation method / kit type")
+        .value("UNKNOWN", OpenMS::IsobaricQuantitationMethod::MethodType::UNKNOWN)
+        .value("TMT_6PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_6PLEX)
+        .value("TMT_10PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_10PLEX)
+        .value("TMT_11PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_11PLEX)
+        .value("TMT_16PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_16PLEX)
+        .value("TMT_18PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_18PLEX)
+        .value("TMT_32PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_32PLEX)
+        .value("TMT_35PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::TMT_35PLEX)
+        .value("ITRAQ_4PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::ITRAQ_4PLEX)
+        .value("ITRAQ_8PLEX", OpenMS::IsobaricQuantitationMethod::MethodType::ITRAQ_8PLEX)
+        .export_values();
+
+    nb::class_<OpenMS::IsobaricKitDetection::Parameters>(ikd_class, "Parameters", "Tunable thresholds for detection")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::IsobaricKitDetection::Parameters &>())
+        .def("__copy__", [](const OpenMS::IsobaricKitDetection::Parameters& self) { return OpenMS::IsobaricKitDetection::Parameters(self); })
+        .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::Parameters& self, nb::dict) { return OpenMS::IsobaricKitDetection::Parameters(self); }, "memo"_a)
+        .def_rw("max_tolerance_ppm", &OpenMS::IsobaricKitDetection::Parameters::max_tolerance_ppm)
+        .def_rw("present_fraction", &OpenMS::IsobaricKitDetection::Parameters::present_fraction)
+        .def_rw("underpop_factor", &OpenMS::IsobaricKitDetection::Parameters::underpop_factor)
+        .def_rw("noise_sd_frac_of_tol", &OpenMS::IsobaricKitDetection::Parameters::noise_sd_frac_of_tol)
+        .def_rw("ppm_outlier_mad", &OpenMS::IsobaricKitDetection::Parameters::ppm_outlier_mad)
+        .def_rw("min_channels_for_mad", &OpenMS::IsobaricKitDetection::Parameters::min_channels_for_mad)
+        ;
+
+    nb::class_<OpenMS::IsobaricKitDetection::ChannelRef>(ikd_class, "ChannelRef", "A reporter-ion reference channel (label + theoretical m/z)")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::IsobaricKitDetection::ChannelRef &>())
+        .def("__copy__", [](const OpenMS::IsobaricKitDetection::ChannelRef& self) { return OpenMS::IsobaricKitDetection::ChannelRef(self); })
+        .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::ChannelRef& self, nb::dict) { return OpenMS::IsobaricKitDetection::ChannelRef(self); }, "memo"_a)
+        .def_rw("name", &OpenMS::IsobaricKitDetection::ChannelRef::name)
+        .def_rw("mz", &OpenMS::IsobaricKitDetection::ChannelRef::mz)
+        ;
+
+    nb::class_<OpenMS::IsobaricKitDetection::ChannelStats>(ikd_class, "ChannelStats", "Per-channel detection statistics, aggregated across all MS2 spectra")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::IsobaricKitDetection::ChannelStats &>())
+        .def("__copy__", [](const OpenMS::IsobaricKitDetection::ChannelStats& self) { return OpenMS::IsobaricKitDetection::ChannelStats(self); })
+        .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::ChannelStats& self, nb::dict) { return OpenMS::IsobaricKitDetection::ChannelStats(self); }, "memo"_a)
+        .def_rw("name", &OpenMS::IsobaricKitDetection::ChannelStats::name)
+        .def_rw("expected_mz", &OpenMS::IsobaricKitDetection::ChannelStats::expected_mz)
+        .def_rw("median_delta_ppm", &OpenMS::IsobaricKitDetection::ChannelStats::median_delta_ppm)
+        .def_rw("stddev_delta_ppm", &OpenMS::IsobaricKitDetection::ChannelStats::stddev_delta_ppm)
+        .def_rw("median_rel_intensity", &OpenMS::IsobaricKitDetection::ChannelStats::median_rel_intensity)
+        .def_rw("population_fraction", &OpenMS::IsobaricKitDetection::ChannelStats::population_fraction)
+        .def_rw("n_populated", &OpenMS::IsobaricKitDetection::ChannelStats::n_populated)
+        .def_rw("is_outlier", &OpenMS::IsobaricKitDetection::ChannelStats::is_outlier)
+        .def_rw("outlier_reason", &OpenMS::IsobaricKitDetection::ChannelStats::outlier_reason)
+        ;
+
+    nb::class_<OpenMS::IsobaricKitDetection::KitResult>(ikd_class, "KitResult", "Result for one candidate isobaric kit")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::IsobaricKitDetection::KitResult &>())
+        .def("__copy__", [](const OpenMS::IsobaricKitDetection::KitResult& self) { return OpenMS::IsobaricKitDetection::KitResult(self); })
+        .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::KitResult& self, nb::dict) { return OpenMS::IsobaricKitDetection::KitResult(self); }, "memo"_a)
+        .def_rw("type", &OpenMS::IsobaricKitDetection::KitResult::type)
+        .def_rw("probability", &OpenMS::IsobaricKitDetection::KitResult::probability)
+        .def_rw("num_channels", &OpenMS::IsobaricKitDetection::KitResult::num_channels)
+        .def_rw("num_explained", &OpenMS::IsobaricKitDetection::KitResult::num_explained)
+        .def_rw("num_unexplained_present", &OpenMS::IsobaricKitDetection::KitResult::num_unexplained_present)
+        .def_rw("ok_signal_fraction", &OpenMS::IsobaricKitDetection::KitResult::ok_signal_fraction)
+        .def_rw("channels", &OpenMS::IsobaricKitDetection::KitResult::channels)
+        ;
+
+    nb::class_<OpenMS::IsobaricKitDetection::HierarchyNode>(ikd_class, "HierarchyNode", "A node of the kit subset/superset hierarchy")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::IsobaricKitDetection::HierarchyNode &>())
+        .def("__copy__", [](const OpenMS::IsobaricKitDetection::HierarchyNode& self) { return OpenMS::IsobaricKitDetection::HierarchyNode(self); })
+        .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::HierarchyNode& self, nb::dict) { return OpenMS::IsobaricKitDetection::HierarchyNode(self); }, "memo"_a)
+        .def_rw("type", &OpenMS::IsobaricKitDetection::HierarchyNode::type)
+        .def_rw("parents", &OpenMS::IsobaricKitDetection::HierarchyNode::parents)
+        .def_rw("children", &OpenMS::IsobaricKitDetection::HierarchyNode::children)
+        ;
+
+    ikd_class
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::IsobaricKitDetection &>())
+        .def("__copy__", [](const OpenMS::IsobaricKitDetection& self) { return OpenMS::IsobaricKitDetection(self); })
+        .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection& self, nb::dict) { return OpenMS::IsobaricKitDetection(self); }, "memo"_a)
+        .def_static("methodName", [](OpenMS::IsobaricKitDetection::MethodType mt) { return OpenMS::IsobaricKitDetection::methodName(mt); },
+            "mt"_a, "Human-readable display name of a kit")
+        .def_static("detect", [](const OpenMS::MSExperiment& exp, const OpenMS::IsobaricKitDetection::Parameters& params) { return OpenMS::IsobaricKitDetection::detect(exp, params); },
+            "exp"_a, "params"_a = OpenMS::IsobaricKitDetection::Parameters(),
+            "Detect the isobaric kit used in exp; returns one KitResult per supported kit, sorted by descending probability")
+        .def_static("buildHierarchy", []() { return OpenMS::IsobaricKitDetection::buildHierarchy(); },
+            "Build the subset/superset hierarchy of all supported isobaric kits")
+        .def_static("supportedKits", []() { return OpenMS::IsobaricKitDetection::supportedKits(); },
+            "All concrete isobaric kits considered by detect()/buildHierarchy()")
+        .def_static("referenceChannels", []() { return OpenMS::IsobaricKitDetection::referenceChannels(); },
+            "The de-duplicated, m/z-sorted union of all reporter ions of all supported kits")
+        .def_static("channelTolerances", [](const std::vector<OpenMS::IsobaricKitDetection::ChannelRef>& refs, double max_tolerance_ppm) { return OpenMS::IsobaricKitDetection::channelTolerances(refs, max_tolerance_ppm); },
+            "refs"_a, "max_tolerance_ppm"_a, "Per-channel matching tolerance in Th (parallel to refs)")
+        .def_static("determinePresentChannels", [](const std::vector<OpenMS::IsobaricKitDetection::ChannelStats>& channel_stats, double present_fraction) { return OpenMS::IsobaricKitDetection::determinePresentChannels(channel_stats, present_fraction); },
+            "channel_stats"_a, "present_fraction"_a, "Boolean mask (parallel to channel_stats) of channels considered 'present' in the data")
+        .def_static("classifyChannels", [](std::vector<OpenMS::IsobaricKitDetection::ChannelStats> channels, const std::vector<double>& channel_tol_ppm, const OpenMS::IsobaricKitDetection::Parameters& params) {
+            OpenMS::IsobaricKitDetection::classifyChannels(channels, channel_tol_ppm, params);
+            return channels;
+        }, "channels"_a, "channel_tol_ppm"_a, "params"_a,
+            "Classify each channel of one kit as ok/missing/underpopulated/noisy; returns the classified channels (is_outlier/outlier_reason set)")
+        .def_static("kitScore", [](size_t num_channels, size_t present_count, size_t num_explained) { return OpenMS::IsobaricKitDetection::kitScore(num_channels, present_count, num_explained); },
+            "num_channels"_a, "present_count"_a, "num_explained"_a, "Jaccard overlap score of a kit's channel set against the present-channel set")
         ;
 
     // -----------------------------------------------------------------------
