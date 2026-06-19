@@ -99,21 +99,32 @@ namespace OpenMS
       return sum;
     }
 
+    /// Which MS level carries the reporter ions: 3 if the experiment contains any MS3 spectrum
+    /// (SPS-MS3 / MultiNotch TMT workflows quantify reporters in MS3), otherwise 2. When MS3 is present,
+    /// the MS2 spectra are ignored entirely.
+    Size reporterMsLevel(const PeakMap& exp)
+    {
+      for (const auto& s : exp) { if (s.getMSLevel() == 3) { return 3; } }
+      return 2;
+    }
+
     /// Output of the single measurement pass.
     struct Measurement
     {
       std::vector<IsobaricKitDetection::ChannelStats> channel_stats; ///< parallel to refs
-      std::vector<Size> kit_pass;   ///< parallel to kit_layouts: # MS2 spectra in which the kit explains >= min_region_coverage of its region intensity
-      Size n_ms2_signal = 0;        ///< # MS2 spectra with any signal in the (global) reporter region
+      std::vector<Size> kit_pass;   ///< parallel to kit_layouts: # reporter spectra in which the kit explains >= min_region_coverage of its region intensity
+      Size n_signal_spectra = 0;    ///< # reporter (MS2 or MS3) spectra with any signal in the (global) reporter region
     };
 
-    /// Single pass over all MS2 spectra: centroid profile spectra on the fly, match each reference channel,
-    /// aggregate per-channel statistics, and (per kit) count the spectra whose reporter-region intensity is
-    /// dominated by that kit's own channels -- the per-kit validity gate. @p refs must be non-empty & sorted.
+    /// Single pass over all reporter spectra (those at @p ms_level): centroid profile spectra on the fly,
+    /// match each reference channel, aggregate per-channel statistics, and (per kit) count the spectra whose
+    /// reporter-region intensity is dominated by that kit's own channels -- the validity gate.
+    /// @p refs must be non-empty & sorted.
     Measurement measure(const PeakMap& exp,
                         const std::vector<IsobaricKitDetection::ChannelRef>& refs,
                         const std::vector<double>& tol,
                         const std::vector<KitLayout>& kit_layouts,
+                        Size ms_level,
                         const IsobaricKitDetection::Parameters& params)
     {
       const Size n_ref = refs.size();
@@ -132,7 +143,7 @@ namespace OpenMS
       PeakPickerHiRes picker;
       for (const auto& s : exp)
       {
-        if (s.getMSLevel() != 2) { continue; }
+        if (s.getMSLevel() != ms_level) { continue; }
 
         const MSSpectrum* ps = &s;
         MSSpectrum tmp;
@@ -151,7 +162,7 @@ namespace OpenMS
         // total intensity over the whole reporter region (incl. non-reporter ions)
         const double region_sum = rangeSum(*ps, region_lo, region_hi);
         if (region_sum <= 0.0) { continue; }
-        ++out.n_ms2_signal;
+        ++out.n_signal_spectra;
 
         std::fill(matched.begin(), matched.end(), 0.0);
         for (Size i = 0; i < n_ref; ++i)
@@ -184,7 +195,7 @@ namespace OpenMS
         cs.name = refs[i].name;
         cs.theoretical_mz = refs[i].mz;
         cs.n_found = n_pop[i];
-        cs.found_fraction = (out.n_ms2_signal > 0) ? static_cast<double>(n_pop[i]) / out.n_ms2_signal : 0.0;
+        cs.found_fraction = (out.n_signal_spectra > 0) ? static_cast<double>(n_pop[i]) / out.n_signal_spectra : 0.0;
         if (!dppm[i].empty())
         {
           cs.ppm_offset = medianOf(dppm[i]);
@@ -463,11 +474,15 @@ namespace OpenMS
     for (Size i = 0; i < refs.size(); ++i) { key2ref[massKey(refs[i].mz)] = i; }
     const auto kit_layouts = buildKitLayouts(key2ref, params.kit_region_buffer); // parallel to supportedKits()
 
-    // 3+4) single pass: quantify the reporter region of every MS2 spectrum -> per-channel statistics + per-kit coverage
-    Measurement meas = measure(exp, refs, tol, kit_layouts, params);
-    if (meas.n_ms2_signal == 0)
+    // reporter ions live in MS3 for SPS-MS3 / MultiNotch workflows; otherwise in MS2. If any MS3 spectrum
+    // is present, use only MS3 (and ignore MS2); else use MS2.
+    const Size ms_level = reporterMsLevel(exp);
+
+    // 3+4) single pass: quantify the reporter region of every reporter spectrum -> per-channel statistics + per-kit coverage
+    Measurement meas = measure(exp, refs, tol, kit_layouts, ms_level, params);
+    if (meas.n_signal_spectra == 0)
     {
-      OPENMS_LOG_INFO << "IsobaricKitDetection: no MS2 spectra with signal in the reporter region ["
+      OPENMS_LOG_INFO << "IsobaricKitDetection: no MS" << ms_level << " spectra with signal in the reporter region ["
                       << (refs.front().mz - 0.2) << ", " << (refs.back().mz + 0.2)
                       << "] Th were found - cannot detect an isobaric kit." << std::endl;
       return {};
@@ -488,19 +503,20 @@ namespace OpenMS
     results.reserve(kits.size());
     for (Size k = 0; k < kits.size(); ++k)
     {
-      const double region_dominance = static_cast<double>(meas.kit_pass[k]) / meas.n_ms2_signal;
+      const double region_dominance = static_cast<double>(meas.kit_pass[k]) / meas.n_signal_spectra;
       results.push_back(scoreKit(kits[k], ref_stats, detected, detected_count, key2ref, kit_layouts[k], region_dominance, params));
     }
     normalizeAndSortByScore(results);
 
-    logResults_(results, detected_count, meas.n_ms2_signal);
+    logResults_(results, detected_count, meas.n_signal_spectra, ms_level);
     return results;
   }
 
-  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_ms2_signal)
+  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_signal_spectra, Size ms_level)
   {
     OPENMS_LOG_INFO << "\n-- Isobaric kit detection --\n"
-                    << "MS2 spectra with reporter-region signal: " << n_ms2_signal << "\n"
+                    << "Reporter spectra used: MS" << ms_level << "\n"
+                    << "MS" << ms_level << " spectra with reporter-region signal: " << n_signal_spectra << "\n"
                     << "Detected ('ok') channels in the data: " << detected_count << "\n" << std::endl;
 
     for (const auto& kr : results)

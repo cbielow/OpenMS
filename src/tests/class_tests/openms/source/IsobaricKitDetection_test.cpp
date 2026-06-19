@@ -374,6 +374,34 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   // by contrast, the clean TMT 11-plex sample yields a valid top kit
   TEST_TRUE(res11.front().is_valid)
 
+  // ---- MS3 reporters are preferred over MS2 (SPS-MS3 / MultiNotch) -------------------------------
+  // MS2 carries an iTRAQ-4 pattern; MS3 carries a TMT-6 pattern. With MS3 present, only MS3 must be used.
+  PeakMap exp_ms3;
+  const vector<double> itraq4 = {114.1112, 115.1082, 116.1116, 117.1149};
+  for (Size s = 0; s < 10; ++s)
+  {
+    MSSpectrum ms2;
+    ms2.setMSLevel(2);
+    ms2.setType(SpectrumSettings::SpectrumType::CENTROID);
+    for (double mz : itraq4) { ms2.emplace_back(mz, 1000.0f); }
+    ms2.sortByPosition();
+    exp_ms3.addSpectrum(ms2);
+
+    MSSpectrum ms3;
+    ms3.setMSLevel(3);
+    ms3.setType(SpectrumSettings::SpectrumType::CENTROID);
+    for (double mz : tmt6) { ms3.emplace_back(mz, 1000.0f); }
+    ms3.sortByPosition();
+    exp_ms3.addSpectrum(ms3);
+  }
+  exp_ms3.updateRanges();
+  auto res_ms3 = IsobaricKitDetection::detect(exp_ms3);
+  TEST_FALSE(res_ms3.empty())
+  ABORT_IF(res_ms3.empty())
+  TEST_TRUE(res_ms3.front().type == MethodType::TMT_6PLEX)                          // MS3 (TMT6) used
+  TEST_TRUE(res_ms3.front().is_valid)
+  TEST_FALSE(res_ms3[kitIndex(res_ms3, MethodType::ITRAQ_4PLEX)].is_valid)          // MS2 (iTRAQ4) ignored
+
   // ---- no reporter signal -> empty result --------------------------------
   PeakMap empty_exp;
   MSSpectrum ms1;

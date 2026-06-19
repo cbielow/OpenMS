@@ -21,8 +21,9 @@ namespace OpenMS
   /**
     @brief Detects which isobaric labelling kit (TMT/TMTpro or iTRAQ plex) was used in an LC-MS/MS experiment.
 
-    Given an MSExperiment with MS2 spectra, the algorithm quantifies the reporter-ion region
-    of each MS2 spectrum against the union of all reporter ions of all supported isobaric kits
+    Given an MSExperiment, the algorithm quantifies the reporter-ion region of each reporter spectrum
+    (MS3 if the run contains MS3 spectra, e.g. SPS-MS3 / MultiNotch TMT; otherwise MS2) against the
+    union of all reporter ions of all supported isobaric kits
     (every concrete IsobaricQuantitationMethod::MethodType, i.e. TMT 6/10/11/16/18/32/35-plex and
     iTRAQ 4/8-plex) and decides, per kit, how well the observed channel pattern matches that kit. It
     returns a probability for each kit (sorted, highest first) and identifies the most parsimonious
@@ -173,14 +174,17 @@ namespace OpenMS
     /**
       @brief Detect the isobaric kit used in @p exp.
 
-      Iterates over all MS2 spectra (profile spectra are centroided on the fly; @p exp itself is not
+      Iterates over all reporter spectra (profile spectra are centroided on the fly; @p exp itself is not
       modified), quantifies the reporter-ion region and returns one KitResult per supported kit,
       sorted by @c score (descending). The most likely / most parsimonious kit is the first
       element. Per-channel statistics are additionally logged via OPENMS_LOG_INFO.
 
-      @param exp Input experiment; only MS2 spectra are used.
+      The reporter MS level is chosen automatically: if @p exp contains any MS3 spectra (SPS-MS3 /
+      MultiNotch TMT), only MS3 spectra are used; otherwise MS2 spectra are used.
+
+      @param exp Input experiment; only the reporter MS level (MS3 if present, else MS2) is used.
       @param params Detection thresholds.
-      @return One KitResult per supported kit, sorted by descending score. Empty if @p exp has no MS2 spectra.
+      @return One KitResult per supported kit, sorted by descending score. Empty if @p exp has no reporter spectra.
     */
     static std::vector<KitResult> detect(const PeakMap& exp, const Parameters& params = Parameters());
 
@@ -227,7 +231,7 @@ namespace OpenMS
 
   private:
     /// Log per-kit / per-channel statistics and the final decision via OPENMS_LOG_INFO.
-    static void logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_ms2_signal);
+    static void logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_signal_spectra, Size ms_level);
   };
 
 } // namespace OpenMS

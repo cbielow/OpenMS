@@ -114,6 +114,30 @@ class TestIsobaricKitDetection(unittest.TestCase):
         # per-channel stats are populated
         self.assertEqual(len(results[0].channels), 11)
 
+    def test_detect_prefers_ms3(self):
+        # MS2 carries an iTRAQ-4 pattern, MS3 carries a TMT-6 pattern; with MS3 present only MS3 is used
+        MT = pyopenms.IsobaricKitDetection.MethodType
+        itraq4 = [114.1112, 115.1082, 116.1116, 117.1149]
+        tmt6 = [126.127726, 127.124761, 128.134436, 129.131471, 130.141145, 131.138180]
+        exp = pyopenms.MSExperiment()
+        for _ in range(10):
+            ms2 = pyopenms.MSSpectrum()
+            ms2.setMSLevel(2)
+            ms2.setType(pyopenms.SpectrumSettings.SpectrumType.CENTROID)
+            ms2.set_peaks((itraq4, [1000.0] * len(itraq4)))
+            exp.addSpectrum(ms2)
+            ms3 = pyopenms.MSSpectrum()
+            ms3.setMSLevel(3)
+            ms3.setType(pyopenms.SpectrumSettings.SpectrumType.CENTROID)
+            ms3.set_peaks((tmt6, [1000.0] * len(tmt6)))
+            exp.addSpectrum(ms3)
+        results = pyopenms.IsobaricKitDetection.detect(exp)
+        self.assertTrue(len(results) > 0)
+        self.assertEqual(results[0].type, MT.TMT_6PLEX)     # MS3 (TMT6) used, MS2 (iTRAQ4) ignored
+        self.assertTrue(results[0].is_valid)
+        by_type = {r.type: r for r in results}
+        self.assertFalse(by_type[MT.ITRAQ_4PLEX].is_valid)
+
     def test_detect_lfq_noise_has_no_valid_kit(self):
         # a few weak peaks at TMT positions, but a huge non-reporter peak dominates the region (LFQ-like)
         exp = pyopenms.MSExperiment()
