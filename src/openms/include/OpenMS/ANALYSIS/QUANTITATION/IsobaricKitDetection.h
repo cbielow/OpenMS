@@ -40,46 +40,50 @@ namespace OpenMS
     Presence/abundance is judged first; mass accuracy only on the channels that survive. A channel is
     "ok" only if it reaches the bottom of this tree:
     @code
-      n_populated == 0 ?
+      n_found == 0 ?
        |- yes --------------------------------------------------------> OUTLIER: "missing"
        '- no
-           under-populated?  (population_fraction < underpop_factor * kit_max_pop)
+           under-populated?  (found_fraction < underpop_factor * kit_max_found)
             |- yes ---------------------------------------------------> OUTLIER: "underpopulated"
             '- no   (channel is well-populated)
-                noisy_abs = stddev_dppm > noise_sd_frac_of_tol * tol_ppm           (absolute: vs the
+                noisy_abs = ppm_spread > noise_sd_frac_of_tol * tol_ppm            (absolute: vs the
                                                                                     uniform-noise level
                                                                                     of the +-tol window)
                 noisy_rel = use_relative_test                                      (relative: robust
-                            && stddev_dppm > median_sd + ppm_outlier_mad * MAD_sd   median/MAD outlier
+                            && ppm_spread > median_spread + ppm_outlier_mad*MAD     median/MAD outlier
                                                                                     among reliable chans)
                 noisy_abs OR noisy_rel ?
                  |- yes --------------------------------------------> OUTLIER: "high delta-ppm variance"
                  '- no
-                     |median_dppm - consensus_offset| > offset_consistency_ppm ?  (all real reporter
+                     |ppm_offset - consensus_offset| > offset_consistency_ppm ?    (all real reporter
                                                                                     channels share one
                                                                                     instrument calibration
                                                                                     offset)
                       |- yes -------------------------------------> OUTLIER: "median deltaPPM inconsistent"
-                      '- no --------------------------------------> OK
+                      '- no --------------------------------------> OK ('detected')
     @endcode
     where
-      - @c kit_max_pop = max population_fraction over the kit's channels;
-      - the @em reliable channels (which define @c median_sd, @c MAD_sd and @c consensus_offset) are those
-        with @c n_populated @c >= @c 2 AND not under-populated -- weak/absent channels never distort the baseline;
-      - @c use_relative_test = (#reliable @c >= @c min_channels_for_mad) AND @c MAD_sd @c > @c 0
+      - @c kit_max_found = max found_fraction over the kit's channels;
+      - the @em reliable channels (which define @c median_spread, its @c MAD and @c consensus_offset) are
+        those with @c n_found @c >= @c 2 AND not under-populated -- weak/absent channels never distort the baseline;
+      - @c use_relative_test = (#reliable @c >= @c min_channels_for_mad) AND @c MAD @c > @c 0
         (below that the robust baseline is too unstable, so only the absolute test is used);
-      - @c consensus_offset = median of the reliable channels' @c median_delta_ppm (the test needs @c >= @c 2
+      - @c consensus_offset = median of the reliable channels' @c ppm_offset (the test needs @c >= @c 2
         reliable channels);
       - @c tol_ppm = per-channel match tolerance in ppm = min(max_tolerance_ppm, half the distance to
         the channel's nearest neighbour among all reference channels). Sparse neighbourhoods (e.g. iTRAQ)
         keep the full ppm tolerance; the dense TMTpro N/ND/C/CD quartets get a tight cap.
 
+    The channels that come out 'ok' here (when the @em whole reference set is classified together) are the
+    @em detected channels; a kit's @c score is the Jaccard overlap of its channel set with that detected set.
+
     @par Kit validity gate (per-kit, not per-channel)
     Before a kit is ranked, it must be @em valid: in at least @c min_valid_spectra_fraction of the MS2
     spectra, the intensity matched to the kit's own channels must be at least @c min_region_coverage of the
     total intensity in the kit's reporter region (the kit's lowest-to-highest channel m/z, widened by
-    @c kit_region_buffer on each side). Kits that fail this (e.g. label-free data whose 126-131 region is
-    just peptide-fragment noise) get probability 0 and are never reported as the detected kit. See KitResult::is_valid.
+    @c kit_region_buffer on each side; reported as @c region_dominance over @c [region_low, region_high]).
+    Kits that fail this (e.g. label-free data whose 126-131 region is just peptide-fragment noise) get
+    @c score 0 and are never reported as the detected kit. See KitResult::is_valid.
 
     @ingroup Quantitation
   */
@@ -93,9 +97,7 @@ namespace OpenMS
     {
       /// upper bound on the matching tolerance in ppm (also capped at half the minimum channel distance of the kit)
       double max_tolerance_ppm = 30.0;
-      /// a channel counts as 'present' if its population fraction is >= present_fraction * (max population fraction of best channel)
-      double present_fraction = 0.3;
-      /// within a kit, a channel is an 'underpopulated' outlier if its population fraction < underpop_factor * (max population fraction within that kit)
+      /// within a kit, a channel is an 'underpopulated' outlier if its found fraction < underpop_factor * (max found fraction within that kit)
       double underpop_factor = 0.3;
       /// absolute mass-accuracy test: a channel is 'noisy' if its Δppm std-dev exceeds noise_sd_frac_of_tol * (matching tolerance in ppm).
       /// Random matches within the +-tol window are ~uniform, with std-dev ~tol/sqrt(3) ~= 0.58*tol, so a real channel sits well below this.
@@ -131,27 +133,29 @@ namespace OpenMS
     struct OPENMS_DLLAPI ChannelStats
     {
       std::string name;                   ///< channel label, e.g. "129C" (kit-specific, not derivable from an enum)
-      double expected_mz = 0.0;           ///< theoretical reporter-ion m/z
-      double median_delta_ppm = 0.0;      ///< median of (observed - expected) in ppm, over populated spectra
-      double stddev_delta_ppm = 0.0;      ///< std-dev of the Δppm values, over populated spectra
-      double median_rel_intensity = 0.0;  ///< median of (channel intensity / total reporter-region intensity), over populated spectra
-      double population_fraction = 0.0;   ///< fraction of MS2 spectra in which the channel was found, in [0, 1]
-      Size   n_populated = 0;             ///< number of MS2 spectra in which the channel was found
-      bool   is_outlier = false;          ///< flagged as an outlier within its kit
-      std::string outlier_reason;         ///< human-readable reason if @p is_outlier, else empty
+      double theoretical_mz = 0.0;        ///< theoretical reporter-ion m/z
+      double ppm_offset = 0.0;            ///< median mass error (observed - theoretical) in ppm, over the spectra where the channel was found ('location')
+      double ppm_spread = 0.0;            ///< std-dev of the per-spectrum mass error in ppm ('scatter' / precision)
+      double intensity_share = 0.0;       ///< median of (channel intensity / total reporter-region intensity), over the spectra where it was found
+      double found_fraction = 0.0;        ///< fraction of MS2 spectra in which the channel was found, in [0, 1]
+      Size   n_found = 0;                 ///< number of MS2 spectra in which the channel was found
+      bool   is_outlier = false;          ///< true unless the channel is 'ok' (passes all classification checks)
+      std::string outlier_reason;         ///< human-readable reason if @p is_outlier, else empty (e.g. "missing", "underpopulated", "high delta-ppm variance", "median deltaPPM inconsistent")
     };
 
     /// Result for one candidate isobaric kit.
     struct OPENMS_DLLAPI KitResult
     {
       MethodType type = MethodType::UNKNOWN; ///< the kit's MethodType (use methodName() for a display name)
-      double probability = 0.0;              ///< score normalized across all kits, in [0, 1] (higher = more likely)
+      double score = 0.0;                    ///< match score normalized across all kits, in [0, 1] (higher = better fit); 0 for invalid kits
       Size num_channels = 0;                 ///< number of channels this kit defines
-      Size num_explained = 0;                ///< number of present channels that this kit contains
-      Size num_unexplained_present = 0;      ///< number of present channels NOT in this kit (i.e. kit is too small)
-      double ok_signal_fraction = 0.0;       ///< fraction [0,1] of the reporter-region signal captured by this kit's non-outlier ('ok') channels (sum of their median relative intensities); a diagnostic only -- NOT used for scoring
-      double valid_fraction = 0.0;           ///< fraction [0,1] of MS2 spectra in which this kit's channels capture >= min_region_coverage of the kit's reporter-region intensity (see the validity gate)
-      bool is_valid = false;                 ///< whether @p valid_fraction >= min_valid_spectra_fraction; invalid kits get probability 0 and are never reported as detected
+      Size num_covered = 0;                  ///< number of detected ('ok') channels that this kit contains
+      Size num_uncovered = 0;                ///< number of detected ('ok') channels NOT in this kit (i.e. kit is too small)
+      double clean_signal_fraction = 0.0;    ///< fraction [0,1] of the reporter-region signal captured by this kit's 'ok' channels (sum of their intensity shares); a diagnostic only -- NOT used for scoring
+      double region_dominance = 0.0;         ///< fraction [0,1] of MS2 spectra in which this kit's channels capture >= min_region_coverage of the intensity in the kit's reporter region (the validity gate)
+      bool is_valid = false;                 ///< whether @p region_dominance >= min_valid_spectra_fraction; invalid kits get score 0 and are never reported as detected
+      double region_low = 0.0;               ///< low m/z bound of this kit's reporter region (lowest channel m/z - kit_region_buffer)
+      double region_high = 0.0;              ///< high m/z bound of this kit's reporter region (highest channel m/z + kit_region_buffer)
       std::vector<ChannelStats> channels;    ///< per-channel statistics for this kit's channels
     };
 
@@ -171,12 +175,12 @@ namespace OpenMS
 
       Iterates over all MS2 spectra (profile spectra are centroided on the fly; @p exp itself is not
       modified), quantifies the reporter-ion region and returns one KitResult per supported kit,
-      sorted by @c probability (descending). The most likely / most parsimonious kit is the first
+      sorted by @c score (descending). The most likely / most parsimonious kit is the first
       element. Per-channel statistics are additionally logged via OPENMS_LOG_INFO.
 
       @param exp Input experiment; only MS2 spectra are used.
       @param params Detection thresholds.
-      @return One KitResult per supported kit, sorted by descending probability. Empty if @p exp has no MS2 spectra.
+      @return One KitResult per supported kit, sorted by descending score. Empty if @p exp has no MS2 spectra.
     */
     static std::vector<KitResult> detect(const PeakMap& exp, const Parameters& params = Parameters());
 
@@ -198,34 +202,32 @@ namespace OpenMS
     /// distance to the channel's nearest neighbour). @p refs must be sorted by ascending m/z.
     static std::vector<double> channelTolerances(const std::vector<ChannelRef>& refs, double max_tolerance_ppm);
 
-    /// Boolean mask (parallel to @p channel_stats) of channels considered 'present' in the data:
-    /// populated and with population fraction >= @p present_fraction * (max population fraction over all channels).
-    static std::vector<bool> determinePresentChannels(const std::vector<ChannelStats>& channel_stats, double present_fraction);
-
     /**
-      @brief Classify each channel of a single kit as ok / missing / underpopulated / noisy / offset-inconsistent.
+      @brief Classify each channel as ok / missing / underpopulated / noisy / offset-inconsistent.
 
       Sets @c is_outlier and @c outlier_reason on every entry of @p channels following the decision tree
       documented on the class. Presence/abundance is decided first; the mass-accuracy tests (Δppm scatter,
       then median-Δppm consistency against the reliable channels' consensus) are applied only to the
-      surviving well-populated channels.
+      surviving well-populated channels. The channels that end up @em not flagged (is_outlier == false) are
+      the 'ok' / @em detected channels.
 
-      @param[in,out] channels per-channel stats of ONE kit; @c n_populated, @c population_fraction and
-                              @c stddev_delta_ppm must be filled in. Only the outlier fields are written.
+      @param[in,out] channels per-channel stats; @c n_found, @c found_fraction, @c ppm_offset and
+                              @c ppm_spread must be filled in. Only the outlier fields are written.
       @param channel_tol_ppm matching tolerance in ppm for each channel (parallel to @p channels).
       @param params classification thresholds.
     */
     static void classifyChannels(std::vector<ChannelStats>& channels, const std::vector<double>& channel_tol_ppm, const Parameters& params);
 
-    /// Overlap score of a kit's channel set against the present-channel set (Jaccard): num_explained / (num_channels + present_count - num_explained).
-    /// 1.0 exactly when the kit equals the present set; penalised for both missing and surplus channels.
-    static double kitScore(Size num_channels, Size present_count, Size num_explained);
+    /// Overlap (Jaccard) score of a kit's channel set against the detected ('ok') channel set:
+    /// num_covered / (num_channels + detected_count - num_covered). 1.0 exactly when the kit equals the
+    /// detected set; penalised for both missing detected channels (too small) and surplus channels (too big).
+    static double kitScore(Size num_channels, Size detected_count, Size num_covered);
 
     /// @}
 
   private:
     /// Log per-kit / per-channel statistics and the final decision via OPENMS_LOG_INFO.
-    static void logResults_(const std::vector<KitResult>& results, Size present_count, Size n_ms2_signal);
+    static void logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_ms2_signal);
   };
 
 } // namespace OpenMS

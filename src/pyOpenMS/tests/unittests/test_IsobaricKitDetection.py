@@ -43,26 +43,15 @@ class TestIsobaricKitDetection(unittest.TestCase):
         t128nd, mz128nd = by_name["128ND"]
         self.assertLess(t128nd, 30e-6 * mz128nd)
 
-    def test_determine_present_channels(self):
-        ikd = pyopenms.IsobaricKitDetection
-        chans = []
-        for pop, n in [(1.0, 10), (0.5, 5), (0.2, 2), (0.0, 0)]:
-            cs = ikd.ChannelStats()
-            cs.population_fraction = pop
-            cs.n_populated = n
-            chans.append(cs)
-        present = ikd.determinePresentChannels(chans, 0.3)
-        self.assertEqual(list(present), [True, True, False, False])
-
     def test_classify_channels(self):
         ikd = pyopenms.IsobaricKitDetection
         params = ikd.Parameters()
 
         def make(pop, n, sd):
             cs = ikd.ChannelStats()
-            cs.population_fraction = pop
-            cs.n_populated = n
-            cs.stddev_delta_ppm = sd
+            cs.found_fraction = pop
+            cs.n_found = n
+            cs.ppm_spread = sd
             return cs
 
         chans = [make(1.0, 10, 0.5),   # ok
@@ -113,13 +102,15 @@ class TestIsobaricKitDetection(unittest.TestCase):
         results = pyopenms.IsobaricKitDetection.detect(exp)
         self.assertTrue(len(results) > 0)
         self.assertEqual(results[0].type, MT.TMT_11PLEX)
-        self.assertEqual(results[0].num_unexplained_present, 0)
-        self.assertGreater(results[0].ok_signal_fraction, 0.9)
+        self.assertEqual(results[0].num_uncovered, 0)
+        self.assertGreater(results[0].clean_signal_fraction, 0.9)
         self.assertTrue(results[0].is_valid)                # kit channels dominate the reporter region
-        self.assertGreater(results[0].valid_fraction, 0.5)
+        self.assertGreater(results[0].region_dominance, 0.5)
+        self.assertLess(results[0].region_low, 126.2)       # TMT 11-plex region bounds are populated
+        self.assertGreater(results[0].region_high, 131.0)
         # too-small TMT 10-plex ranks below TMT 11-plex
         by_type = {r.type: r for r in results}
-        self.assertLess(by_type[MT.TMT_10PLEX].probability, by_type[MT.TMT_11PLEX].probability)
+        self.assertLess(by_type[MT.TMT_10PLEX].score, by_type[MT.TMT_11PLEX].score)
         # per-channel stats are populated
         self.assertEqual(len(results[0].channels), 11)
 
@@ -135,7 +126,7 @@ class TestIsobaricKitDetection(unittest.TestCase):
         results = pyopenms.IsobaricKitDetection.detect(exp)
         self.assertTrue(len(results) > 0)
         self.assertFalse(results[0].is_valid)               # no kit's channels dominate its region
-        self.assertAlmostEqual(results[0].probability, 0.0)
+        self.assertAlmostEqual(results[0].score, 0.0)
         self.assertTrue(all(not r.is_valid for r in results))
 
 

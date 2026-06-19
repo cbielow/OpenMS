@@ -160,28 +160,12 @@ START_SECTION((static std::vector<double> channelTolerances(const std::vector<Ch
 }
 END_SECTION
 
-START_SECTION((static std::vector<bool> determinePresentChannels(const std::vector<ChannelStats>& channel_stats, double present_fraction)))
-{
-  std::vector<IsobaricKitDetection::ChannelStats> ch(4);
-  ch[0].population_fraction = 1.0;  ch[0].n_populated = 10; // best channel
-  ch[1].population_fraction = 0.5;  ch[1].n_populated = 5;  // 0.5 >= 0.3*1.0 -> present
-  ch[2].population_fraction = 0.2;  ch[2].n_populated = 2;  // 0.2 <  0.3*1.0 -> not present
-  ch[3].population_fraction = 0.0;  ch[3].n_populated = 0;  // absent
-  const auto present = IsobaricKitDetection::determinePresentChannels(ch, 0.3);
-  TEST_EQUAL(present.size(), 4)
-  TEST_TRUE(present[0])
-  TEST_TRUE(present[1])
-  TEST_FALSE(present[2])
-  TEST_FALSE(present[3])
-}
-END_SECTION
-
 START_SECTION((static void classifyChannels(std::vector<ChannelStats>& channels, const std::vector<double>& channel_tol_ppm, const Parameters& params)))
 {
   using ChannelStats = IsobaricKitDetection::ChannelStats;
   const IsobaricKitDetection::Parameters params; // defaults
 
-  auto set = [](ChannelStats& c, double pop, Size n, double sd) { c.population_fraction = pop; c.n_populated = n; c.stddev_delta_ppm = sd; };
+  auto set = [](ChannelStats& c, double pop, Size n, double sd) { c.found_fraction = pop; c.n_found = n; c.ppm_spread = sd; };
 
   // --- presence/abundance classification + absolute noise test ---
   std::vector<ChannelStats> ch(6);
@@ -201,7 +185,7 @@ START_SECTION((static void classifyChannels(std::vector<ChannelStats>& channels,
   TEST_EQUAL(ch[5].outlier_reason, "underpopulated")
 
   // absolute test: sd 6 ppm > noise_sd_frac_of_tol(0.4) * 12 ppm = 4.8 ppm
-  ch[1].stddev_delta_ppm = 6.0;
+  ch[1].ppm_spread = 6.0;
   IsobaricKitDetection::classifyChannels(ch, tol_ppm, params);
   TEST_TRUE(ch[1].is_outlier)
   TEST_EQUAL(ch[1].outlier_reason, "high delta-ppm variance")
@@ -223,7 +207,7 @@ START_SECTION((static void classifyChannels(std::vector<ChannelStats>& channels,
   for (Size i = 0; i < 5; ++i)
   {
     set(ch3[i], 1.0, 10, 0.5);             // well-populated, low scatter (not noisy)
-    ch3[i].median_delta_ppm = offs[i];
+    ch3[i].ppm_offset = offs[i];
   }
   std::vector<double> tol3(5, 200.0);       // wide tolerance: absolute noise test cannot fire
   IsobaricKitDetection::classifyChannels(ch3, tol3, params);
@@ -233,12 +217,12 @@ START_SECTION((static void classifyChannels(std::vector<ChannelStats>& channels,
 }
 END_SECTION
 
-START_SECTION((static double kitScore(Size num_channels, Size present_count, Size num_explained)))
+START_SECTION((static double kitScore(Size num_channels, Size detected_count, Size num_covered)))
 {
   TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(11, 11, 11), 1.0)         // exact match
-  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(10, 11, 10), 10.0 / 11.0) // too small (misses one present channel)
+  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(10, 11, 10), 10.0 / 11.0) // too small (misses one detected channel)
   TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(16, 11, 11), 11.0 / 16.0) // too big (surplus channels)
-  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(4, 0, 0), 0.0)            // nothing present
+  TEST_REAL_SIMILAR(IsobaricKitDetection::kitScore(4, 0, 0), 0.0)            // nothing detected
 }
 END_SECTION
 
@@ -293,13 +277,13 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   ABORT_IF(res11.empty())
   // most likely kit is TMT 11-plex and it explains all present channels
   TEST_TRUE(res11.front().type == MethodType::TMT_11PLEX)
-  TEST_EQUAL(res11.front().num_explained, 11)
-  TEST_EQUAL(res11.front().num_unexplained_present, 0)
+  TEST_EQUAL(res11.front().num_covered, 11)
+  TEST_EQUAL(res11.front().num_uncovered, 0)
   // a too-small kit (TMT 10-plex) must rank below TMT 11-plex
-  TEST_TRUE(res11[kitIndex(res11, MethodType::TMT_10PLEX)].probability
-            < res11[kitIndex(res11, MethodType::TMT_11PLEX)].probability)
+  TEST_TRUE(res11[kitIndex(res11, MethodType::TMT_10PLEX)].score
+            < res11[kitIndex(res11, MethodType::TMT_11PLEX)].score)
   // and TMT 10-plex is flagged as too small (misses 131C)
-  TEST_TRUE(res11[kitIndex(res11, MethodType::TMT_10PLEX)].num_unexplained_present > 0)
+  TEST_TRUE(res11[kitIndex(res11, MethodType::TMT_10PLEX)].num_uncovered > 0)
 
   // ---- TMT 6-plex sample --------------------------------------------------
   const vector<double> tmt6 = {
@@ -311,9 +295,9 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   TEST_FALSE(res6.empty())
   ABORT_IF(res6.empty())
   TEST_TRUE(res6.front().type == MethodType::TMT_6PLEX)
-  TEST_EQUAL(res6.front().num_unexplained_present, 0)
-  // ok-signal: the 6 reporter peaks (1000 each) out of a region of 6*1000 + 500 background = 6000/6500 ~= 0.923
-  TEST_TRUE(res6.front().ok_signal_fraction > 0.9 && res6.front().ok_signal_fraction <= 1.0)
+  TEST_EQUAL(res6.front().num_uncovered, 0)
+  // clean-signal: the 6 reporter peaks (1000 each) out of a region of 6*1000 + 500 background = 6000/6500 ~= 0.923
+  TEST_TRUE(res6.front().clean_signal_fraction > 0.9 && res6.front().clean_signal_fraction <= 1.0)
 
   // ---- iTRAQ 4-plex sample ------------------------------------------------
   PeakMap exp_itraq = makeExperimentForKit(MethodType::ITRAQ_4PLEX, 8);
@@ -321,10 +305,10 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   TEST_FALSE(res_itraq.empty())
   ABORT_IF(res_itraq.empty())
   TEST_TRUE(res_itraq.front().type == MethodType::ITRAQ_4PLEX)
-  TEST_EQUAL(res_itraq.front().num_unexplained_present, 0)
+  TEST_EQUAL(res_itraq.front().num_uncovered, 0)
   // iTRAQ 8-plex (a superset) must rank below iTRAQ 4-plex
-  TEST_TRUE(res_itraq[kitIndex(res_itraq, MethodType::ITRAQ_8PLEX)].probability
-            < res_itraq[kitIndex(res_itraq, MethodType::ITRAQ_4PLEX)].probability)
+  TEST_TRUE(res_itraq[kitIndex(res_itraq, MethodType::ITRAQ_8PLEX)].score
+            < res_itraq[kitIndex(res_itraq, MethodType::ITRAQ_4PLEX)].score)
 
   // ---- iTRAQ keeps the full ppm tolerance (per-channel nearest-neighbour cap, not a global one) ----
   // Offset channel "115" by 2.5 mDa (~22 ppm): that exceeds the dense-TMTpro global spacing cap (~1.46 mDa)
@@ -340,7 +324,7 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   ABORT_IF(ii4 >= res_it_tol.size())
   const IsobaricKitDetection::ChannelStats* ch_it = findChannel(res_it_tol[ii4], "115");
   ABORT_IF(ch_it == nullptr)
-  TEST_EQUAL(ch_it->n_populated, 8) // would be 0 under a single global (~1.46 mDa) tolerance cap
+  TEST_EQUAL(ch_it->n_found, 8) // would be 0 under a single global (~1.46 mDa) tolerance cap
 
   // ---- a well-populated but mass-inaccurate channel is flagged 'noisy' ----
   // jitter the 128C channel (index 2) by +-1.1 mDa each scan: still matched (< tolerance) but with large Δppm scatter
@@ -385,7 +369,7 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   ABORT_IF(res_lfq.empty())
   // no kit may be valid, and the top result must have probability 0 (nothing detected)
   TEST_FALSE(res_lfq.front().is_valid)
-  TEST_REAL_SIMILAR(res_lfq.front().probability, 0.0)
+  TEST_REAL_SIMILAR(res_lfq.front().score, 0.0)
   for (const auto& kr : res_lfq) { TEST_FALSE(kr.is_valid) }
   // by contrast, the clean TMT 11-plex sample yields a valid top kit
   TEST_TRUE(res11.front().is_valid)

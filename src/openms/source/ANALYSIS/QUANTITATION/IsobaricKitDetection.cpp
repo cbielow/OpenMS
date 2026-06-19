@@ -182,88 +182,87 @@ namespace OpenMS
       {
         IsobaricKitDetection::ChannelStats& cs = out.channel_stats[i];
         cs.name = refs[i].name;
-        cs.expected_mz = refs[i].mz;
-        cs.n_populated = n_pop[i];
-        cs.population_fraction = (out.n_ms2_signal > 0) ? static_cast<double>(n_pop[i]) / out.n_ms2_signal : 0.0;
+        cs.theoretical_mz = refs[i].mz;
+        cs.n_found = n_pop[i];
+        cs.found_fraction = (out.n_ms2_signal > 0) ? static_cast<double>(n_pop[i]) / out.n_ms2_signal : 0.0;
         if (!dppm[i].empty())
         {
-          cs.median_delta_ppm = medianOf(dppm[i]);
+          cs.ppm_offset = medianOf(dppm[i]);
           // sd is undefined (NaN) for a single sample -> report 0 in that case
-          cs.stddev_delta_ppm = (dppm[i].size() >= 2) ? Math::sd(dppm[i].begin(), dppm[i].end()) : 0.0;
-          cs.median_rel_intensity = medianOf(rel_int[i]);
+          cs.ppm_spread = (dppm[i].size() >= 2) ? Math::sd(dppm[i].begin(), dppm[i].end()) : 0.0;
+          cs.intensity_share = medianOf(rel_int[i]);
         }
       }
       return out;
     }
 
     /// Score one candidate kit against the global measurement: assemble its channels (with kit-specific
-    /// labels), classify them, count how many globally-present channels it explains, and compute its
-    /// (un-normalized) overlap score. @p key2ref maps a channel mass-key to its index in @p ref_stats.
+    /// labels, carrying the already-set global 'ok'/outlier flags), count how many @em detected ('ok')
+    /// channels it covers, and compute its (un-normalized) overlap score gated by validity.
+    /// @p ref_stats must already be classified. @p detected[i] == (ref channel i is 'ok'). @p key2ref maps
+    /// a channel mass-key to its index in @p ref_stats. @p layout supplies the kit's reporter region.
     IsobaricKitDetection::KitResult scoreKit(IsobaricKitDetection::MethodType mt,
                                              const std::vector<IsobaricKitDetection::ChannelStats>& ref_stats,
-                                             const std::vector<double>& tol_da,
-                                             const std::vector<bool>& present,
-                                             Size present_count,
+                                             const std::vector<bool>& detected,
+                                             Size detected_count,
                                              const std::map<uint64_t, Size>& key2ref,
-                                             double valid_fraction,
+                                             const KitLayout& layout,
+                                             double region_dominance,
                                              const IsobaricKitDetection::Parameters& params)
     {
       IsobaricKitDetection::KitResult kr;
       kr.type = mt;
-      kr.valid_fraction = valid_fraction;
-      kr.is_valid = valid_fraction >= params.min_valid_spectra_fraction;
+      kr.region_dominance = region_dominance;
+      kr.is_valid = region_dominance >= params.min_valid_spectra_fraction;
+      kr.region_low = layout.region_lo;
+      kr.region_high = layout.region_hi;
 
       const auto chans = getKitChannels(mt);
       kr.num_channels = chans.size();
 
       std::set<uint64_t> kit_keys;
-      std::vector<double> channel_tol_ppm; // matching tolerance in ppm, parallel to kr.channels
-      channel_tol_ppm.reserve(chans.size());
       for (const auto& c : chans)
       {
         const uint64_t key = massKey(c.second);
         kit_keys.insert(key);
         const Size ri = key2ref.at(key);
-        kr.channels.push_back(ref_stats[ri]);
-        kr.channels.back().name = c.first; // use the kit's own channel label (e.g. "131" vs "131N")
-        const double mz = ref_stats[ri].expected_mz;
-        channel_tol_ppm.push_back(mz > 0.0 ? tol_da[ri] / mz * 1e6 : 0.0);
+        kr.channels.push_back(ref_stats[ri]);     // carries the global classification flags
+        kr.channels.back().name = c.first;         // use the kit's own channel label (e.g. "131" vs "131N")
       }
 
-      IsobaricKitDetection::classifyChannels(kr.channels, channel_tol_ppm, params);
+      // diagnostic: fraction of the reporter-region signal captured by the kit's 'ok' (detected) channels
+      double clean_signal = 0.0;
+      for (const auto& ch : kr.channels) { if (!ch.is_outlier) { clean_signal += ch.intensity_share; } }
+      kr.clean_signal_fraction = clean_signal;
 
-      // diagnostic: fraction of the reporter-region signal captured by the kit's 'ok' (non-outlier) channels
-      double ok_signal = 0.0;
-      for (const auto& ch : kr.channels) { if (!ch.is_outlier) { ok_signal += ch.median_rel_intensity; } }
-      kr.ok_signal_fraction = ok_signal;
-
-      Size explained = 0;
+      // how many detected ('ok') channels does this kit cover?
+      Size covered = 0;
       for (Size i = 0; i < ref_stats.size(); ++i)
       {
-        if (present[i] && kit_keys.count(massKey(ref_stats[i].expected_mz))) { ++explained; }
+        if (detected[i] && kit_keys.count(massKey(ref_stats[i].theoretical_mz))) { ++covered; }
       }
-      kr.num_explained = explained;
-      kr.num_unexplained_present = present_count - explained;
-      const double score = IsobaricKitDetection::kitScore(kr.num_channels, present_count, explained);
+      kr.num_covered = covered;
+      kr.num_uncovered = detected_count - covered;
+      const double score = IsobaricKitDetection::kitScore(kr.num_channels, detected_count, covered);
       // validity gate: a kit whose channels do not dominate its own reporter region is not a candidate
-      kr.probability = kr.is_valid ? score : 0.0;
+      kr.score = kr.is_valid ? score : 0.0;
       return kr;
     }
 
-    /// Normalize the kits' raw scores into probabilities (sum to 1) and sort by descending probability,
-    /// breaking ties towards the more parsimonious (fewer-channel) kit.
-    void normalizeAndSortByProbability(std::vector<IsobaricKitDetection::KitResult>& results)
+    /// Normalize the kits' raw scores (sum to 1) and sort by descending score, breaking ties towards
+    /// the more parsimonious (fewer-channel) kit.
+    void normalizeAndSortByScore(std::vector<IsobaricKitDetection::KitResult>& results)
     {
       double score_sum = 0.0;
-      for (const auto& r : results) { score_sum += r.probability; }
+      for (const auto& r : results) { score_sum += r.score; }
       if (score_sum > 0.0)
       {
-        for (auto& r : results) { r.probability /= score_sum; }
+        for (auto& r : results) { r.score /= score_sum; }
       }
       std::sort(results.begin(), results.end(),
                 [](const IsobaricKitDetection::KitResult& a, const IsobaricKitDetection::KitResult& b)
       {
-        if (a.probability != b.probability) { return a.probability > b.probability; }
+        if (a.score != b.score) { return a.score > b.score; }
         return a.num_channels < b.num_channels;
       });
     }
@@ -372,41 +371,27 @@ namespace OpenMS
     return tol;
   }
 
-  std::vector<bool> IsobaricKitDetection::determinePresentChannels(const std::vector<ChannelStats>& channel_stats, double present_fraction)
-  {
-    double max_pop = 0.0;
-    for (const auto& cs : channel_stats) { max_pop = std::max(max_pop, cs.population_fraction); }
-
-    std::vector<bool> present(channel_stats.size(), false);
-    for (Size i = 0; i < channel_stats.size(); ++i)
-    {
-      const auto& cs = channel_stats[i];
-      present[i] = (max_pop > 0.0) && (cs.n_populated > 0) && (cs.population_fraction >= present_fraction * max_pop);
-    }
-    return present;
-  }
-
   void IsobaricKitDetection::classifyChannels(std::vector<ChannelStats>& channels, const std::vector<double>& channel_tol_ppm, const Parameters& params)
   {
-    // presence/abundance FIRST: the strongest channel of the kit sets the reference abundance
-    double kit_max_pop = 0.0;
-    for (const auto& ch : channels) { kit_max_pop = std::max(kit_max_pop, ch.population_fraction); }
+    // presence/abundance FIRST: the strongest channel sets the reference abundance
+    double kit_max_found = 0.0;
+    for (const auto& ch : channels) { kit_max_found = std::max(kit_max_found, ch.found_fraction); }
 
     auto is_underpop = [&](const ChannelStats& ch)
     {
-      return kit_max_pop > 0.0 && ch.population_fraction < params.underpop_factor * kit_max_pop;
+      return kit_max_found > 0.0 && ch.found_fraction < params.underpop_factor * kit_max_found;
     };
 
     // Robust mass-accuracy baselines from the reliable channels only: well-populated (not under-populated)
     // AND with enough samples (>=2) to trust their Δppm. Weak/absent channels cannot distort the baselines.
-    std::vector<double> reliable_sd;   // their Δppm std-dev  (scatter / precision)
-    std::vector<double> reliable_off;  // their median Δppm   (offset / accuracy)
+    std::vector<double> reliable_sd;   // their ppm_spread   (scatter / precision)
+    std::vector<double> reliable_off;  // their ppm_offset   (offset / accuracy)
     for (const auto& ch : channels)
     {
-      if (ch.n_populated >= 2 && !is_underpop(ch))
+      if (ch.n_found >= 2 && !is_underpop(ch))
       {
-        reliable_sd.push_back(ch.stddev_delta_ppm);
-        reliable_off.push_back(ch.median_delta_ppm);
+        reliable_sd.push_back(ch.ppm_spread);
+        reliable_off.push_back(ch.ppm_offset);
       }
     }
     const double med_sd = reliable_sd.empty() ? 0.0 : Math::median(reliable_sd.begin(), reliable_sd.end(), false);
@@ -423,14 +408,14 @@ namespace OpenMS
       ch.is_outlier = false;
       ch.outlier_reason.clear();
 
-      if (ch.n_populated == 0)
+      if (ch.n_found == 0)
       { // channel never observed -> not part of the data at all
         ch.is_outlier = true;
         ch.outlier_reason = "missing";
         continue;
       }
       if (is_underpop(ch))
-      { // present, but far weaker than the kit's best channel
+      { // present, but far weaker than the best channel
         ch.is_outlier = true;
         ch.outlier_reason = "underpopulated";
         continue;
@@ -438,10 +423,10 @@ namespace OpenMS
       // mass-accuracy ('noisy') tests, judged only on the remaining well-populated channels:
       //  - absolute: scatter approaches the uniform-noise level implied by the +-tol matching window
       //              (scale-free; works even for tiny kits with too few channels for robust statistics)
-      //  - relative: scatter is a robust (median/MAD) outlier among this kit's reliable channels
+      //  - relative: scatter is a robust (median/MAD) outlier among the reliable channels
       const double tol_ppm = (k < channel_tol_ppm.size()) ? channel_tol_ppm[k] : 0.0;
-      const bool noisy_abs = tol_ppm > 0.0 && ch.stddev_delta_ppm > params.noise_sd_frac_of_tol * tol_ppm;
-      const bool noisy_rel = use_relative_test && ch.stddev_delta_ppm > med_sd + params.ppm_outlier_mad * mad_sd;
+      const bool noisy_abs = tol_ppm > 0.0 && ch.ppm_spread > params.noise_sd_frac_of_tol * tol_ppm;
+      const bool noisy_rel = use_relative_test && ch.ppm_spread > med_sd + params.ppm_outlier_mad * mad_sd;
       if (noisy_abs || noisy_rel)
       {
         ch.is_outlier = true;
@@ -450,7 +435,7 @@ namespace OpenMS
       }
       // mass-accuracy location: a real reporter channel sits at the shared instrument-calibration offset;
       // a coincidental noise match has a random offset and is flagged here.
-      if (use_offset_test && std::abs(ch.median_delta_ppm - consensus_off) > params.offset_consistency_ppm)
+      if (use_offset_test && std::abs(ch.ppm_offset - consensus_off) > params.offset_consistency_ppm)
       {
         ch.is_outlier = true;
         ch.outlier_reason = "median deltaPPM inconsistent";
@@ -458,13 +443,13 @@ namespace OpenMS
     }
   }
 
-  double IsobaricKitDetection::kitScore(Size num_channels, Size present_count, Size num_explained)
+  double IsobaricKitDetection::kitScore(Size num_channels, Size detected_count, Size num_covered)
   {
-    // Jaccard overlap of the kit's channel set with the present-channel set:
-    //   1.0 exactly when the kit equals the present set (best & most parsimonious);
-    //   penalised both for missing present channels (kit too small) and for surplus channels (kit too big).
-    const double uni = static_cast<double>(num_channels) + present_count - num_explained;
-    return (uni > 0.0) ? static_cast<double>(num_explained) / uni : 0.0;
+    // Jaccard overlap of the kit's channel set with the detected-channel set:
+    //   1.0 exactly when the kit equals the detected set (best & most parsimonious);
+    //   penalised both for missing detected channels (kit too small) and for surplus channels (kit too big).
+    const double uni = static_cast<double>(num_channels) + detected_count - num_covered;
+    return (uni > 0.0) ? static_cast<double>(num_covered) / uni : 0.0;
   }
 
   std::vector<IsobaricKitDetection::KitResult> IsobaricKitDetection::detect(const PeakMap& exp, const Parameters& params)
@@ -479,7 +464,7 @@ namespace OpenMS
     const auto kit_layouts = buildKitLayouts(key2ref, params.kit_region_buffer); // parallel to supportedKits()
 
     // 3+4) single pass: quantify the reporter region of every MS2 spectrum -> per-channel statistics + per-kit coverage
-    const Measurement meas = measure(exp, refs, tol, kit_layouts, params);
+    Measurement meas = measure(exp, refs, tol, kit_layouts, params);
     if (meas.n_ms2_signal == 0)
     {
       OPENMS_LOG_INFO << "IsobaricKitDetection: no MS2 spectra with signal in the reporter region ["
@@ -487,78 +472,83 @@ namespace OpenMS
                       << "] Th were found - cannot detect an isobaric kit." << std::endl;
       return {};
     }
-    const auto& ref_stats = meas.channel_stats;
+    std::vector<ChannelStats>& ref_stats = meas.channel_stats;
 
-    // 5) globally 'present' channels
-    const auto present = determinePresentChannels(ref_stats, params.present_fraction);
-    const Size present_count = static_cast<Size>(std::count(present.begin(), present.end(), true));
+    // 5) classify the whole reference set once -> the 'ok' channels are the DETECTED channels
+    std::vector<double> ref_tol_ppm(refs.size());
+    for (Size i = 0; i < refs.size(); ++i) { ref_tol_ppm[i] = refs[i].mz > 0.0 ? tol[i] / refs[i].mz * 1e6 : 0.0; }
+    classifyChannels(ref_stats, ref_tol_ppm, params);
+    std::vector<bool> detected(refs.size());
+    for (Size i = 0; i < refs.size(); ++i) { detected[i] = !ref_stats[i].is_outlier; }
+    const Size detected_count = static_cast<Size>(std::count(detected.begin(), detected.end(), true));
 
-    // 6) score each candidate kit (with its validity fraction), then normalize to probabilities and sort
+    // 6) score each candidate kit (with its region-dominance), then normalize to scores and sort
     std::vector<KitResult> results;
     const auto& kits = supportedKits();
     results.reserve(kits.size());
     for (Size k = 0; k < kits.size(); ++k)
     {
-      const double valid_fraction = static_cast<double>(meas.kit_pass[k]) / meas.n_ms2_signal;
-      results.push_back(scoreKit(kits[k], ref_stats, tol, present, present_count, key2ref, valid_fraction, params));
+      const double region_dominance = static_cast<double>(meas.kit_pass[k]) / meas.n_ms2_signal;
+      results.push_back(scoreKit(kits[k], ref_stats, detected, detected_count, key2ref, kit_layouts[k], region_dominance, params));
     }
-    normalizeAndSortByProbability(results);
+    normalizeAndSortByScore(results);
 
-    logResults_(results, present_count, meas.n_ms2_signal);
+    logResults_(results, detected_count, meas.n_ms2_signal);
     return results;
   }
 
-  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size present_count, Size n_ms2_signal)
+  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_ms2_signal)
   {
     OPENMS_LOG_INFO << "\n-- Isobaric kit detection --\n"
                     << "MS2 spectra with reporter-region signal: " << n_ms2_signal << "\n"
-                    << "Channels detected as present in the data: " << present_count << "\n" << std::endl;
+                    << "Detected ('ok') channels in the data: " << detected_count << "\n" << std::endl;
 
     for (const auto& kr : results)
     {
       OPENMS_LOG_INFO << methodName(kr.type) << "  (" << kr.num_channels << " channels)"
-                      << "   probability=" << StringUtils::number(kr.probability * 100.0, 1) << "%"
-                      << "   valid=" << StringUtils::number(kr.valid_fraction * 100.0, 1) << "%" << (kr.is_valid ? "" : " [INVALID]")
-                      << "   ok-signal=" << StringUtils::number(kr.ok_signal_fraction * 100.0, 1) << "%"
-                      << "   explains " << kr.num_explained << "/" << present_count << " present channels"
-                      << (kr.num_unexplained_present > 0 ? "  [too small]" : "") << "\n";
-      OPENMS_LOG_INFO << "    channel    exp.m/z     med.dppm   sd.dppm   pop%    rel.int    flag\n";
+                      << "   score=" << StringUtils::number(kr.score * 100.0, 1) << "%"
+                      << "   owns-region[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "]="
+                      << StringUtils::number(kr.region_dominance * 100.0, 1) << "%" << (kr.is_valid ? "" : " [REJECTED]")
+                      << "   clean-signal=" << StringUtils::number(kr.clean_signal_fraction * 100.0, 1) << "%"
+                      << "   covers " << kr.num_covered << "/" << detected_count << " detected channels"
+                      << (kr.num_uncovered > 0 ? "  [too small]" : "") << "\n";
+      OPENMS_LOG_INFO << "    channel    theo.m/z    ppm.offset   ppm.spread   found%   int.share   status\n";
       for (const auto& ch : kr.channels)
       {
         // "missing" (never observed) is shown plainly; other anomalies as "outlier: <reason>"
-        std::string flag = "ok";
-        if (ch.is_outlier) { flag = (ch.outlier_reason == "missing") ? ch.outlier_reason : ("outlier: " + ch.outlier_reason); }
+        std::string status = "ok";
+        if (ch.is_outlier) { status = (ch.outlier_reason == "missing") ? ch.outlier_reason : ("outlier: " + ch.outlier_reason); }
         OPENMS_LOG_INFO << "    " << StringUtils::fillRight(std::string(ch.name), ' ', 8)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.expected_mz, 5), ' ', 11)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.median_delta_ppm, 2), ' ', 9)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.stddev_delta_ppm, 2), ' ', 7)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.population_fraction * 100.0, 1), ' ', 5)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.median_rel_intensity, 4), ' ', 8)
-                        << "  " << flag
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.theoretical_mz, 5), ' ', 11)
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.ppm_offset, 2), ' ', 9)
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.ppm_spread, 2), ' ', 9)
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.found_fraction * 100.0, 1), ' ', 5)
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.intensity_share, 4), ' ', 8)
+                        << "  " << status
                         << "\n";
       }
       OPENMS_LOG_INFO << std::endl;
     }
 
-    // most parsimonious *valid* kit that explains all present channels
+    // most parsimonious *valid* kit that covers all detected channels
     const KitResult* parsimonious = nullptr;
     for (const auto& kr : results)
     {
-      if (kr.is_valid && present_count > 0 && kr.num_unexplained_present == 0)
+      if (kr.is_valid && detected_count > 0 && kr.num_uncovered == 0)
       {
         if (parsimonious == nullptr || kr.num_channels < parsimonious->num_channels) { parsimonious = &kr; }
       }
     }
 
-    // results are sorted by probability; invalid kits have probability 0 and sort last
-    const bool any_valid = !results.empty() && results.front().is_valid && results.front().probability > 0.0;
+    // results are sorted by score; invalid kits have score 0 and sort last
+    const bool any_valid = !results.empty() && results.front().is_valid && results.front().score > 0.0;
     if (any_valid)
     {
       OPENMS_LOG_INFO << "Most likely isobaric kit: " << methodName(results.front().type)
-                      << "  (probability " << StringUtils::number(results.front().probability * 100.0, 1) << "%)" << std::endl;
+                      << "  (score " << StringUtils::number(results.front().score * 100.0, 1) << "%)" << std::endl;
       if (parsimonious != nullptr)
       {
-        OPENMS_LOG_INFO << "Most parsimonious kit explaining all present channels: " << methodName(parsimonious->type)
+        OPENMS_LOG_INFO << "Most parsimonious kit covering all detected channels: " << methodName(parsimonious->type)
                         << "  (" << parsimonious->num_channels << " channels)" << std::endl;
       }
     }

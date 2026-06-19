@@ -660,7 +660,7 @@ Detects which isobaric labelling kit (TMT/TMTpro or iTRAQ plex) was used in an L
 Given an MSExperiment with MS2 spectra, detect() quantifies the reporter-ion region against the union
 of all reporter ions of all supported kits and returns one KitResult per kit, sorted by probability
 (highest first). The composable, individually-testable building blocks (referenceChannels,
-channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exposed as static methods.
+channelTolerances, classifyChannels, kitScore) are exposed as static methods.
 )doc");
 
     // MethodType enum (IsobaricKitDetection::MethodType is an alias of IsobaricQuantitationMethod::MethodType)
@@ -683,7 +683,6 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
         .def("__copy__", [](const OpenMS::IsobaricKitDetection::Parameters& self) { return OpenMS::IsobaricKitDetection::Parameters(self); })
         .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::Parameters& self, nb::dict) { return OpenMS::IsobaricKitDetection::Parameters(self); }, "memo"_a)
         .def_rw("max_tolerance_ppm", &OpenMS::IsobaricKitDetection::Parameters::max_tolerance_ppm)
-        .def_rw("present_fraction", &OpenMS::IsobaricKitDetection::Parameters::present_fraction)
         .def_rw("underpop_factor", &OpenMS::IsobaricKitDetection::Parameters::underpop_factor)
         .def_rw("noise_sd_frac_of_tol", &OpenMS::IsobaricKitDetection::Parameters::noise_sd_frac_of_tol)
         .def_rw("ppm_outlier_mad", &OpenMS::IsobaricKitDetection::Parameters::ppm_outlier_mad)
@@ -709,12 +708,12 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
         .def("__copy__", [](const OpenMS::IsobaricKitDetection::ChannelStats& self) { return OpenMS::IsobaricKitDetection::ChannelStats(self); })
         .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::ChannelStats& self, nb::dict) { return OpenMS::IsobaricKitDetection::ChannelStats(self); }, "memo"_a)
         .def_rw("name", &OpenMS::IsobaricKitDetection::ChannelStats::name)
-        .def_rw("expected_mz", &OpenMS::IsobaricKitDetection::ChannelStats::expected_mz)
-        .def_rw("median_delta_ppm", &OpenMS::IsobaricKitDetection::ChannelStats::median_delta_ppm)
-        .def_rw("stddev_delta_ppm", &OpenMS::IsobaricKitDetection::ChannelStats::stddev_delta_ppm)
-        .def_rw("median_rel_intensity", &OpenMS::IsobaricKitDetection::ChannelStats::median_rel_intensity)
-        .def_rw("population_fraction", &OpenMS::IsobaricKitDetection::ChannelStats::population_fraction)
-        .def_rw("n_populated", &OpenMS::IsobaricKitDetection::ChannelStats::n_populated)
+        .def_rw("theoretical_mz", &OpenMS::IsobaricKitDetection::ChannelStats::theoretical_mz)
+        .def_rw("ppm_offset", &OpenMS::IsobaricKitDetection::ChannelStats::ppm_offset)
+        .def_rw("ppm_spread", &OpenMS::IsobaricKitDetection::ChannelStats::ppm_spread)
+        .def_rw("intensity_share", &OpenMS::IsobaricKitDetection::ChannelStats::intensity_share)
+        .def_rw("found_fraction", &OpenMS::IsobaricKitDetection::ChannelStats::found_fraction)
+        .def_rw("n_found", &OpenMS::IsobaricKitDetection::ChannelStats::n_found)
         .def_rw("is_outlier", &OpenMS::IsobaricKitDetection::ChannelStats::is_outlier)
         .def_rw("outlier_reason", &OpenMS::IsobaricKitDetection::ChannelStats::outlier_reason)
         ;
@@ -725,13 +724,15 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
         .def("__copy__", [](const OpenMS::IsobaricKitDetection::KitResult& self) { return OpenMS::IsobaricKitDetection::KitResult(self); })
         .def("__deepcopy__", [](const OpenMS::IsobaricKitDetection::KitResult& self, nb::dict) { return OpenMS::IsobaricKitDetection::KitResult(self); }, "memo"_a)
         .def_rw("type", &OpenMS::IsobaricKitDetection::KitResult::type)
-        .def_rw("probability", &OpenMS::IsobaricKitDetection::KitResult::probability)
+        .def_rw("score", &OpenMS::IsobaricKitDetection::KitResult::score)
         .def_rw("num_channels", &OpenMS::IsobaricKitDetection::KitResult::num_channels)
-        .def_rw("num_explained", &OpenMS::IsobaricKitDetection::KitResult::num_explained)
-        .def_rw("num_unexplained_present", &OpenMS::IsobaricKitDetection::KitResult::num_unexplained_present)
-        .def_rw("ok_signal_fraction", &OpenMS::IsobaricKitDetection::KitResult::ok_signal_fraction)
-        .def_rw("valid_fraction", &OpenMS::IsobaricKitDetection::KitResult::valid_fraction)
+        .def_rw("num_covered", &OpenMS::IsobaricKitDetection::KitResult::num_covered)
+        .def_rw("num_uncovered", &OpenMS::IsobaricKitDetection::KitResult::num_uncovered)
+        .def_rw("clean_signal_fraction", &OpenMS::IsobaricKitDetection::KitResult::clean_signal_fraction)
+        .def_rw("region_dominance", &OpenMS::IsobaricKitDetection::KitResult::region_dominance)
         .def_rw("is_valid", &OpenMS::IsobaricKitDetection::KitResult::is_valid)
+        .def_rw("region_low", &OpenMS::IsobaricKitDetection::KitResult::region_low)
+        .def_rw("region_high", &OpenMS::IsobaricKitDetection::KitResult::region_high)
         .def_rw("channels", &OpenMS::IsobaricKitDetection::KitResult::channels)
         ;
 
@@ -754,7 +755,7 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
             "mt"_a, "Human-readable display name of a kit")
         .def_static("detect", [](const OpenMS::MSExperiment& exp, const OpenMS::IsobaricKitDetection::Parameters& params) { return OpenMS::IsobaricKitDetection::detect(exp, params); },
             "exp"_a, "params"_a = OpenMS::IsobaricKitDetection::Parameters(),
-            "Detect the isobaric kit used in exp; returns one KitResult per supported kit, sorted by descending probability")
+            "Detect the isobaric kit used in exp; returns one KitResult per supported kit, sorted by descending score")
         .def_static("buildHierarchy", []() { return OpenMS::IsobaricKitDetection::buildHierarchy(); },
             "Build the subset/superset hierarchy of all supported isobaric kits")
         .def_static("supportedKits", []() { return OpenMS::IsobaricKitDetection::supportedKits(); },
@@ -763,15 +764,13 @@ channelTolerances, determinePresentChannels, classifyChannels, kitScore) are exp
             "The de-duplicated, m/z-sorted union of all reporter ions of all supported kits")
         .def_static("channelTolerances", [](const std::vector<OpenMS::IsobaricKitDetection::ChannelRef>& refs, double max_tolerance_ppm) { return OpenMS::IsobaricKitDetection::channelTolerances(refs, max_tolerance_ppm); },
             "refs"_a, "max_tolerance_ppm"_a, "Per-channel matching tolerance in Th (parallel to refs)")
-        .def_static("determinePresentChannels", [](const std::vector<OpenMS::IsobaricKitDetection::ChannelStats>& channel_stats, double present_fraction) { return OpenMS::IsobaricKitDetection::determinePresentChannels(channel_stats, present_fraction); },
-            "channel_stats"_a, "present_fraction"_a, "Boolean mask (parallel to channel_stats) of channels considered 'present' in the data")
         .def_static("classifyChannels", [](std::vector<OpenMS::IsobaricKitDetection::ChannelStats> channels, const std::vector<double>& channel_tol_ppm, const OpenMS::IsobaricKitDetection::Parameters& params) {
             OpenMS::IsobaricKitDetection::classifyChannels(channels, channel_tol_ppm, params);
             return channels;
         }, "channels"_a, "channel_tol_ppm"_a, "params"_a,
-            "Classify each channel of one kit as ok/missing/underpopulated/noisy; returns the classified channels (is_outlier/outlier_reason set)")
-        .def_static("kitScore", [](size_t num_channels, size_t present_count, size_t num_explained) { return OpenMS::IsobaricKitDetection::kitScore(num_channels, present_count, num_explained); },
-            "num_channels"_a, "present_count"_a, "num_explained"_a, "Jaccard overlap score of a kit's channel set against the present-channel set")
+            "Classify each channel as ok/missing/underpopulated/noisy/offset-inconsistent; returns the classified channels (is_outlier/outlier_reason set). The 'ok' channels are the detected ones.")
+        .def_static("kitScore", [](size_t num_channels, size_t detected_count, size_t num_covered) { return OpenMS::IsobaricKitDetection::kitScore(num_channels, detected_count, num_covered); },
+            "num_channels"_a, "detected_count"_a, "num_covered"_a, "Jaccard overlap score of a kit's channel set against the detected-channel set")
         ;
 
     // -----------------------------------------------------------------------

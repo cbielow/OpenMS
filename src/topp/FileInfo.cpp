@@ -1443,17 +1443,18 @@ protected:
         if (kits.empty()) { os << "No MS2 reporter-ion signal found - the data does not appear to be isobarically labelled.\n"; }
         else
         {
-          os << "Candidate isobaric kits (by probability):\n";
+          os << "Candidate isobaric kits (by score):\n";
           for (const auto& kr : kits)
           {
             const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
-            os << "  " << kit_name << " (" << kr.num_channels << " channels): " << StringUtils::number(kr.probability * 100.0, 1) << "%"
-                << ", valid " << StringUtils::number(kr.valid_fraction * 100.0, 1) << "%" << (kr.is_valid ? "" : " [INVALID]")
-                << ", ok-signal " << StringUtils::number(kr.ok_signal_fraction * 100.0, 1) << "%"
-                << " (explains " << kr.num_explained << " of present channels" << (kr.num_unexplained_present > 0 ? ", too small)" : ")") << '\n';
-            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.probability << '\t' << kr.valid_fraction << '\t' << kr.ok_signal_fraction << '\n';
+            os << "  " << kit_name << " (" << kr.num_channels << " channels): score " << StringUtils::number(kr.score * 100.0, 1) << "%"
+                << ", owns-region[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "] "
+                << StringUtils::number(kr.region_dominance * 100.0, 1) << "%" << (kr.is_valid ? "" : " [REJECTED]")
+                << ", clean-signal " << StringUtils::number(kr.clean_signal_fraction * 100.0, 1) << "%"
+                << " (covers " << kr.num_covered << " of detected channels" << (kr.num_uncovered > 0 ? ", too small)" : ")") << '\n';
+            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.score << '\t' << kr.region_dominance << '\t' << kr.clean_signal_fraction << '\n';
           }
-          if (!kits.empty() && kits.front().is_valid && kits.front().probability > 0.0)
+          if (!kits.empty() && kits.front().is_valid && kits.front().score > 0.0)
           {
             os << "Most likely isobaric kit: " << IsobaricKitDetection::methodName(kits.front().type) << '\n';
           }
