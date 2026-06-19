@@ -17,7 +17,7 @@ class TestIsobaricKitDetection(unittest.TestCase):
 
     def test_method_name(self):
         MT = pyopenms.IsobaricKitDetection.MethodType
-        self.assertEqual(pyopenms.IsobaricKitDetection.methodName(MT.TMT_16PLEX), "TMT 16-plex (TMTpro)")
+        self.assertEqual(pyopenms.IsobaricKitDetection.methodName(MT.TMT_16PLEX), "TMT 16-plex")
         self.assertEqual(pyopenms.IsobaricKitDetection.methodName(MT.ITRAQ_4PLEX), "iTRAQ 4-plex")
 
     def test_reference_channels(self):
@@ -103,9 +103,10 @@ class TestIsobaricKitDetection(unittest.TestCase):
         self.assertTrue(len(results) > 0)
         self.assertEqual(results[0].type, MT.TMT_11PLEX)
         self.assertEqual(results[0].num_uncovered, 0)
-        self.assertGreater(results[0].clean_signal_fraction, 0.9)
+        self.assertGreater(results[0].explained_signal_fraction, 0.9)
+        self.assertLessEqual(results[0].explained_signal_fraction, 1.0)   # bounded: global ratio, not sum of medians
         self.assertTrue(results[0].is_valid)                # kit channels dominate the reporter region
-        self.assertGreater(results[0].region_dominance, 0.5)
+        self.assertGreater(results[0].labeled_spectra_fraction, 0.5)
         self.assertLess(results[0].region_low, 126.2)       # TMT 11-plex region bounds are populated
         self.assertGreater(results[0].region_high, 131.0)
         # too-small TMT 10-plex ranks below TMT 11-plex

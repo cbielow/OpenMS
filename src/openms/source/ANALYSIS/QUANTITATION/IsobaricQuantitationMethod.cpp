@@ -49,16 +49,16 @@ namespace OpenMS
     // Single source of truth for every isobaric quantitation method (canonical name, display name, factory).
     // To add a method: add a MethodType enum value AND one row here -- the static_asserts below make this mandatory.
     constexpr MethodRegistryEntry METHOD_REGISTRY[] = {
-      {MT::UNKNOWN,     "unknown",    "none",                 nullptr},
-      {MT::TMT_6PLEX,   "tmt6plex",   "TMT 6-plex",           &makeIsobaricMethod<TMTSixPlexQuantitationMethod>},
-      {MT::TMT_10PLEX,  "tmt10plex",  "TMT 10-plex",          &makeIsobaricMethod<TMTTenPlexQuantitationMethod>},
-      {MT::TMT_11PLEX,  "tmt11plex",  "TMT 11-plex",          &makeIsobaricMethod<TMTElevenPlexQuantitationMethod>},
-      {MT::TMT_16PLEX,  "tmt16plex",  "TMT 16-plex (TMTpro)", &makeIsobaricMethod<TMTSixteenPlexQuantitationMethod>},
-      {MT::TMT_18PLEX,  "tmt18plex",  "TMT 18-plex",          &makeIsobaricMethod<TMTEighteenPlexQuantitationMethod>},
-      {MT::TMT_32PLEX,  "tmt32plex",  "TMT 32-plex",          &makeIsobaricMethod<TMTThirtyTwoPlexQuantitationMethod>},
-      {MT::TMT_35PLEX,  "tmt35plex",  "TMT 35-plex",          &makeIsobaricMethod<TMTThirtyFivePlexQuantitationMethod>},
-      {MT::ITRAQ_4PLEX, "itraq4plex", "iTRAQ 4-plex",         &makeIsobaricMethod<ItraqFourPlexQuantitationMethod>},
-      {MT::ITRAQ_8PLEX, "itraq8plex", "iTRAQ 8-plex",         &makeIsobaricMethod<ItraqEightPlexQuantitationMethod>},
+      {MT::UNKNOWN,     "unknown",    "none",          nullptr},
+      {MT::TMT_6PLEX,   "tmt6plex",   "TMT 6-plex",    &makeIsobaricMethod<TMTSixPlexQuantitationMethod>},
+      {MT::TMT_10PLEX,  "tmt10plex",  "TMT 10-plex",   &makeIsobaricMethod<TMTTenPlexQuantitationMethod>},
+      {MT::TMT_11PLEX,  "tmt11plex",  "TMT 11-plex",   &makeIsobaricMethod<TMTElevenPlexQuantitationMethod>},
+      {MT::TMT_16PLEX,  "tmt16plex",  "TMT 16-plex",   &makeIsobaricMethod<TMTSixteenPlexQuantitationMethod>},
+      {MT::TMT_18PLEX,  "tmt18plex",  "TMT 18-plex",   &makeIsobaricMethod<TMTEighteenPlexQuantitationMethod>},
+      {MT::TMT_32PLEX,  "tmt32plex",  "TMT 32-plex",   &makeIsobaricMethod<TMTThirtyTwoPlexQuantitationMethod>},
+      {MT::TMT_35PLEX,  "tmt35plex",  "TMT 35-plex",   &makeIsobaricMethod<TMTThirtyFivePlexQuantitationMethod>},
+      {MT::ITRAQ_4PLEX, "itraq4plex", "iTRAQ 4-plex",  &makeIsobaricMethod<ItraqFourPlexQuantitationMethod>},
+      {MT::ITRAQ_8PLEX, "itraq8plex", "iTRAQ 8-plex",  &makeIsobaricMethod<ItraqEightPlexQuantitationMethod>},
     };
 
     // Enforce on every compiler that the registry stays in lockstep with the enum:

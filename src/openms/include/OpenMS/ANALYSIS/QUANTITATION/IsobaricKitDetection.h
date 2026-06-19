@@ -80,9 +80,9 @@ namespace OpenMS
 
     @par Kit validity gate (per-kit, not per-channel)
     Before a kit is ranked, it must be @em valid: in at least @c min_valid_spectra_fraction of the MS2
-    spectra, the intensity matched to the kit's own channels must be at least @c min_region_coverage of the
+    spectra, the intensity matched to the kit's own channels must be at least @c percent_summed_intensity_explained of the
     total intensity in the kit's reporter region (the kit's lowest-to-highest channel m/z, widened by
-    @c kit_region_buffer on each side; reported as @c region_dominance over @c [region_low, region_high]).
+    @c kit_region_buffer on each side; reported as @c labeled_spectra_fraction over @c [region_low, region_high]).
     Kits that fail this (e.g. label-free data whose 126-131 region is just peptide-fragment noise) get
     @c score 0 and are never reported as the detected kit. See KitResult::is_valid.
 
@@ -113,12 +113,13 @@ namespace OpenMS
       /// consensus (their median of median Δppm) by more than this many ppm. Real reporter channels share one
       /// instrument calibration offset, so coincidental noise matches (with random offsets) are caught here.
       double offset_consistency_ppm = 5.0;
+
       /// kit validity gate (per spectrum): the kit's channels must capture at least this fraction of the total
       /// intensity in the kit's own reporter region for the spectrum to count as 'explained'
-      double min_region_coverage = 0.5;
+      double percent_summed_intensity_explained = 0.5;
       /// kit validity gate (over spectra): a kit is only considered valid if at least this fraction of MS2 spectra
-      /// are 'explained' (see min_region_coverage). Invalid kits get probability 0
-      double min_valid_spectra_fraction = 0.5;
+      /// are 'explained' (see percent_summed_intensity_explained). Invalid kits get probability 0
+      double min_valid_spectra_fraction = 0.2;
       /// outward buffer (in Th) added on each side of a kit's lowest..highest channel m/z to define its reporter region
       double kit_region_buffer = 0.1;
     };
@@ -152,9 +153,9 @@ namespace OpenMS
       Size num_channels = 0;                 ///< number of channels this kit defines
       Size num_covered = 0;                  ///< number of detected ('ok') channels that this kit contains
       Size num_uncovered = 0;                ///< number of detected ('ok') channels NOT in this kit (i.e. kit is too small)
-      double clean_signal_fraction = 0.0;    ///< fraction [0,1] of the reporter-region signal captured by this kit's 'ok' channels (sum of their intensity shares); a diagnostic only -- NOT used for scoring
-      double region_dominance = 0.0;         ///< fraction [0,1] of MS2 spectra in which this kit's channels capture >= min_region_coverage of the intensity in the kit's reporter region (the validity gate)
-      bool is_valid = false;                 ///< whether @p region_dominance >= min_valid_spectra_fraction; invalid kits get score 0 and are never reported as detected
+      double explained_signal_fraction = 0.0; ///< fraction [0,1] of the total reporter-region intensity carried by this kit's 'ok' channels = (summed 'ok'-channel intensity) / (summed region intensity), over all reporter spectra; a diagnostic only -- NOT used for scoring
+      double labeled_spectra_fraction = 0.0;   ///< fraction [0,1] of reporter spectra in which this kit's channels capture >= percent_summed_intensity_explained of the intensity in the kit's reporter region (the validity gate)
+      bool is_valid = false;                   ///< whether @p labeled_spectra_fraction >= min_valid_spectra_fraction; invalid kits get score 0 and are never reported as detected
       double region_low = 0.0;               ///< low m/z bound of this kit's reporter region (lowest channel m/z - kit_region_buffer)
       double region_high = 0.0;              ///< high m/z bound of this kit's reporter region (highest channel m/z + kit_region_buffer)
       std::vector<ChannelStats> channels;    ///< per-channel statistics for this kit's channels
@@ -231,7 +232,7 @@ namespace OpenMS
 
   private:
     /// Log per-kit / per-channel statistics and the final decision via OPENMS_LOG_INFO.
-    static void logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_signal_spectra, Size ms_level);
+    static void logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_signal_spectra, Size ms_level, double valid_threshold);
   };
 
 } // namespace OpenMS

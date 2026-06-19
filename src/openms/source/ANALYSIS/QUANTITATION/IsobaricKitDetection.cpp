@@ -112,7 +112,9 @@ namespace OpenMS
     struct Measurement
     {
       std::vector<IsobaricKitDetection::ChannelStats> channel_stats; ///< parallel to refs
-      std::vector<Size> kit_pass;   ///< parallel to kit_layouts: # reporter spectra in which the kit explains >= min_region_coverage of its region intensity
+      std::vector<Size> kit_pass;   ///< parallel to kit_layouts: # reporter spectra in which the kit explains >= percent_summed_intensity_explained of its region intensity
+      std::vector<double> total_matched; ///< parallel to refs: summed matched intensity of each channel over all reporter spectra
+      double total_region_intensity = 0.0; ///< summed (global) reporter-region intensity over all reporter spectra
       Size n_signal_spectra = 0;    ///< # reporter (MS2 or MS3) spectra with any signal in the (global) reporter region
     };
 
@@ -131,6 +133,7 @@ namespace OpenMS
       Measurement out;
       out.channel_stats.resize(n_ref);
       out.kit_pass.assign(kit_layouts.size(), 0);
+      out.total_matched.assign(n_ref, 0.0);
       if (n_ref == 0) { return out; }
 
       std::vector<std::vector<double>> dppm(n_ref);    // per-channel Δppm samples
@@ -163,6 +166,7 @@ namespace OpenMS
         const double region_sum = rangeSum(*ps, region_lo, region_hi);
         if (region_sum <= 0.0) { continue; }
         ++out.n_signal_spectra;
+        out.total_region_intensity += region_sum;
 
         std::fill(matched.begin(), matched.end(), 0.0);
         for (Size i = 0; i < n_ref; ++i)
@@ -174,6 +178,7 @@ namespace OpenMS
           dppm[i].push_back(Math::getPPM(obs, refs[i].mz));
           rel_int[i].push_back(in / region_sum);
           matched[i] = in;
+          out.total_matched[i] += in;
           ++n_pop[i];
         }
 
@@ -185,7 +190,7 @@ namespace OpenMS
           if (kit_region_sum <= 0.0) { continue; }
           double kit_int = 0.0;
           for (Size ri : kl.channel_idx) { kit_int += matched[ri]; }
-          if (kit_int >= params.min_region_coverage * kit_region_sum) { ++out.kit_pass[k]; }
+          if (kit_int >= params.percent_summed_intensity_explained * kit_region_sum) { ++out.kit_pass[k]; }
         }
       }
 
@@ -212,19 +217,22 @@ namespace OpenMS
     /// channels it covers, and compute its (un-normalized) overlap score gated by validity.
     /// @p ref_stats must already be classified. @p detected[i] == (ref channel i is 'ok'). @p key2ref maps
     /// a channel mass-key to its index in @p ref_stats. @p layout supplies the kit's reporter region.
+    /// @p total_matched / @p total_region give the bounded explained-signal fraction.
     IsobaricKitDetection::KitResult scoreKit(IsobaricKitDetection::MethodType mt,
                                              const std::vector<IsobaricKitDetection::ChannelStats>& ref_stats,
                                              const std::vector<bool>& detected,
                                              Size detected_count,
                                              const std::map<uint64_t, Size>& key2ref,
                                              const KitLayout& layout,
-                                             double region_dominance,
+                                             double labeled_spectra_fraction,
+                                             const std::vector<double>& total_matched,
+                                             double total_region,
                                              const IsobaricKitDetection::Parameters& params)
     {
       IsobaricKitDetection::KitResult kr;
       kr.type = mt;
-      kr.region_dominance = region_dominance;
-      kr.is_valid = region_dominance >= params.min_valid_spectra_fraction;
+      kr.labeled_spectra_fraction = labeled_spectra_fraction;
+      kr.is_valid = labeled_spectra_fraction >= params.min_valid_spectra_fraction;
       kr.region_low = layout.region_lo;
       kr.region_high = layout.region_hi;
 
@@ -232,6 +240,7 @@ namespace OpenMS
       kr.num_channels = chans.size();
 
       std::set<uint64_t> kit_keys;
+      double ok_intensity = 0.0; // summed intensity of this kit's 'ok' channels (over all reporter spectra)
       for (const auto& c : chans)
       {
         const uint64_t key = massKey(c.second);
@@ -239,12 +248,12 @@ namespace OpenMS
         const Size ri = key2ref.at(key);
         kr.channels.push_back(ref_stats[ri]);     // carries the global classification flags
         kr.channels.back().name = c.first;         // use the kit's own channel label (e.g. "131" vs "131N")
+        if (!ref_stats[ri].is_outlier) { ok_intensity += total_matched[ri]; }
       }
 
-      // diagnostic: fraction of the reporter-region signal captured by the kit's 'ok' (detected) channels
-      double clean_signal = 0.0;
-      for (const auto& ch : kr.channels) { if (!ch.is_outlier) { clean_signal += ch.intensity_share; } }
-      kr.clean_signal_fraction = clean_signal;
+      // diagnostic: fraction of the total reporter-region intensity carried by the kit's 'ok' channels.
+      // Computed as a single global ratio (not a sum of per-channel medians), so it is bounded to [0, 1].
+      kr.explained_signal_fraction = (total_region > 0.0) ? ok_intensity / total_region : 0.0;
 
       // how many detected ('ok') channels does this kit cover?
       Size covered = 0;
@@ -497,38 +506,40 @@ namespace OpenMS
     for (Size i = 0; i < refs.size(); ++i) { detected[i] = !ref_stats[i].is_outlier; }
     const Size detected_count = static_cast<Size>(std::count(detected.begin(), detected.end(), true));
 
-    // 6) score each candidate kit (with its region-dominance), then normalize to scores and sort
+    // 6) score each candidate kit (with its labeled-spectra fraction), then normalize to scores and sort
     std::vector<KitResult> results;
     const auto& kits = supportedKits();
     results.reserve(kits.size());
     for (Size k = 0; k < kits.size(); ++k)
     {
-      const double region_dominance = static_cast<double>(meas.kit_pass[k]) / meas.n_signal_spectra;
-      results.push_back(scoreKit(kits[k], ref_stats, detected, detected_count, key2ref, kit_layouts[k], region_dominance, params));
+      const double labeled_spectra_fraction = static_cast<double>(meas.kit_pass[k]) / meas.n_signal_spectra;
+      results.push_back(scoreKit(kits[k], ref_stats, detected, detected_count, key2ref, kit_layouts[k],
+                                 labeled_spectra_fraction, meas.total_matched, meas.total_region_intensity, params));
     }
     normalizeAndSortByScore(results);
 
-    logResults_(results, detected_count, meas.n_signal_spectra, ms_level);
+    logResults_(results, detected_count, meas.n_signal_spectra, ms_level, params.min_valid_spectra_fraction);
     return results;
   }
 
-  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_signal_spectra, Size ms_level)
+  void IsobaricKitDetection::logResults_(const std::vector<KitResult>& results, Size detected_count, Size n_signal_spectra, Size ms_level, double valid_threshold)
   {
     OPENMS_LOG_INFO << "\n-- Isobaric kit detection --\n"
                     << "Reporter spectra used: MS" << ms_level << "\n"
                     << "MS" << ms_level << " spectra with reporter-region signal: " << n_signal_spectra << "\n"
                     << "Detected ('ok') channels in the data: " << detected_count << "\n" << std::endl;
 
+    const std::string thr = StringUtils::number(valid_threshold * 100.0, 0); // validity gate, e.g. "50"
     for (const auto& kr : results)
     {
       OPENMS_LOG_INFO << methodName(kr.type) << "  (" << kr.num_channels << " channels)"
                       << "   score=" << StringUtils::number(kr.score * 100.0, 1) << "%"
-                      << "   owns-region[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "]="
-                      << StringUtils::number(kr.region_dominance * 100.0, 1) << "%" << (kr.is_valid ? "" : " [REJECTED]")
-                      << "   clean-signal=" << StringUtils::number(kr.clean_signal_fraction * 100.0, 1) << "%"
+                      << "   %labeled-spectra[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "]="
+                      << StringUtils::number(kr.labeled_spectra_fraction * 100.0, 1) << "% [>" << thr << (kr.is_valid ? "" : "% ? REJECTED") << "]"
+                      << "   explained-signal-fraction=" << StringUtils::number(kr.explained_signal_fraction * 100.0, 1) << "%"
                       << "   covers " << kr.num_covered << "/" << detected_count << " detected channels"
                       << (kr.num_uncovered > 0 ? "  [too small]" : "") << "\n";
-      OPENMS_LOG_INFO << "    channel    theo.m/z    ppm.offset   ppm.spread   found%   int.share   status\n";
+      OPENMS_LOG_INFO << "    channel    theo.m/z    ppm.offset   ppm.spread   found%   int.share       status\n";
       for (const auto& ch : kr.channels)
       {
         // "missing" (never observed) is shown plainly; other anomalies as "outlier: <reason>"
@@ -538,8 +549,8 @@ namespace OpenMS
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.theoretical_mz, 5), ' ', 11)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.ppm_offset, 2), ' ', 9)
                         << "  " << StringUtils::fillLeft(StringUtils::number(ch.ppm_spread, 2), ' ', 9)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.found_fraction * 100.0, 1), ' ', 5)
-                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.intensity_share, 4), ' ', 8)
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.found_fraction * 100.0, 1), ' ', 9)
+                        << "  " << StringUtils::fillLeft(StringUtils::number(ch.intensity_share, 4), ' ', 10)
                         << "  " << status
                         << "\n";
       }

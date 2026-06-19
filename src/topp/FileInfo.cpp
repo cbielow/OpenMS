@@ -1439,7 +1439,9 @@ protected:
         }
         // detailed per-channel statistics are logged via LOG_INFO inside detect();
         // here we summarize the ranked kits into the FileInfo output streams.
-        const auto kits = IsobaricKitDetection::detect(exp);
+        const IsobaricKitDetection::Parameters ikd_params;
+        const auto kits = IsobaricKitDetection::detect(exp, ikd_params);
+        const std::string ikd_thr = StringUtils::number(ikd_params.min_valid_spectra_fraction * 100.0, 0);
         if (kits.empty()) { os << "No MS2 reporter-ion signal found - the data does not appear to be isobarically labelled.\n"; }
         else
         {
@@ -1448,11 +1450,11 @@ protected:
           {
             const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
             os << "  " << kit_name << " (" << kr.num_channels << " channels): score " << StringUtils::number(kr.score * 100.0, 1) << "%"
-                << ", owns-region[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "] "
-                << StringUtils::number(kr.region_dominance * 100.0, 1) << "%" << (kr.is_valid ? "" : " [REJECTED]")
-                << ", clean-signal " << StringUtils::number(kr.clean_signal_fraction * 100.0, 1) << "%"
+                << ", %labeled-spectra[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "]="
+                << StringUtils::number(kr.labeled_spectra_fraction * 100.0, 1) << "% [>" << ikd_thr << (kr.is_valid ? "" : " ?REJECTED") << "]"
+                << ", explained-signal-fraction " << StringUtils::number(kr.explained_signal_fraction * 100.0, 1) << "%"
                 << " (covers " << kr.num_covered << " of detected channels" << (kr.num_uncovered > 0 ? ", too small)" : ")") << '\n';
-            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.score << '\t' << kr.region_dominance << '\t' << kr.clean_signal_fraction << '\n';
+            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.score << '\t' << kr.labeled_spectra_fraction << '\t' << kr.explained_signal_fraction << '\n';
           }
           if (!kits.empty() && kits.front().is_valid && kits.front().score > 0.0)
           {

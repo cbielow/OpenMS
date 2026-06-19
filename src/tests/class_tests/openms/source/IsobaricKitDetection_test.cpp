@@ -296,8 +296,10 @@ START_SECTION((static std::vector<KitResult> detect(const PeakMap& exp, const Pa
   ABORT_IF(res6.empty())
   TEST_TRUE(res6.front().type == MethodType::TMT_6PLEX)
   TEST_EQUAL(res6.front().num_uncovered, 0)
-  // clean-signal: the 6 reporter peaks (1000 each) out of a region of 6*1000 + 500 background = 6000/6500 ~= 0.923
-  TEST_TRUE(res6.front().clean_signal_fraction > 0.9 && res6.front().clean_signal_fraction <= 1.0)
+  // explained-signal: the 6 reporter peaks (1000 each) out of a region of 6*1000 + 500 background = 6000/6500 ~= 0.923
+  // (and must be bounded to <= 1.0 -- it is a single global ratio, not a sum of per-channel medians)
+  TEST_TRUE(res6.front().explained_signal_fraction > 0.9 && res6.front().explained_signal_fraction <= 1.0)
+  for (const auto& kr : res6) { TEST_TRUE(kr.explained_signal_fraction <= 1.0) }
 
   // ---- iTRAQ 4-plex sample ------------------------------------------------
   PeakMap exp_itraq = makeExperimentForKit(MethodType::ITRAQ_4PLEX, 8);
