@@ -40,6 +40,7 @@
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/MATH/MathFunctions.h>
 #include <OpenMS/MATH/StatisticFunctions.h>
+#include <OpenMS/METADATA/SILACDetector.h>
 #include <OpenMS/SYSTEM/SysInfo.h>
 
 
@@ -1673,6 +1674,19 @@ protected:
         }
       }
 
+      // SILAC testing 
+      if (!exp.empty())
+      {
+        if (exp.containsScanOfLevel(2))
+        {
+          SILACDetector test;
+          test.detectSILAC(test.msExperimentToMS2Data(exp));
+          os << "\n"
+             << "SILAC detection info: \n"
+             << test;
+        }
+      }  
+      
       // Detailed listing of scans
       if (getFlag_("d") && !exp.empty())
       {

@@ -11,6 +11,7 @@ CVTerm.h
 CVTermList.h
 CVTermListInterface.h
 ChromatogramSettings.h
+CometNativeIDRemapper.h
 ContactPerson.h
 DataArrays.h
 DataProcessing.h
@@ -30,6 +31,7 @@ MetaInfoDescription.h
 MetaInfoInterface.h
 MetaInfoInterfaceUtils.h
 MetaInfoRegistry.h
+SILACDetector.h
 SpectrumNativeIDParser.h
 PeptideEvidence.h
 PeptideHit.h
