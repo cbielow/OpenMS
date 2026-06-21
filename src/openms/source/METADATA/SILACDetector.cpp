@@ -195,7 +195,7 @@ namespace OpenMS
 
   std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic)
   {
-    const std::vector<String> aminoacids = {"Medium Lysine(K4)", "Heavy Lysine(K6) or Medium Arginine(R6)", "Heavy Lysine(K8)", "Heavy Arginine(R10)"};
+    const std::vector<std::string> aminoacids = {"Medium Lysine(K4)", "Heavy Lysine(K6) or Medium Arginine(R6)", "Heavy Lysine(K8)", "Heavy Arginine(R10)"};
 
     os << "\nDistance 4: Z-score: " << silac_statistic.getZScoreD4() << " - p-value: " << silac_statistic.getPValueD4() << '\n'
        << "Distance 6: Z-score: " << silac_statistic.getZScoreD6() << " - p-value: " << silac_statistic.getPValueD6() << '\n'
@@ -228,7 +228,7 @@ namespace OpenMS
     return os;
   } 
 
-  void SILACDetector::storeMS2Data(MSExperiment experiment, const String filename) const
+  void SILACDetector::storeMS2Data(MSExperiment experiment, const std::string filename) const
   {
     if (experiment.empty())
     {

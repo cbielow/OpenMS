@@ -121,7 +121,7 @@ public:
   @param filename The name of the file to store the data in 
   @throw Exception::InvalidValue Throws an exception if the experiment is empty or if the experiment does not contain any MS2 scans
    */
-  void storeMS2Data(MSExperiment experiment, const String filename) const;
+  void storeMS2Data(MSExperiment experiment, const std::string filename) const;
 
   /**
   @brief Takes the relevant data of an MSExperiment for a SILACDetector anlysis and returns it in a vector
