@@ -569,6 +569,7 @@ set(analysis_executables_list
   TMTThirtyTwoPlexQuantitationMethod_test
   TMTThirtyFivePlexQuantitationMethod_test
   IsobaricKitDetection_test
+  LabellingDetector_test
   KDTreeFeatureMaps_test
   KDTreeFeatureNode_test
   LabeledPairFinder_test

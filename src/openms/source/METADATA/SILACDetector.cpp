@@ -270,18 +270,16 @@ namespace OpenMS
     }
 
     std::vector<MS2Data> MS2Scans;
-    int position = 0;
-    for (unsigned int i = 0; i < experiment.size(); i++)
+    for (const auto& spectrum : experiment)
     {
-      if (2 == experiment[i].getMSLevel())
+      if (2 == spectrum.getMSLevel() && !spectrum.getPrecursors().empty())
       {
         MS2Data current_MS2_scan;
-        current_MS2_scan.RT = experiment[i].getRT();
-        current_MS2_scan.mz = experiment[i].getPrecursors()[0].getMZ();
-        current_MS2_scan.charge = experiment[i].getPrecursors()[0].getCharge();
-        current_MS2_scan.index = position;
+        current_MS2_scan.RT = spectrum.getRT();
+        current_MS2_scan.mz = spectrum.getPrecursors()[0].getMZ();
+        current_MS2_scan.charge = spectrum.getPrecursors()[0].getCharge();
+        current_MS2_scan.index = MS2Scans.size();
         MS2Scans.push_back(current_MS2_scan);
-        position ++;
       }
     }
     return MS2Scans;

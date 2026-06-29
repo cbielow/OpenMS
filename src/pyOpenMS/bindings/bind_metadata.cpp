@@ -18,6 +18,7 @@
 #include <OpenMS/METADATA/PeptideIdentification.h>
 #include <OpenMS/METADATA/PeptideIdentificationList.h>
 #include <OpenMS/METADATA/ProteinIdentification.h>
+#include <OpenMS/METADATA/SILACDetector.h>
 #include <OpenMS/METADATA/SpectrumLookup.h>
 #include <OpenMS/METADATA/SpectrumMetaDataLookup.h>
 #include <OpenMS/METADATA/SpectrumNativeIDParser.h>
@@ -39,6 +40,55 @@ using namespace nb::literals;
 
 NB_MODULE(_pyopenms_metadata, m) {
     m.doc() = "pyOpenMS metadata bindings";
+
+    // -----------------------------------------------------------------------
+    // MS2Data (relevant per-MS2-scan data for SILAC detection)
+    // -----------------------------------------------------------------------
+    nb::class_<OpenMS::MS2Data>(m, "MS2Data", "Relevant data of one MS2 scan for SILAC detection (RT, m/z, charge, index)")
+        .def(nb::init<>())
+        .def("__copy__", [](const OpenMS::MS2Data& self) { return OpenMS::MS2Data(self); })
+        .def("__deepcopy__", [](const OpenMS::MS2Data& self, nb::dict) { return OpenMS::MS2Data(self); }, "memo"_a)
+        .def_rw("RT", &OpenMS::MS2Data::RT)
+        .def_rw("mz", &OpenMS::MS2Data::mz)
+        .def_rw("charge", &OpenMS::MS2Data::charge)
+        .def_rw("index", &OpenMS::MS2Data::index)
+        ;
+
+    // -----------------------------------------------------------------------
+    // SILACDetector
+    // -----------------------------------------------------------------------
+    nb::class_<OpenMS::SILACDetector>(m, "SILACDetector",
+        R"doc(
+Detects whether a dataset is a SILAC dataset by counting precursor mass-difference
+distances (param-medic style) over the MS2 scans and comparing the SILAC distances
+(K4=4, R6/K6=6, K8=8, R10=10 Da) against control distances via z-scores / p-values.
+)doc")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::SILACDetector &>())
+        .def("__copy__", [](const OpenMS::SILACDetector& self) { return OpenMS::SILACDetector(self); })
+        .def("__deepcopy__", [](const OpenMS::SILACDetector& self, nb::dict) { return OpenMS::SILACDetector(self); }, "memo"_a)
+        .def("detectSILAC", [](OpenMS::SILACDetector& self, const std::vector<OpenMS::MS2Data>& ms2) { return self.detectSILAC(ms2); },
+            "ms2_scans"_a, "Run SILAC detection on the MS2 scan data; returns True if any SILAC distance is significant")
+        .def("msExperimentToMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::MSExperiment& exp) { return self.msExperimentToMS2Data(exp); },
+            "exp"_a, "Extract the relevant (RT, m/z, charge) MS2 data for SILAC detection from an experiment")
+        .def("txtFileToMS2Data", [](const OpenMS::SILACDetector& self, const std::string& file_name) { return self.txtFileToMS2Data(file_name); },
+            "file_name"_a, "Read MS2 scan data (RT m/z charge, space-separated) from a .txt file")
+        .def("storeMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::MSExperiment& exp, const std::string& filename) { self.storeMS2Data(exp, filename); },
+            "exp"_a, "filename"_a, "Write the experiment's MS2 (RT m/z charge) data to a .txt file")
+        .def("getZScores", [](const OpenMS::SILACDetector& self) { return self.getZScores(); }, "z-scores of the SILAC distances (4, 6, 8, 10)")
+        .def("getPValues", [](const OpenMS::SILACDetector& self) { return self.getPValues(); }, "p-values of the SILAC distances (4, 6, 8, 10)")
+        .def("getZScoreD4", [](const OpenMS::SILACDetector& self) { return self.getZScoreD4(); })
+        .def("getZScoreD6", [](const OpenMS::SILACDetector& self) { return self.getZScoreD6(); })
+        .def("getZScoreD8", [](const OpenMS::SILACDetector& self) { return self.getZScoreD8(); })
+        .def("getZScoreD10", [](const OpenMS::SILACDetector& self) { return self.getZScoreD10(); })
+        .def("getPValueD4", [](const OpenMS::SILACDetector& self) { return self.getPValueD4(); })
+        .def("getPValueD6", [](const OpenMS::SILACDetector& self) { return self.getPValueD6(); })
+        .def("getPValueD8", [](const OpenMS::SILACDetector& self) { return self.getPValueD8(); })
+        .def("getPValueD10", [](const OpenMS::SILACDetector& self) { return self.getPValueD10(); })
+        .def("getSignificanceLevel", [](const OpenMS::SILACDetector& self) { return self.getSignificanceLevel(); })
+        .def("getIsSILAC", [](const OpenMS::SILACDetector& self) { return self.getIsSILAC(); }, "whether the dataset is a SILAC dataset at the set significance level")
+        .def("getSignificantDistances", [](const OpenMS::SILACDetector& self) { return self.getSignificantDistances(); }, "per-distance significance flags (for 4, 6, 8, 10)")
+        ;
 
     // -----------------------------------------------------------------------
     // AQS_runConcentration (AbsoluteQuantitationStandards::runConcentration)

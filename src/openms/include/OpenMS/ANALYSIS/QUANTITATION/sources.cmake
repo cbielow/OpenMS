@@ -19,6 +19,7 @@ ItraqEightPlexQuantitationMethod.h
 ItraqFourPlexQuantitationMethod.h
 KDTreeFeatureMaps.h
 KDTreeFeatureNode.h
+LabellingDetector.h
 PeptideAndProteinQuant.h
 TMTEighteenPlexQuantitationMethod.h
 TMTElevenPlexQuantitationMethod.h

@@ -60,6 +60,7 @@
 #include <OpenMS/ANALYSIS/QUANTITATION/AbsoluteQuantitationMethod.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricIsotopeCorrector.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricKitDetection.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/LabellingDetector.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricNormalizer.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricQuantifierStatistics.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricQuantitationMethod.h>
@@ -771,6 +772,43 @@ channelTolerances, classifyChannels, kitScore) are exposed as static methods.
             "Classify each channel as ok/missing/underpopulated/noisy/offset-inconsistent; returns the classified channels (is_outlier/outlier_reason set). The 'ok' channels are the detected ones.")
         .def_static("kitScore", [](size_t num_channels, size_t detected_count, size_t num_covered) { return OpenMS::IsobaricKitDetection::kitScore(num_channels, detected_count, num_covered); },
             "num_channels"_a, "detected_count"_a, "num_covered"_a, "Jaccard overlap score of a kit's channel set against the detected-channel set")
+        ;
+
+    // -----------------------------------------------------------------------
+    // LabellingDetector (unified isobaric TMT/iTRAQ + SILAC detection)
+    // -----------------------------------------------------------------------
+    auto labdet_class = nb::class_<OpenMS::LabellingDetector>(m, "LabellingDetector",
+        R"doc(
+Detects the quantitative labelling strategy used in an experiment: isobaric (TMT/iTRAQ, via
+IsobaricKitDetection) and/or SILAC (via SILACDetector). A run can be isobaric, SILAC, both, or
+neither (label-free), so both verdicts are reported.
+)doc");
+
+    nb::class_<OpenMS::LabellingDetector::Result>(labdet_class, "Result", "Combined isobaric + SILAC detection result")
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::LabellingDetector::Result &>())
+        .def("__copy__", [](const OpenMS::LabellingDetector::Result& self) { return OpenMS::LabellingDetector::Result(self); })
+        .def("__deepcopy__", [](const OpenMS::LabellingDetector::Result& self, nb::dict) { return OpenMS::LabellingDetector::Result(self); }, "memo"_a)
+        .def_rw("isobaric_detected", &OpenMS::LabellingDetector::Result::isobaric_detected)
+        .def_rw("isobaric_kit", &OpenMS::LabellingDetector::Result::isobaric_kit)
+        .def_rw("isobaric_candidates", &OpenMS::LabellingDetector::Result::isobaric_candidates)
+        .def_rw("silac_applicable", &OpenMS::LabellingDetector::Result::silac_applicable)
+        .def_rw("silac_detected", &OpenMS::LabellingDetector::Result::silac_detected)
+        .def_rw("silac", &OpenMS::LabellingDetector::Result::silac)
+        .def("isLabelFree", [](const OpenMS::LabellingDetector::Result& self) { return self.isLabelFree(); },
+            "True if neither isobaric nor SILAC labelling was detected (likely label-free)")
+        ;
+
+    labdet_class
+        .def(nb::init<>())
+        .def(nb::init<const OpenMS::LabellingDetector &>())
+        .def("__copy__", [](const OpenMS::LabellingDetector& self) { return OpenMS::LabellingDetector(self); })
+        .def("__deepcopy__", [](const OpenMS::LabellingDetector& self, nb::dict) { return OpenMS::LabellingDetector(self); }, "memo"_a)
+        .def_static("detect", [](const OpenMS::MSExperiment& exp, const OpenMS::IsobaricKitDetection::Parameters& isobaric_params) { return OpenMS::LabellingDetector::detect(exp, isobaric_params); },
+            "exp"_a, "isobaric_params"_a = OpenMS::IsobaricKitDetection::Parameters(),
+            "Detect isobaric (TMT/iTRAQ) and SILAC labelling in exp; returns the combined Result")
+        .def_static("report", [](const OpenMS::LabellingDetector::Result& r) { return OpenMS::LabellingDetector::report(r); },
+            "result"_a, "Human-readable multi-line summary of a Result")
         ;
 
     // -----------------------------------------------------------------------

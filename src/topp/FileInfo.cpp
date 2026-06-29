@@ -12,6 +12,7 @@
 
 #include <OpenMS/ANALYSIS/OPENSWATH/TransitionPQPFile.h>
 #include <OpenMS/ANALYSIS/QUANTITATION/IsobaricKitDetection.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/LabellingDetector.h>
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
 #include <OpenMS/DATASTRUCTURES/ListUtilsIO.h> // for operator<< on StringList
 #include <OpenMS/DATASTRUCTURES/StringListUtils.h>
@@ -40,7 +41,6 @@
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/MATH/MathFunctions.h>
 #include <OpenMS/MATH/StatisticFunctions.h>
-#include <OpenMS/METADATA/SILACDetector.h>
 #include <OpenMS/SYSTEM/SysInfo.h>
 
 
@@ -168,7 +168,7 @@ protected:
     registerFlag_("s", "Computes a five-number statistics of intensities, qualities, and widths");
     registerFlag_("d", "Show detailed listing of all spectra and chromatograms (peak files only)");
     registerFlag_("c", "Check for corrupt data in the file (peak files only)");
-    registerFlag_("isobaric", "Detect the isobaric labelling kit (TMT/iTRAQ plex) from MS2 reporter ions (peak files only)");
+    registerFlag_("detect_labelling", "Detect the quantitative labelling strategy: isobaric kit (TMT/iTRAQ) and/or SILAC (peak files only)");
     registerFlag_("v", "Validate the file only (for mzML, mzData, mzXML, featureXML, idXML, consensusXML, pepXML)");
     registerFlag_("i", "Check whether a given mzML file contains valid indices (conforming to the indexedmzML standard)");
   }
@@ -1428,26 +1428,27 @@ protected:
 
       
       //-------------------------------------------------------------
-      // Isobaric kit (TMT/iTRAQ) detection
+      // Labelling detection (isobaric TMT/iTRAQ + SILAC)
       //-------------------------------------------------------------
-      if (getFlag_("isobaric"))
+      if (getFlag_("detect_labelling"))
       {
-        os << '\n' << "-- Isobaric kit detection --" << '\n';
+        os << '\n';
         if (exp.empty())
         {
-          os << "No spectra available - isobaric kit detection requires a peak (MS) file with MS2 spectra.\n";
+          os << "-- Labelling detection --\nNo spectra available - labelling detection requires a peak (MS) file with MS2 spectra.\n";
           return ExitCodes::INCOMPATIBLE_INPUT_DATA;
         }
-        // detailed per-channel statistics are logged via LOG_INFO inside detect();
-        // here we summarize the ranked kits into the FileInfo output streams.
+        // per-channel isobaric stats and per-distance SILAC stats are also logged via LOG_INFO;
+        // here we summarize into the FileInfo output streams.
         const IsobaricKitDetection::Parameters ikd_params;
-        const auto kits = IsobaricKitDetection::detect(exp, ikd_params);
-        const std::string ikd_thr = StringUtils::number(ikd_params.min_valid_spectra_fraction * 100.0, 0);
-        if (kits.empty()) { os << "No MS2 reporter-ion signal found - the data does not appear to be isobarically labelled.\n"; }
-        else
+        const auto r = LabellingDetector::detect(exp, ikd_params);
+
+        // detailed isobaric candidate list
+        if (!r.isobaric_candidates.empty())
         {
+          const std::string ikd_thr = StringUtils::number(ikd_params.min_valid_spectra_fraction * 100.0, 0);
           os << "Candidate isobaric kits (by score):\n";
-          for (const auto& kr : kits)
+          for (const auto& kr : r.isobaric_candidates)
           {
             const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
             os << "  " << kit_name << " (" << kr.num_channels << " channels): score " << StringUtils::number(kr.score * 100.0, 1) << "%"
@@ -1457,15 +1458,12 @@ protected:
                 << " (covers " << kr.num_covered << " of detected channels" << (kr.num_uncovered > 0 ? ", too small)" : ")") << '\n';
             os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.score << '\t' << kr.labeled_spectra_fraction << '\t' << kr.explained_signal_fraction << '\n';
           }
-          if (!kits.empty() && kits.front().is_valid && kits.front().score > 0.0)
-          {
-            os << "Most likely isobaric kit: " << IsobaricKitDetection::methodName(kits.front().type) << '\n';
-          }
-          else
-          {
-            os << "No valid isobaric kit detected - the data does not appear to be isobarically labelled.\n";
-          }
         }
+
+        // unified verdict (isobaric + SILAC + overall conclusion)
+        os << '\n' << LabellingDetector::report(r);
+        os_tsv << "labelling: isobaric" << '\t' << (r.isobaric_detected ? IsobaricKitDetection::methodName(r.isobaric_kit) : std::string("none")) << '\n';
+        os_tsv << "labelling: SILAC" << '\t' << (r.silac_detected ? "detected" : (r.silac_applicable ? "not detected" : "n/a")) << '\n';
         return EXECUTION_OK;
       }
 
@@ -1674,19 +1672,6 @@ protected:
         }
       }
 
-      // SILAC testing 
-      if (!exp.empty())
-      {
-        if (exp.containsScanOfLevel(2))
-        {
-          SILACDetector test;
-          test.detectSILAC(test.msExperimentToMS2Data(exp));
-          os << "\n"
-             << "SILAC detection info: \n"
-             << test;
-        }
-      }  
-      
       // Detailed listing of scans
       if (getFlag_("d") && !exp.empty())
       {
