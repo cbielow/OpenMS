@@ -41,14 +41,15 @@ namespace OpenMS
 
     std::map<int,int> distance_count = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
     const double RT_window = 5; // The size of the window in seconds of the retention time to compare after the current MS2 scan
-    const int experiment_MS2_size = MS2Scans.size();
+    const size_t experiment_MS2_size = MS2Scans.size();
 
-    for (const auto& spectrum : MS2Scans)
+    // MS2Scans is sorted by RT (see above), so for each scan we only need to look at the *following* scans
+    // (by position) until we leave its RT window. The window walk is purely position-based.
+    for (size_t i = 0; i < experiment_MS2_size; ++i)
     {
-      int idx_window = spectrum.index + 1;
-      // Compare the current MS2 scan with all following MS2 scans in the RT window of 5 seconds
-      // (bounds check first to avoid a one-past-the-end read when idx_window reaches the end)
-      while (idx_window < experiment_MS2_size && (MS2Scans[idx_window].RT < spectrum.RT + RT_window))
+      const MS2Data& spectrum = MS2Scans[i];
+      // Compare the current MS2 scan with all following MS2 scans within the RT window of 5 seconds
+      for (size_t idx_window = i + 1; idx_window < experiment_MS2_size && (MS2Scans[idx_window].RT < spectrum.RT + RT_window); ++idx_window)
       {
         if (spectrum.charge == MS2Scans[idx_window].charge)
         {
@@ -60,13 +61,12 @@ namespace OpenMS
           if (distance_count.find(rounded_distance) != distance_count.end())
           {
             // Check if the difference of the mass is close enough to the exact mass (5 ppm)
-            if (std::abs(distance - exact_mass_lookup_table[rounded_distance]) < 0.005) 
+            if (std::abs(distance - exact_mass_lookup_table[rounded_distance]) < 0.005)
             {
               distance_count[rounded_distance]++;
-            }      
+            }
           }
         }
-        idx_window++;
       }
     }
     
@@ -110,11 +110,11 @@ namespace OpenMS
     {
       double z_score = (distance_count[i] - control_mean) / control_sd;
       double tail = 0.5 * std::erfc(z_score / sqrt2);
-      p_values_.push_back(tail);
-      z_scores_.push_back(z_score);
       const bool is_significant = tail < significance_level_;
-      is_silac_ = is_silac_  || is_significant;
+      z_scores_.push_back(z_score);
+      p_values_.push_back(tail);
       significant_distances_.push_back(is_significant);
+      is_silac_ |= is_significant;
     }
 
     return is_silac_;
@@ -258,7 +258,6 @@ namespace OpenMS
         current_MS2_scan.RT = spectrum.getRT();
         current_MS2_scan.mz = spectrum.getPrecursors()[0].getMZ();
         current_MS2_scan.charge = spectrum.getPrecursors()[0].getCharge();
-        current_MS2_scan.index = MS2Scans.size();
         MS2Scans.push_back(current_MS2_scan);
       }
     }
@@ -272,8 +271,7 @@ namespace OpenMS
       throw Exception::InvalidFileType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name, "file is not a txt file");
     }
     std::vector<MS2Data> result;
-    int index = 0;  // Index of current MS2 scan
-    std::ifstream input_file (file_name);   
+    std::ifstream input_file (file_name);
     std::string current_line;
     if (!input_file.is_open())
     {
@@ -323,9 +321,7 @@ namespace OpenMS
       {
         throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to integer", data_values[2]);
       }
-      current_data.index = index;
       result.push_back(current_data);
-      index++;
     }
 
     return result;

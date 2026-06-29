@@ -44,14 +44,13 @@ NB_MODULE(_pyopenms_metadata, m) {
     // -----------------------------------------------------------------------
     // MS2Data (relevant per-MS2-scan data for SILAC detection)
     // -----------------------------------------------------------------------
-    nb::class_<OpenMS::MS2Data>(m, "MS2Data", "Relevant data of one MS2 scan for SILAC detection (RT, m/z, charge, index)")
+    nb::class_<OpenMS::MS2Data>(m, "MS2Data", "Relevant data of one MS2 scan for SILAC detection (RT, m/z, charge)")
         .def(nb::init<>())
         .def("__copy__", [](const OpenMS::MS2Data& self) { return OpenMS::MS2Data(self); })
         .def("__deepcopy__", [](const OpenMS::MS2Data& self, nb::dict) { return OpenMS::MS2Data(self); }, "memo"_a)
         .def_rw("RT", &OpenMS::MS2Data::RT)
         .def_rw("mz", &OpenMS::MS2Data::mz)
         .def_rw("charge", &OpenMS::MS2Data::charge)
-        .def_rw("index", &OpenMS::MS2Data::index)
         ;
 
     // -----------------------------------------------------------------------

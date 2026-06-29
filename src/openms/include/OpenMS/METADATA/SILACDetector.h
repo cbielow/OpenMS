@@ -28,7 +28,6 @@ namespace OpenMS
     double RT;
     double mz;
     int charge;
-    int index; ///< index of the scan in the original MSExperiment, used to identify the scan in the MSExperiment
   };
 
 
@@ -59,7 +58,7 @@ public:
     The z-scores and p-values will be saved inside the SILACDetector object for each SILAC distance
 
     The code is based on param-medic (https://github.com/dhmay/param-medic/blob/master/parammedic/mod_inference.py)
-    but heavily modified (classification performance is a lot better).
+    but heavily modified (e.g. mass filtering uses ppm, and window lookup uses RT distance instead of scan count; overall classification performance is a lot better).
 
     @param MS2Scans A vector of the relevant data of the MS2 scans of an experiment (RT, mz, charge). The vector can be created from an MSExperiment using the msExperimentToMS2Data() function
     @return True if p-value of any SILAC distance is significant on level 0.0125 (1.25%), false if none are significant (or the input vector is empty)

@@ -10,11 +10,9 @@ class TestSILACDetector(unittest.TestCase):
         d.RT = 1.5
         d.mz = 500.25
         d.charge = 2
-        d.index = 7
         self.assertAlmostEqual(d.RT, 1.5)
         self.assertAlmostEqual(d.mz, 500.25)
         self.assertEqual(d.charge, 2)
-        self.assertEqual(d.index, 7)
 
     def test_silac_detector_bindings(self):
         sd = pyopenms.SILACDetector()

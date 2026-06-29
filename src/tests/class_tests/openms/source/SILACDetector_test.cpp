@@ -26,7 +26,6 @@ START_SECTION(std::vector<MS2Data> txtFileToMS2Data(std::string file_name))
   TEST_REAL_SIMILAR(example_data[0].mz, 964.2548828125)
   TEST_REAL_SIMILAR(example_data[0].RT, 0.52840948799999998)
   TEST_EQUAL(example_data[0].charge, 2)
-  TEST_EQUAL(example_data[0].index, 0) 
   TEST_EXCEPTION(Exception::InvalidFileType, test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("20171013_HMP_C61_ISO_P1_GA1_UV_VIS_2.mzML")))
   TEST_EXCEPTION(Exception::InvalidSize, test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("BSpline2d_test_sinus.txt")))
   TEST_EXCEPTION(Exception::InvalidValue, test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILAC_exception_test.txt")))
@@ -52,7 +51,6 @@ START_SECTION(bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2Scans))
   control_test.charge = 1;
   control_test.mz = 1;
   control_test.RT = 1;
-  control_test.index = 0;
   // no counts for any control distance -> pseudo counts are used -> false (no exception)
   std::vector<MS2Data> no_control_count_test = {control_test};
   TEST_EQUAL(edge.detectSILAC(no_control_count_test), false)
@@ -172,7 +170,6 @@ START_SECTION(std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment
   TEST_REAL_SIMILAR(output[0].RT, 5.2)
   TEST_REAL_SIMILAR(output[0].mz, 5.5555)
   TEST_EQUAL(output[0].charge, 2)
-  TEST_EQUAL(output[0].index, 0)
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_6_uncompressed.mzML"),experiment);
   TEST_EXCEPTION(Exception::InvalidValue, test.msExperimentToMS2Data(experiment))
 }
