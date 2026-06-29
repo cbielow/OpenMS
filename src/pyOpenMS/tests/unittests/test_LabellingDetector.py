@@ -20,11 +20,10 @@ class TestSILACDetector(unittest.TestCase):
         sd = pyopenms.SILACDetector()
         self.assertEqual(len(sd.getZScores()), 4)
         self.assertEqual(len(sd.getPValues()), 4)
-        self.assertAlmostEqual(sd.getSignificanceLevel(), 0.05)  # default before running
+        self.assertAlmostEqual(sd.getSignificanceLevel(), 0.0125)
         self.assertFalse(sd.getIsSILAC())
-        # empty input raises an OpenMS exception
-        with self.assertRaises(Exception):
-            sd.detectSILAC([])
+        # empty input is handled gracefully -> returns False (no exception)
+        self.assertFalse(sd.detectSILAC([]))
 
 
 class TestLabellingDetector(unittest.TestCase):

@@ -27,20 +27,16 @@ namespace OpenMS
       r.isobaric_kit = r.isobaric_candidates.front().type;
     }
 
-    // 2) SILAC: precursor mass-difference statistics over the MS2 scans
+    // 2) SILAC: precursor mass-difference statistics over the MS2 scans.
+    // SILACDetector no longer throws (empty/unsorted/no-control are handled internally); a SILAC verdict
+    // can be computed whenever there is usable MS2 precursor data (MS2 scans that carry a precursor).
     if (!exp.empty() && exp.containsScanOfLevel(2))
     {
-      try
+      const auto ms2 = r.silac.msExperimentToMS2Data(exp);
+      if (!ms2.empty())
       {
-        const auto ms2 = r.silac.msExperimentToMS2Data(exp);
         r.silac_applicable = true;
         r.silac_detected = r.silac.detectSILAC(ms2);
-      }
-      catch (Exception::BaseException&)
-      {
-        // e.g. no control distances to normalise against -> a SILAC verdict cannot be computed
-        r.silac_applicable = false;
-        r.silac_detected = false;
       }
     }
 

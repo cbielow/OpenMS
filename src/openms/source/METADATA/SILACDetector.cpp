@@ -8,23 +8,29 @@
 
 #include <OpenMS/CONCEPT/Constants.h>
 #include <OpenMS/KERNEL/DPeak.h>
+#include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/METADATA/SILACDetector.h>
+
+#include <algorithm>
+#include <float.h>
+#include <fstream>
 
 namespace OpenMS
 {
-  bool SILACDetector::detectSILAC(const std::vector<MS2Data> MS2Scans)
+  bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2Scans)
   {
     if (MS2Scans.empty())
     {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No Input data", "");
+      OPENMS_LOG_WARN << "SILACDetector: Input vector is empty --> SILAC detection will return 'false' (no significant distances found)!" << std::endl;
+      return false;
     }
-    for (Size i = 1; i < MS2Scans.size(); i++)
+    // sort by RT:
+    auto sorted_lambda = [](const MS2Data& a, const MS2Data& b) { return a.RT < b.RT; };
+    if (!std::is_sorted(MS2Scans.begin(), MS2Scans.end(), sorted_lambda))
     {
-      if (MS2Scans[i-1].RT > MS2Scans[i].RT)
-      {
-        throw Exception::NotSorted(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "input data is not sorted by retention time");
-      }
+      std::sort(MS2Scans.begin(), MS2Scans.end(), sorted_lambda);
     }
+
     // Look up table for checking distances                 Lysine (K4)        K6 or R6           Lysine (K8)        Arginine(R10)
     const double exact_mass_lookup_table[28] = {0, 0, 0, 0, 4.025106983784, 0, 6.020129012016, 0, 8.014198800046, 0, 10.008268588075996,
                                                 // Control counts
@@ -35,27 +41,19 @@ namespace OpenMS
 
     std::map<int,int> distance_count = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
     const double RT_window = 5; // The size of the window in seconds of the retention time to compare after the current MS2 scan
-    int min_index = 0;
-    int max_index = 0;
     const int experiment_MS2_size = MS2Scans.size();
 
     for (const auto& spectrum : MS2Scans)
     {
-      double spectrum_rt = spectrum.RT;
-      min_index = spectrum.index + 1;
-      // Get the index of the last scan in the window
-      while ((MS2Scans[max_index].RT < spectrum_rt + RT_window) && max_index < experiment_MS2_size)
+      int idx_window = spectrum.index + 1;
+      // Compare the current MS2 scan with all following MS2 scans in the RT window of 5 seconds
+      // (bounds check first to avoid a one-past-the-end read when idx_window reaches the end)
+      while (idx_window < experiment_MS2_size && (MS2Scans[idx_window].RT < spectrum.RT + RT_window))
       {
-        max_index++;
-      } 
-
-      // Compare every scan in the window to the current scan
-      for (int i = min_index; i < max_index; i++)
-      {
-        if (spectrum.charge == MS2Scans[i].charge)
+        if (spectrum.charge == MS2Scans[idx_window].charge)
         {
           // Calculate the mass difference in dalton
-          double distance = std::abs((spectrum.mz - MS2Scans[i].mz) * spectrum.charge);
+          double distance = std::abs((spectrum.mz - MS2Scans[idx_window].mz) * spectrum.charge);
           // Round to int for the count map distance_count
           int rounded_distance = distance + 0.5;
           // Check if the distance is in the map
@@ -68,10 +66,11 @@ namespace OpenMS
             }      
           }
         }
+        idx_window++;
       }
     }
     
-    const double n = 6; // Size of control distances
+    const double n = control_distances.size(); // Size of control distances
     double sum = 0.0;
 
     // Sum all the counts for the control distances and calculate the mean
@@ -81,51 +80,44 @@ namespace OpenMS
     }
     double control_mean = sum / n;
     // Calculate the standard deviation
-    double control_sd = 0;
     double sd_sum = 0;
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < n; i++)
     {
-      double s = distance_count[control_distances[i]]-control_mean;
+      double s = distance_count[control_distances[i]] - control_mean;
       sd_sum += s * s;
     }
-    control_sd = std::sqrt(sd_sum/(n-1));
+    double control_sd = std::sqrt(sd_sum/(n-1));
 
-    // If no control counts have been found, throw an exception
+    // If no control counts have been found
     if (sd_sum == 0)
     {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "No counts for control distances found", "");
+      OPENMS_LOG_WARN << "SILACDetector: No counts for control distances have been found --> using pseudo counts" << std::endl;
+      // add pseudo counts to avoid division by zero
+      control_mean = 1.0;
+      control_sd = 1.0;
     }
 
-    bool is_silac = false;
-    double z_score;
-    const double significance_level = 0.0125;
-    std::vector<bool> significant_distances = {}; // Stores which distances are significant or not (for 4, 6, 8, 10), true is significant, false is not significant
-    std::vector<double> p_values;
-    std::vector<double> z_scores;
+    distance_count_ = distance_count;
+    z_scores_.clear();
+    p_values_.clear();
+    is_silac_ = false;
+    significant_distances_.clear();
+    
     const double sqrt2 = std::sqrt(2.0);
 
-    // Calculates z-score and p-value for each SILAC distance, if there are any sgnificant distances then is_silac will be set to true
+    // Calculates z-score and p-value for each SILAC distance, if there are any significant distances then is_silac will be set to true
     for (int i = 4; i <= 10; i += 2)
     {
-      z_score = (distance_count[i]-control_mean)/control_sd;
+      double z_score = (distance_count[i] - control_mean) / control_sd;
       double tail = 0.5 * std::erfc(z_score / sqrt2);
-      p_values.push_back(tail);
-      z_scores.push_back(z_score);
-      bool is_significant = tail < significance_level;
-      is_silac = is_silac || is_significant;
-      significant_distances.push_back(is_significant);
+      p_values_.push_back(tail);
+      z_scores_.push_back(z_score);
+      const bool is_significant = tail < significance_level_;
+      is_silac_ = is_silac_  || is_significant;
+      significant_distances_.push_back(is_significant);
     }
 
-    // Stores the results into the object
-    z_scores_ = z_scores;
-    p_values_ = p_values;
-    significance_level_ = significance_level;
-    is_silac_ = is_silac;
-    significant_distances_ = significant_distances;
-    distance_count_ = distance_count;
-    std::cout << std::endl;
-
-    return is_silac;
+    return is_silac_;
   }
 
   std::vector<double> SILACDetector::getZScores() const
@@ -188,7 +180,7 @@ namespace OpenMS
     return is_silac_;
   }
 
-  std::vector<bool> SILACDetector::getSignificantDistances() const
+  const std::vector<bool>& SILACDetector::getSignificantDistances() const
   {
     return significant_distances_;
   } 
@@ -228,19 +220,15 @@ namespace OpenMS
     return os;
   } 
 
-  void SILACDetector::storeMS2Data(MSExperiment experiment, const std::string filename) const
+  void SILACDetector::storeMS2Data(const MSExperiment& experiment, const std::string& filename) const
   {
     if (experiment.empty())
     {
       throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "MSExperiment is empty", "");
     }
-    if (!experiment.containsScanOfLevel(2))
-    {
+    if (!experiment.empty() && !experiment.containsScanOfLevel(2))
+    { // there are spectra, just no MS2 spectra (e.g. MS1-only run), but we need MS2 spectra for SILAC detection. Omitting MS2 spectra is a user error, so we throw an exception here.
       throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
-    }
-    if (!experiment.isSorted())
-    {
-      experiment.sortSpectra();
     }
     
     std::ofstream out(filename);
@@ -254,19 +242,11 @@ namespace OpenMS
     }
   }
 
-  std::vector<MS2Data> SILACDetector::msExperimentToMS2Data(MSExperiment experiment) const
+  std::vector<MS2Data> SILACDetector::msExperimentToMS2Data(const MSExperiment& experiment) const
   {
-    if (experiment.empty())
-    {
-      throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "MSExperiment is empty", "");
-    }
-    if (!experiment.containsScanOfLevel(2))
-    {
+    if (!experiment.empty() && !experiment.containsScanOfLevel(2))
+    { // there are spectra, just no MS2 spectra (e.g. MS1-only run), but we need MS2 spectra for SILAC detection. Omitting MS2 spectra is a user error, so we throw an exception here.
       throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
-    }
-    if (!experiment.isSorted())
-    {
-      experiment.sortSpectra();
     }
 
     std::vector<MS2Data> MS2Scans;
@@ -285,9 +265,9 @@ namespace OpenMS
     return MS2Scans;
   }
 
-  std::vector<MS2Data> SILACDetector::txtFileToMS2Data(const std::string file_name) const
+  std::vector<MS2Data> SILACDetector::txtFileToMS2Data(const std::string& file_name) const
   {
-    if (file_name.substr(file_name.size() - 4, 4) != ".txt")
+    if (!file_name.ends_with(".txt"))
     {
       throw Exception::InvalidFileType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name, "file is not a txt file");
     }
@@ -299,57 +279,55 @@ namespace OpenMS
     {
       throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name);
     }
-    if (input_file.is_open())
-    {
-      while (input_file.peek()!=EOF)
-      {    
-        std::getline (input_file, current_line);
-        std::vector<std::string> data_values; // Values of the current line from the file (RT, mz, charge)
-        size_t pos = 0; // Current position in the line
-        std::string data_value; // Current value of the current line up to position
+    while (input_file.peek()!=EOF)
+    {    
+      std::getline (input_file, current_line);
+      std::vector<std::string> data_values; // Values of the current line from the file (RT, mz, charge)
+      size_t pos = 0; // Current position in the line
+      std::string data_value; // Current value of the current line up to position
 
-        // Finds all data values from the file and put them into a vector, the values are separated by a " "
-        while ((pos = current_line.find(" ")) != std::string::npos) 
-        {
-          data_value = current_line.substr(0, pos);
-          data_values.push_back(data_value);
-          current_line.erase(0, pos + 1); // Removes the current found value
-        }
-        data_values.push_back(current_line);
-        if (data_values.size() !=3 )
-        {
-          throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, data_values.size(), "File does not have exactly 3 colums");
-        }
-        MS2Data current_data; 
-        try
-        {
-          current_data.RT = std::stod(data_values[0]);
-        }
-        catch(const std::exception& e)
-        {
-          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[0]);
-        }
-        try
-        {
-          current_data.mz = std::stod(data_values[1]);
-        }
-        catch(const std::exception& e)
-        {
-          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[1]);
-        }
-        try
-        {
-          current_data.charge = std::stoi(data_values[2]);
-        }
-        catch(const std::exception& e)
-        {
-          throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to integer", data_values[2]);
-        }
-        current_data.index = index;
-        result.push_back(current_data);
-        index++;
+      // Finds all data values from the file and put them into a vector, the values are separated by a " "
+      while ((pos = current_line.find(" ")) != std::string::npos) 
+      {
+        data_value = current_line.substr(0, pos);
+        data_values.push_back(data_value);
+        current_line.erase(0, pos + 1); // Removes the current found value
       }
+      data_values.push_back(current_line);
+      if (data_values.size() !=3 )
+      {
+        throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, data_values.size(), "File does not have exactly 3 colums");
+      }
+      MS2Data current_data; 
+      try
+      {
+        current_data.RT = std::stod(data_values[0]);
+      }
+      catch(const std::exception& e)
+      {
+        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[0]);
+      }
+      try
+      {
+        current_data.mz = std::stod(data_values[1]);
+      }
+      catch(const std::exception& e)
+      {
+        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[1]);
+      }
+      try
+      {
+        current_data.charge = std::stoi(data_values[2]);
+      }
+      catch(const std::exception& e)
+      {
+        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to integer", data_values[2]);
+      }
+      current_data.index = index;
+      result.push_back(current_data);
+      index++;
     }
+
     return result;
   }
 } // namespace OpenMS

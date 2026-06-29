@@ -11,63 +11,60 @@
 #include <OpenMS/CONCEPT/LogStream.h>
 #include <OpenMS/CONCEPT/Types.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/KERNEL/FeatureMap.h>
 #include <OpenMS/CONCEPT/LogStream.h>
-#include <iostream>
-#include <fstream>
 
 namespace OpenMS
 {
 
+  class MSExperiment;
   /**
-  @brief struct which contains the relevant data of a scan for silac detection
+    @brief struct which contains the relevant data of a scan for SILAC detection
 
-  See @ref SILACDetector
+    See @ref SILACDetector
   */
   struct MS2Data
   {
     double RT;
     double mz;
     int charge;
-    int index;
+    int index; ///< index of the scan in the original MSExperiment, used to identify the scan in the MSExperiment
   };
+
+
+
   /** 
-  @ingroup Metadata
+    @ingroup Metadata
 
-  
-
-  @brief This class is used to detect whether a dataset from a MSexperiment is a SILAC dataset or not
-  */
-  
+    @brief This class is used to detect whether a dataset from a MSexperiment is a SILAC dataset or not
+  */  
   class OPENMS_DLLAPI SILACDetector 
   {
 
 public:
   
   /**
-  @brief Determines if a dataset is a SILAC dataset
+    @brief Determines if a dataset is a SILAC dataset
 
-  It counts the distances of 4 aminoacid-isotopes and compares them to the distribution of control distances.
-  The SILAC distances are:
+    It counts the distances of 4 aminoacid-isotopes and compares them to the distribution of control distances.
+    The SILAC distances are:
 
-  - 4 for medium lysine (K4)
-  - 6 for medium arginine (R6) or heavy lysine (K6)
-  - 8 for heavy lysine (K8)
-  - 10 for heavy arginin (R10)
+    - 4 for medium lysine (K4)
+    - 6 for medium arginine (R6) or heavy lysine (K6)
+    - 8 for heavy lysine (K8)
+    - 10 for heavy arginin (R10)
 
-  Control distances: 11, 14, 15, 21, 23, 27
+    Control distances: 11, 14, 15, 21, 23, 27
 
-  The z-scores and p-values will be saved inside the SILACDetector object for each SILAC distance
+    The z-scores and p-values will be saved inside the SILACDetector object for each SILAC distance
 
-  The code is based of the code from the param-medic GitHub page: https://github.com/dhmay/param-medic/blob/master/parammedic/mod_inference.py
+    The code is based on param-medic (https://github.com/dhmay/param-medic/blob/master/parammedic/mod_inference.py)
+    but heavily modified (classification performance is a lot better).
 
-  @param MS2Scans A vector of the relevant data of the MS2 scans of an experiment (RT, mz, charge). The vector can be created from an MSExperiment using the msExperimentToMS2Data() function
-  @return True if p-value of any SILAC distance is significant on level 0.0125 (1.25%), false if none are significant
-  @throw Exception::InvalidValue Throws an exception if the input vector is empty and if no counts are counted for the control distances
-  @throw Exception::NotSorted Throws an exception if the input data is not sorted by retention time
+    @param MS2Scans A vector of the relevant data of the MS2 scans of an experiment (RT, mz, charge). The vector can be created from an MSExperiment using the msExperimentToMS2Data() function
+    @return True if p-value of any SILAC distance is significant on level 0.0125 (1.25%), false if none are significant (or the input vector is empty)
   */
-  bool detectSILAC(const std::vector<MS2Data> MS2Scans);
+  bool detectSILAC(std::vector<MS2Data> MS2Scans);
 
   /// Returns the z-scores of the SILAC distances
   std::vector<double> getZScores() const;
@@ -106,7 +103,7 @@ public:
   bool getIsSILAC() const;
 
   /// Returns vector wich contains whether a distance is significant or not(1 if significant, 0 if not sigificant)
-  std::vector<bool> getSignificantDistances() const;
+  const std::vector<bool>& getSignificantDistances() const;
 
   /// Ostream iterator to write the statistical data to a stream
   friend OPENMS_DLLAPI std::ostream& operator<<(std::ostream& os, const SILACDetector& silac_statistic);
@@ -121,7 +118,7 @@ public:
   @param filename The name of the file to store the data in 
   @throw Exception::InvalidValue Throws an exception if the experiment is empty or if the experiment does not contain any MS2 scans
    */
-  void storeMS2Data(MSExperiment experiment, const std::string filename) const;
+  void storeMS2Data(const MSExperiment& experiment, const std::string& filename) const;
 
   /**
   @brief Takes the relevant data of an MSExperiment for a SILACDetector anlysis and returns it in a vector
@@ -129,7 +126,7 @@ public:
   @return A vector with the relevant MS2Data (RT, mz, charge) for SILACDetector
   @throw Exception::InvalidValue Throws an exception if the experiment is empty or if the experiment does not contain any MS2 scans
    */
-  std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment) const;
+  std::vector<MS2Data> msExperimentToMS2Data(const MSExperiment& experiment) const;
 
   /**
   @brief Takes a txt file with the relevant MS2Data and stores them into a vector
@@ -147,7 +144,7 @@ public:
   @throw Exception::InvalidSize Throws an exception if the file does not contain exactly 3 columns
   @throw Exception::InvalidValue Throws an exception if the data inside the file can not be converted into doubles (RT or mz) or int (charge)
    */
-  std::vector<MS2Data> txtFileToMS2Data(const std::string file_name) const;
+  std::vector<MS2Data> txtFileToMS2Data(const std::string& file_name) const;
 
 private:
 
@@ -158,7 +155,7 @@ private:
   std::vector<double> p_values_ = {NAN,NAN,NAN,NAN};
 
   /// Significance level as a cut off value
-  double significance_level_ = 0.05;
+  double significance_level_ = 0.0125;
 
   /// True if the dataset is likely a SILAC dataset, false otherwise
   bool is_silac_ = false;

@@ -12,6 +12,8 @@
 #include <OpenMS/METADATA/SILACDetector.h>
 ///////////////////////////
 
+#include <OpenMS/KERNEL/MSExperiment.h> // SILACDetector.h only forward-declares MSExperiment
+
 using namespace OpenMS;
 using namespace std;
 
@@ -36,24 +38,29 @@ SILACDetector test;
 std::vector<MS2Data> example_data = test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACTestData.txt"));
 SILACDetector test_2;
 
-START_SECTION(bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2experiments))
+START_SECTION(bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2Scans))
 {
   bool test_result = test.detectSILAC(example_data);
   TEST_EQUAL(test_result, 1)
+  // edge cases are handled gracefully (no exceptions). Use a throwaway detector so the example_data
+  // results stored in 'test' (checked by the getter sections below) are not overwritten.
+  SILACDetector edge;
+  // empty input -> no significant distances -> false
   std::vector<MS2Data> test_empty;
-  TEST_EXCEPTION(Exception::InvalidValue, test.detectSILAC(test_empty))
+  TEST_EQUAL(edge.detectSILAC(test_empty), false)
   MS2Data control_test;
   control_test.charge = 1;
   control_test.mz = 1;
   control_test.RT = 1;
   control_test.index = 0;
+  // no counts for any control distance -> pseudo counts are used -> false (no exception)
   std::vector<MS2Data> no_control_count_test = {control_test};
-  TEST_EXCEPTION_WITH_MESSAGE(Exception::InvalidValue,test.detectSILAC(no_control_count_test),
-  "the value '' was used but is not valid; No counts for control distances found")
+  TEST_EQUAL(edge.detectSILAC(no_control_count_test), false)
+  // unsorted input is sorted internally (no exception)
   MS2Data sort_test = control_test;
   sort_test.RT = 0.5;
   no_control_count_test.push_back(sort_test);
-  TEST_EXCEPTION(Exception::NotSorted, test.detectSILAC(no_control_count_test))
+  TEST_EQUAL(edge.detectSILAC(no_control_count_test), false)
 }
 END_SECTION
 
@@ -129,7 +136,7 @@ START_SECTION(bool getIsSILAC() const)
 }
 END_SECTION
 
-START_SECTION(std::vector<bool> getSignificantDistances() const)
+START_SECTION(const std::vector<bool>& getSignificantDistances() const)
 {
   bool a = test.getSignificantDistances()[0];
   TEST_EQUAL(a, 0)
@@ -147,7 +154,7 @@ START_SECTION(void SILACDetector::storeMS2Data(MSExperiment experiment, String f
 {
   MzMLFile myfile = MzMLFile();
   MSExperiment experiment = MSExperiment();
-  TEST_EXCEPTION(Exception::InvalidValue, test.msExperimentToMS2Data(experiment))
+  TEST_EXCEPTION(Exception::InvalidValue, test.storeMS2Data(experiment, OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"))) // empty experiment -> throws
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_1.mzML"),experiment);
   test.storeMS2Data(experiment, OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
   std::vector<MS2Data> output = test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
@@ -159,7 +166,7 @@ START_SECTION(std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment
 {
   MzMLFile myfile = MzMLFile();
   MSExperiment experiment = MSExperiment();
-  TEST_EXCEPTION(Exception::InvalidValue, test.msExperimentToMS2Data(experiment))
+  TEST_EQUAL(test.msExperimentToMS2Data(experiment).empty(), true) // empty experiment -> empty result (no exception)
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_1.mzML"),experiment);
   std::vector<MS2Data> output = test.msExperimentToMS2Data(experiment);
   TEST_REAL_SIMILAR(output[0].RT, 5.2)
