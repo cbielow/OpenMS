@@ -24,6 +24,7 @@ FeatureXMLFile.cpp
 FLASHDeconvFeatureFile.cpp
 FLASHDeconvSpectrumFile.cpp
 FileHandler.cpp
+FileInfo.cpp
 FileTypes.cpp
 GNPSMetaValueFile.cpp
 GNPSMGFFile.cpp
@@ -95,6 +96,7 @@ TraMLFile.cpp
 TransformationXMLFile.cpp
 TriqlerFile.cpp
 UnimodXMLFile.cpp
+UniProtXMLFile.cpp
 XMassFile.cpp
 XMLFile.cpp
 XQuestResultXMLFile.cpp

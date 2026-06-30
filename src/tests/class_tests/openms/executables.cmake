@@ -136,6 +136,7 @@ set(metadata_executables_list
   )
 
 set(system_executables_list
+  BuildInfo_test
   ExternalProcess_test
   File_test
   Network_test
@@ -180,6 +181,7 @@ set(kernel_executables_list
   RichPeak2D_test
   StandardTypes_test
   SpectrumHelper_test
+  SpectrumRangeManager_test
 )
 
 set(format_executables_list
@@ -208,6 +210,7 @@ set(format_executables_list
   FLASHDeconvSpectrumFile_test
   FLASHHelperClasses_test
   FileHandler_test
+  FileInfo_test
   FileTypes_test
   GNPSMetaValueFile_test
   GNPSQuantificationFile_test
@@ -295,6 +298,7 @@ set(format_executables_list
   TransformationXMLFile_test
   TriqlerFile_test
   UnimodXMLFile_test
+  UniProtXMLFile_test
   XMassFile_test
   XMLFile_test
   XMLHandler_test
@@ -318,6 +322,7 @@ set(format_executables_list
   SpectrumAccessSqMass_test
   SpectrumAccessOpenMS_test
   SpectrumAccessOpenMSInMemory_test
+  MRMFeatureAccessOpenMS_test
   SiriusFragmentAnnotation_test
 )
 
@@ -335,7 +340,8 @@ list(APPEND format_executables_list Arrow_test MSExperimentArrowExport_test Cons
   FeatureMapArrowIO_test
   ConsensusMapArrowIO_test
   PSMArrowIO_test
-  ArrowSchemaRegistry_test)
+  ArrowSchemaRegistry_test
+  ArrowIOHelpers_test)
 
 set(math_executables_list
   BasicStatistics_test
@@ -535,6 +541,8 @@ set(analysis_executables_list
   FeatureGroupingAlgorithmQT_test
   FeatureGroupingAlgorithmUnlabeled_test
   FeatureGroupingAlgorithm_test
+  PipEchoAlgorithm_test
+  PipEchoAlgorithm_realistic_test
   FeatureHandle_test
   FIAMSDataProcessor_test
   FIAMSScheduler_test
@@ -751,6 +759,7 @@ if(NOT DISABLE_OPENSWATH)
   list(APPEND swath_executables_list OpenSwathOSWParquetReader_test)
   list(APPEND swath_executables_list OpenSwathOSWParquetWriter_test)
   list(APPEND format_executables_list OpenSwathOSWParquetRoundTrip_test)
+  list(APPEND swath_executables_list OpenSwathParquetExporter_test)
 endif()
 
 set(Boost_dependent_tests
