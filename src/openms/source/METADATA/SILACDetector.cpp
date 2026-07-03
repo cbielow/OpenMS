@@ -6,13 +6,12 @@
 // $Authors: Markus Apel, Nora Heese $
 // --------------------------------------------------------------------------
 
-#include <OpenMS/CONCEPT/Constants.h>
-#include <OpenMS/KERNEL/DPeak.h>
-#include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/METADATA/SILACDetector.h>
 
+#include <OpenMS/CONCEPT/LogStream.h>
+#include <OpenMS/KERNEL/MSExperiment.h>
+
 #include <algorithm>
-#include <float.h>
 #include <fstream>
 
 namespace OpenMS
@@ -36,8 +35,8 @@ namespace OpenMS
                                                 // Control counts
                                                 11, 0, 0, 14, 15, 0 ,0 ,0 ,0 ,0 ,21 ,0 ,23 ,0 ,0 ,0 , 27};
     
-    const std::vector<int> control_distances = {11, 14, 15, 21, 23, 27};
-    const std::vector<int> silac_distances = {4, 6, 8, 10};
+    const std::array<int, 6> control_distances = {11, 14, 15, 21, 23, 27};
+    const std::array<int, 4> silac_distances = {4, 6, 8, 10};
 
     std::map<int,int> distance_count = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
     const double RT_window = 5; // The size of the window in seconds of the retention time to compare after the current MS2 scan
@@ -97,7 +96,6 @@ namespace OpenMS
       control_sd = 1.0;
     }
 
-    distance_count_ = distance_count;
     z_scores_.clear();
     p_values_.clear();
     is_silac_ = false;
@@ -249,6 +247,7 @@ namespace OpenMS
       throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "Dataset does not contain any MS2 scans", "");
     }
 
+    Int32 zero_charge_found {0};
     std::vector<MS2Data> MS2Scans;
     for (const auto& spectrum : experiment)
     {
@@ -258,73 +257,23 @@ namespace OpenMS
         current_MS2_scan.RT = spectrum.getRT();
         current_MS2_scan.mz = spectrum.getPrecursors()[0].getMZ();
         current_MS2_scan.charge = spectrum.getPrecursors()[0].getCharge();
+        if (current_MS2_scan.charge == 0)
+        { // detection with charge 0 will not work for precursors with true charge 2(or above), since the mass difference computation needs a charge
+          // charge=0 happens with old WIFF files + msconvert (even in 03/2026)
+          ++zero_charge_found;
+          current_MS2_scan.charge = 2; // hack, but we cannot to much else here. See below for user warning message
+        }
         MS2Scans.push_back(current_MS2_scan);
       }
     }
+    if (zero_charge_found)
+    {
+      OPENMS_LOG_WARN << "SILACDetector: " << (zero_charge_found == MS2Scans.size() ? "All" : "Some") << 
+                         " MS2 scans had charge 0, which is not supported for SILAC detection.These scans were treated as"
+                         " charge 2, but the results may be inaccurate. Please check your data and conversion settings."
+                      << std::endl;
+    }
     return MS2Scans;
-  }
-
-  std::vector<MS2Data> SILACDetector::txtFileToMS2Data(const std::string& file_name) const
-  {
-    if (!file_name.ends_with(".txt"))
-    {
-      throw Exception::InvalidFileType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name, "file is not a txt file");
-    }
-    std::vector<MS2Data> result;
-    std::ifstream input_file (file_name);
-    std::string current_line;
-    if (!input_file.is_open())
-    {
-      throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name);
-    }
-    while (input_file.peek()!=EOF)
-    {    
-      std::getline (input_file, current_line);
-      std::vector<std::string> data_values; // Values of the current line from the file (RT, mz, charge)
-      size_t pos = 0; // Current position in the line
-      std::string data_value; // Current value of the current line up to position
-
-      // Finds all data values from the file and put them into a vector, the values are separated by a " "
-      while ((pos = current_line.find(" ")) != std::string::npos) 
-      {
-        data_value = current_line.substr(0, pos);
-        data_values.push_back(data_value);
-        current_line.erase(0, pos + 1); // Removes the current found value
-      }
-      data_values.push_back(current_line);
-      if (data_values.size() !=3 )
-      {
-        throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, data_values.size(), "File does not have exactly 3 colums");
-      }
-      MS2Data current_data; 
-      try
-      {
-        current_data.RT = std::stod(data_values[0]);
-      }
-      catch(const std::exception& e)
-      {
-        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[0]);
-      }
-      try
-      {
-        current_data.mz = std::stod(data_values[1]);
-      }
-      catch(const std::exception& e)
-      {
-        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[1]);
-      }
-      try
-      {
-        current_data.charge = std::stoi(data_values[2]);
-      }
-      catch(const std::exception& e)
-      {
-        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to integer", data_values[2]);
-      }
-      result.push_back(current_data);
-    }
-
-    return result;
   }
 } // namespace OpenMS
 

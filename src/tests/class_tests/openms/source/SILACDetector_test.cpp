@@ -14,27 +14,107 @@
 
 #include <OpenMS/KERNEL/MSExperiment.h> // SILACDetector.h only forward-declares MSExperiment
 
+#include <fstream>
+
 using namespace OpenMS;
 using namespace std;
 
+namespace
+{
+  /**
+    @brief Test helper: reads a txt file with the relevant MS2Data into a vector.
+
+    The txt-file needs to have 3 columns, separated by one space:
+    - first column: retention time (RT)
+    - second column: mass to charge ratio (mz)
+    - third column: charge
+
+    @throw Exception::InvalidFileType if the input file is not a txt file
+    @throw Exception::FileNotFound if the file can not be found
+    @throw Exception::InvalidSize if the file does not contain exactly 3 columns
+    @throw Exception::InvalidValue if the data inside the file can not be converted into doubles (RT or mz) or int (charge)
+  */
+  std::vector<MS2Data> txtFileToMS2Data(const std::string& file_name)
+  {
+    if (!file_name.ends_with(".txt"))
+    {
+      throw Exception::InvalidFileType(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name, "file is not a txt file");
+    }
+    std::vector<MS2Data> result;
+    std::ifstream input_file (file_name);
+    std::string current_line;
+    if (!input_file.is_open())
+    {
+      throw Exception::FileNotFound(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, file_name);
+    }
+    while (input_file.peek()!=EOF)
+    {
+      std::getline (input_file, current_line);
+      std::vector<std::string> data_values; // Values of the current line from the file (RT, mz, charge)
+      size_t pos = 0; // Current position in the line
+      std::string data_value; // Current value of the current line up to position
+
+      // Finds all data values from the file and put them into a vector, the values are separated by a " "
+      while ((pos = current_line.find(" ")) != std::string::npos)
+      {
+        data_value = current_line.substr(0, pos);
+        data_values.push_back(data_value);
+        current_line.erase(0, pos + 1); // Removes the current found value
+      }
+      data_values.push_back(current_line);
+      if (data_values.size() !=3 )
+      {
+        throw Exception::InvalidSize(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, data_values.size(), "File does not have exactly 3 colums");
+      }
+      MS2Data current_data;
+      try
+      {
+        current_data.RT = std::stod(data_values[0]);
+      }
+      catch(const std::exception& e)
+      {
+        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[0]);
+      }
+      try
+      {
+        current_data.mz = std::stod(data_values[1]);
+      }
+      catch(const std::exception& e)
+      {
+        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to double", data_values[1]);
+      }
+      try
+      {
+        current_data.charge = std::stoi(data_values[2]);
+      }
+      catch(const std::exception& e)
+      {
+        throw Exception::InvalidValue(__FILE__, __LINE__, OPENMS_PRETTY_FUNCTION, "could not convert value to integer", data_values[2]);
+      }
+      result.push_back(current_data);
+    }
+
+    return result;
+  }
+} // namespace
+
 START_TEST(SILACDetector, "$Id$")
 
-START_SECTION(std::vector<MS2Data> txtFileToMS2Data(std::string file_name))
+START_SECTION([EXTRA] std::vector<MS2Data> txtFileToMS2Data(std::string file_name))
 {
-  SILACDetector test;
-  std::vector<MS2Data> example_data = test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACTestData.txt"));
+  std::vector<MS2Data> example_data = txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACTestData.txt"));
   TEST_REAL_SIMILAR(example_data[0].mz, 964.2548828125)
   TEST_REAL_SIMILAR(example_data[0].RT, 0.52840948799999998)
   TEST_EQUAL(example_data[0].charge, 2)
-  TEST_EXCEPTION(Exception::InvalidFileType, test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("20171013_HMP_C61_ISO_P1_GA1_UV_VIS_2.mzML")))
-  TEST_EXCEPTION(Exception::InvalidSize, test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("BSpline2d_test_sinus.txt")))
-  TEST_EXCEPTION(Exception::InvalidValue, test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILAC_exception_test.txt")))
-  TEST_EXCEPTION(Exception::FileNotFound, test.txtFileToMS2Data("fkwjks.txt"))
+  TEST_EXCEPTION(Exception::InvalidFileType, txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("20171013_HMP_C61_ISO_P1_GA1_UV_VIS_2.mzML")))
+  TEST_EXCEPTION(Exception::InvalidSize, txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("BSpline2d_test_sinus.txt")))
+  TEST_EXCEPTION(Exception::InvalidValue, txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILAC_exception_test.txt")))
+  TEST_EXCEPTION(Exception::FileNotFound, txtFileToMS2Data("fkwjks.txt"))
 }
 END_SECTION
 
 SILACDetector test;
-std::vector<MS2Data> example_data = test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACTestData.txt"));
+std::vector<MS2Data> example_data = txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACTestData.txt"));
 SILACDetector test_2;
 
 START_SECTION(bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2Scans))
@@ -155,7 +235,7 @@ START_SECTION(void SILACDetector::storeMS2Data(MSExperiment experiment, String f
   TEST_EXCEPTION(Exception::InvalidValue, test.storeMS2Data(experiment, OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"))) // empty experiment -> throws
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_1.mzML"),experiment);
   test.storeMS2Data(experiment, OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
-  std::vector<MS2Data> output = test.txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
+  std::vector<MS2Data> output = txtFileToMS2Data(OPENMS_GET_TEST_DATA_PATH("SILACstoreTest.txt"));
   TEST_REAL_SIMILAR(output[0].RT, 5.2000000000000002);
 }
 END_SECTION

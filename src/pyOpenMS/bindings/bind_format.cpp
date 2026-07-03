@@ -3048,6 +3048,7 @@ or chromatograms only (SRM/MRM) and forwards to the appropriate loader.
           .def_ro("detail", &FileInfo::Result::detail)
           .def_ro("transformation_summary", &FileInfo::Result::transformation_summary)
           .def_ro("targeted_summary", &FileInfo::Result::targeted_summary)
+          .def_ro("labelling", &FileInfo::Result::labelling)
           .def_ro("text", &FileInfo::Result::text)
           .def_ro("tsv", &FileInfo::Result::tsv);
 
@@ -3062,7 +3063,8 @@ or chromatograms only (SRM/MRM) and forwards to the appropriate loader.
           .def_rw("detailed", &FileInfo::Options::detailed)
           .def_rw("check_corrupt", &FileInfo::Options::check_corrupt)
           .def_rw("validate", &FileInfo::Options::validate)
-          .def_rw("check_index", &FileInfo::Options::check_index);
+          .def_rw("check_index", &FileInfo::Options::check_index)
+          .def_rw("detect_labelling", &FileInfo::Options::detect_labelling);
 
       fi.def(nb::init<>())
         .def("__copy__", [](const FileInfo& self){ return FileInfo(self); })

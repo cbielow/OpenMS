@@ -70,8 +70,6 @@ distances (param-medic style) over the MS2 scans and comparing the SILAC distanc
             "ms2_scans"_a, "Run SILAC detection on the MS2 scan data; returns True if any SILAC distance is significant")
         .def("msExperimentToMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::MSExperiment& exp) { return self.msExperimentToMS2Data(exp); },
             "exp"_a, "Extract the relevant (RT, m/z, charge) MS2 data for SILAC detection from an experiment")
-        .def("txtFileToMS2Data", [](const OpenMS::SILACDetector& self, const std::string& file_name) { return self.txtFileToMS2Data(file_name); },
-            "file_name"_a, "Read MS2 scan data (RT m/z charge, space-separated) from a .txt file")
         .def("storeMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::MSExperiment& exp, const std::string& filename) { self.storeMS2Data(exp, filename); },
             "exp"_a, "filename"_a, "Write the experiment's MS2 (RT m/z charge) data to a .txt file")
         .def("getZScores", [](const OpenMS::SILACDetector& self) { return self.getZScores(); }, "z-scores of the SILAC distances (4, 6, 8, 10)")

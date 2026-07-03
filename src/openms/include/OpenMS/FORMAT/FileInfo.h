@@ -9,6 +9,7 @@
 #pragma once
 
 #include <OpenMS/config.h>
+#include <OpenMS/ANALYSIS/QUANTITATION/LabellingDetector.h> // labelling detection (isobaric + SILAC)
 #include <OpenMS/CONCEPT/Types.h>           // Int / UInt / UInt64
 #include <OpenMS/FORMAT/FileTypes.h>
 #include <OpenMS/MATH/StatisticFunctions.h> // Math::SummaryStatistics
@@ -233,6 +234,7 @@ namespace OpenMS
       DetailInfo                    detail;
       std::string                   transformation_summary; ///< trafoXML: model + printSummary
       std::string                   targeted_summary;       ///< PQP: getSummary()
+      std::optional<LabellingDetector::Result> labelling;   ///< -detect_labelling; only filled for peak files with spectra
 
       /// Human-readable rendering, identical to the FileInfo CLI @c -out output (filled by run()).
       std::string                   text;
@@ -251,6 +253,7 @@ namespace OpenMS
       bool check_corrupt = false; ///< -c
       bool validate = false;      ///< -v
       bool check_index = false;   ///< -i
+      bool detect_labelling = false; ///< -detect_labelling (isobaric TMT/iTRAQ + SILAC; peak files only)
     };
 
     // ---------------------------------------------------------------------

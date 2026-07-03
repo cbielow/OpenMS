@@ -7,16 +7,14 @@
 // --------------------------------------------------------------------------
  
 #pragma once
- 
-#include <OpenMS/CONCEPT/LogStream.h>
-#include <OpenMS/CONCEPT/Types.h>
-#include <OpenMS/FORMAT/MzMLFile.h>
-#include <OpenMS/KERNEL/FeatureMap.h>
-#include <OpenMS/CONCEPT/LogStream.h>
+
+#include <OpenMS/OpenMSConfig.h>
+#include <string>
+#include <vector>
+#include <iosfwd>
 
 namespace OpenMS
 {
-
   class MSExperiment;
   /**
     @brief struct which contains the relevant data of a scan for SILAC detection
@@ -29,8 +27,6 @@ namespace OpenMS
     double mz;
     int charge;
   };
-
-
 
   /** 
     @ingroup Metadata
@@ -127,31 +123,13 @@ public:
    */
   std::vector<MS2Data> msExperimentToMS2Data(const MSExperiment& experiment) const;
 
-  /**
-  @brief Takes a txt file with the relevant MS2Data and stores them into a vector
-
-  The txt-file needs to have 3 columns, seperated by one space:
-
-  - first column: retention time (RT)
-  - second column: mass to charge ratio (mz)
-  - third column: charge
-
-  @param file_name The name of the input file which contains the MS2Data
-  @return A vector of MS2Data for SILACDetector from the file
-  @throw Exception::InvalidFileType Throws an exception if the input file is not a txt file
-  @throw Exception::FileNotFound Throws an exception if the file can not be found
-  @throw Exception::InvalidSize Throws an exception if the file does not contain exactly 3 columns
-  @throw Exception::InvalidValue Throws an exception if the data inside the file can not be converted into doubles (RT or mz) or int (charge)
-   */
-  std::vector<MS2Data> txtFileToMS2Data(const std::string& file_name) const;
-
 private:
 
   /// Stores the z scores for the distances (4, 6, 8, 10)
-  std::vector<double> z_scores_ = {NAN,NAN,NAN,NAN};
+  std::vector<double> z_scores_;
 
   /// Stores the p values for the distances (4, 6, 8, 10)
-  std::vector<double> p_values_ = {NAN,NAN,NAN,NAN};
+  std::vector<double> p_values_;
 
   /// Significance level as a cut off value
   double significance_level_ = 0.0125;
@@ -160,10 +138,6 @@ private:
   bool is_silac_ = false;
 
   /// Stores which distances are significant or not (for 4, 6, 8, 10), true is significant, false is not significant
-  std::vector<bool> significant_distances_ = {0, 0, 0, 0};
-
-  /// Map for counting the detected distances for both relevant and control distances
-  std::map<int,int> distance_count_ = {{4,0},{6,0},{8,0},{10,0},{11,0},{14,0},{15,0},{21,0},{23,0},{27,0}};
-
+  std::vector<bool> significant_distances_;
   };
 } // namespace OpenMS

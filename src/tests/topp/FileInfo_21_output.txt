@@ -1,0 +1,29 @@
+
+-- General information --
+
+File name: C:\dev\openms\src\tests\topp\TMTTenPlexMethod_test.mzML
+File type: mzML
+
+Candidate isobaric kits (by score):
+  TMT 10-plex (10 channels): score 23.3%, %labeled-spectra[126.0 - 131.2]=83.3% [>20], explained-signal-fraction 83.2% (covers 10 of detected channels)
+  TMT 11-plex (11 channels): score 21.2%, %labeled-spectra[126.0 - 131.2]=83.3% [>20], explained-signal-fraction 83.2% (covers 10 of detected channels)
+  TMT 16-plex (16 channels): score 14.6%, %labeled-spectra[126.0 - 134.2]=83.3% [>20], explained-signal-fraction 83.2% (covers 10 of detected channels)
+  TMT 6-plex (6 channels): score 14.0%, %labeled-spectra[126.0 - 131.2]=66.7% [>20], explained-signal-fraction 53.2% (covers 6 of detected channels, too small)
+  TMT 18-plex (18 channels): score 13.0%, %labeled-spectra[126.0 - 135.3]=83.3% [>20], explained-signal-fraction 83.2% (covers 10 of detected channels)
+  TMT 32-plex (32 channels): score 7.3%, %labeled-spectra[126.0 - 135.3]=83.3% [>20], explained-signal-fraction 83.2% (covers 10 of detected channels)
+  TMT 35-plex (35 channels): score 6.7%, %labeled-spectra[126.0 - 135.3]=83.3% [>20], explained-signal-fraction 83.2% (covers 10 of detected channels)
+  iTRAQ 4-plex (4 channels): score 0.0%, %labeled-spectra[114.0 - 117.2]=0.0% [>20 ?REJECTED], explained-signal-fraction 0.0% (covers 0 of detected channels, too small)
+  iTRAQ 8-plex (8 channels): score 0.0%, %labeled-spectra[113.0 - 121.2]=0.0% [>20 ?REJECTED], explained-signal-fraction 0.0% (covers 0 of detected channels, too small)
+
+-- Labelling detection --
+Isobaric (TMT/iTRAQ): TMT 10-plex
+SILAC: not detected
+
+Distance 4: Z-score: -1 - p-value: 0.841345
+Distance 6: Z-score: -1 - p-value: 0.841345
+Distance 8: Z-score: -1 - p-value: 0.841345
+Distance 10: Z-score: -1 - p-value: 0.841345
+
+Null hypothesis was not rejected on significance level 0.0125
+
+Conclusion: TMT 10-plex

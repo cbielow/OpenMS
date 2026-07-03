@@ -1534,6 +1534,46 @@ namespace OpenMS
       // update range information and retrieve which MS levels were recorded
       exp.updateRanges();
 
+      // Labelling detection (isobaric TMT/iTRAQ + SILAC) is a focused mode: when requested we report
+      // only the labelling verdict and skip the remaining peak-file sections.
+      if (options.detect_labelling)
+      {
+        os << '\n';
+        if (exp.empty())
+        {
+          os << "-- Labelling detection --\nNo spectra available - labelling detection requires a peak (MS) file with MS2 spectra.\n";
+          return;
+        }
+        // per-channel isobaric stats and per-distance SILAC stats are also logged via LOG_INFO;
+        // here we summarize into the FileInfo output streams and the structured Result.
+        const IsobaricKitDetection::Parameters ikd_params;
+        LabellingDetector::Result lr = LabellingDetector::detect(exp, ikd_params);
+
+        // detailed isobaric candidate list
+        if (!lr.isobaric_candidates.empty())
+        {
+          const std::string ikd_thr = StringUtils::number(ikd_params.min_valid_spectra_fraction * 100.0, 0);
+          os << "Candidate isobaric kits (by score):\n";
+          for (const auto& kr : lr.isobaric_candidates)
+          {
+            const std::string kit_name = IsobaricKitDetection::methodName(kr.type);
+            os << "  " << kit_name << " (" << kr.num_channels << " channels): score " << StringUtils::number(kr.score * 100.0, 1) << "%"
+               << ", %labeled-spectra[" << StringUtils::number(kr.region_low, 1) << " - " << StringUtils::number(kr.region_high, 1) << "]="
+               << StringUtils::number(kr.labeled_spectra_fraction * 100.0, 1) << "% [>" << ikd_thr << (kr.is_valid ? "" : " ?REJECTED") << "]"
+               << ", explained-signal-fraction " << StringUtils::number(kr.explained_signal_fraction * 100.0, 1) << "%"
+               << " (covers " << kr.num_covered << " of detected channels" << (kr.num_uncovered > 0 ? ", too small)" : ")") << '\n';
+            os_tsv << "isobaric kit" << '\t' << kit_name << '\t' << kr.score << '\t' << kr.labeled_spectra_fraction << '\t' << kr.explained_signal_fraction << '\n';
+          }
+        }
+
+        // unified verdict (isobaric + SILAC + overall conclusion)
+        os << '\n' << LabellingDetector::report(lr);
+        os_tsv << "labelling: isobaric" << '\t' << (lr.isobaric_detected ? IsobaricKitDetection::methodName(lr.isobaric_kit) : std::string("none")) << '\n';
+        os_tsv << "labelling: SILAC" << '\t' << (lr.silac_detected ? "detected" : (lr.silac_applicable ? "not detected" : "n/a")) << '\n';
+        r.labelling = std::move(lr);
+        return;
+      }
+
       os << '\n';
 
       os << "Instrument: " << exp.getInstrument().getName() << '\n';
