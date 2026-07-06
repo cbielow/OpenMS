@@ -1084,6 +1084,18 @@ namespace OpenMS
 
       feat.updateRanges();
 
+      // Labelling detection (SILAC only for featureXML; isobaric needs MS2/MS3 reporter-ion spectra) is a
+      // focused mode: when requested we report only the labelling verdict and skip the remaining sections.
+      if (options.detect_labelling)
+      {
+        LabellingDetector::Result lr = LabellingDetector::detect(feat);
+        os << '\n' << LabellingDetector::report(lr);
+        os_tsv << "labelling: isobaric" << '\t' << "n/a" << '\n';
+        os_tsv << "labelling: SILAC" << '\t' << (lr.silac_detected ? "detected" : (lr.silac_applicable ? "not detected" : "n/a")) << '\n';
+        r.labelling = std::move(lr);
+        return;
+      }
+
       os << "Number of features: " << feat.size() << '\n'
          << '\n';
       os_tsv << "general: number of features" << '\t'
@@ -1148,6 +1160,19 @@ namespace OpenMS
       FileHandler().loadConsensusFeatures(in, cons, {FileTypes::CONSENSUSXML});
 
       cons.updateRanges();
+
+      // Labelling detection (SILAC only for consensusXML; isobaric needs MS2/MS3 reporter-ion spectra) is a
+      // focused mode: when requested we report only the labelling verdict and skip the remaining sections.
+      // Each subfeature is one data point; consensus features without subfeatures contribute themselves.
+      if (options.detect_labelling)
+      {
+        LabellingDetector::Result lr = LabellingDetector::detect(cons);
+        os << '\n' << LabellingDetector::report(lr);
+        os_tsv << "labelling: isobaric" << '\t' << "n/a" << '\n';
+        os_tsv << "labelling: SILAC" << '\t' << (lr.silac_detected ? "detected" : (lr.silac_applicable ? "not detected" : "n/a")) << '\n';
+        r.labelling = std::move(lr);
+        return;
+      }
 
       map<Size, UInt> num_consfeat_of_size;
       map<Size, UInt> num_consfeat_of_size_with_id;

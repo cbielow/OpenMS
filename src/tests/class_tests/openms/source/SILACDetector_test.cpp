@@ -13,6 +13,9 @@
 ///////////////////////////
 
 #include <OpenMS/KERNEL/MSExperiment.h> // SILACDetector.h only forward-declares MSExperiment
+#include <OpenMS/KERNEL/ConsensusMap.h> // SILACDetector.h only forward-declares ConsensusMap
+#include <OpenMS/KERNEL/FeatureMap.h>   // SILACDetector.h only forward-declares FeatureMap
+#include <OpenMS/FORMAT/MzMLFile.h>     // used by the storeMS2Data / msExperimentToMS2Data sections
 
 #include <fstream>
 
@@ -252,6 +255,80 @@ START_SECTION(std::vector<MS2Data> msExperimentToMS2Data(MSExperiment experiment
   TEST_EQUAL(output[0].charge, 2)
   myfile.load(OPENMS_GET_TEST_DATA_PATH("MzMLFile_6_uncompressed.mzML"),experiment);
   TEST_EXCEPTION(Exception::InvalidValue, test.msExperimentToMS2Data(experiment))
+}
+END_SECTION
+
+START_SECTION(std::vector<MS2Data> featureMapToMS2Data(const FeatureMap& features) const)
+{
+  FeatureMap fm;
+  TEST_EQUAL(test.featureMapToMS2Data(fm).empty(), true) // empty map -> empty result (no exception)
+
+  Feature f1;
+  f1.setRT(100.0);
+  f1.setMZ(500.5);
+  f1.setCharge(2);
+  fm.push_back(f1);
+
+  Feature f2;
+  f2.setRT(200.0);
+  f2.setMZ(600.25);
+  f2.setCharge(0); // charge 0 is remapped to 2 (unsupported for SILAC); warns but does not throw
+  fm.push_back(f2);
+
+  std::vector<MS2Data> out = test.featureMapToMS2Data(fm); // one data point per feature
+  TEST_EQUAL(out.size(), 2)
+  TEST_REAL_SIMILAR(out[0].RT, 100.0)
+  TEST_REAL_SIMILAR(out[0].mz, 500.5)
+  TEST_EQUAL(out[0].charge, 2)
+  TEST_REAL_SIMILAR(out[1].RT, 200.0)
+  TEST_REAL_SIMILAR(out[1].mz, 600.25)
+  TEST_EQUAL(out[1].charge, 2) // remapped from 0
+}
+END_SECTION
+
+START_SECTION(std::vector<MS2Data> consensusMapToMS2Data(const ConsensusMap& consensus) const)
+{
+  ConsensusMap cm;
+  TEST_EQUAL(test.consensusMapToMS2Data(cm).empty(), true) // empty map -> empty result (no exception)
+
+  // consensus feature WITH subfeatures -> one data point per subfeature (the consensus feature's own
+  // RT/mz/charge are deliberately different to ensure the subfeatures are used, not the parent)
+  ConsensusFeature cf_sub;
+  cf_sub.setRT(999.0);
+  cf_sub.setMZ(999.0);
+  cf_sub.setCharge(9);
+  Feature sub1;
+  sub1.setRT(10.0);
+  sub1.setMZ(400.0);
+  sub1.setCharge(2);
+  Feature sub2;
+  sub2.setRT(20.0);
+  sub2.setMZ(405.0);
+  sub2.setCharge(3);
+  cf_sub.insert(0, sub1); // map index 0
+  cf_sub.insert(1, sub2); // map index 1
+  cm.push_back(cf_sub);
+
+  // consensus feature WITHOUT subfeatures -> the consensus feature itself is one data point
+  ConsensusFeature cf_bare;
+  cf_bare.setRT(50.0);
+  cf_bare.setMZ(700.0);
+  cf_bare.setCharge(4);
+  cm.push_back(cf_bare);
+
+  std::vector<MS2Data> out = test.consensusMapToMS2Data(cm);
+  TEST_EQUAL(out.size(), 3) // 2 subfeatures + 1 bare consensus feature
+  // subfeatures are stored in a set ordered by map index, so sub1 (index 0) then sub2 (index 1)
+  TEST_REAL_SIMILAR(out[0].RT, 10.0)
+  TEST_REAL_SIMILAR(out[0].mz, 400.0)
+  TEST_EQUAL(out[0].charge, 2)
+  TEST_REAL_SIMILAR(out[1].RT, 20.0)
+  TEST_REAL_SIMILAR(out[1].mz, 405.0)
+  TEST_EQUAL(out[1].charge, 3)
+  // the bare consensus feature contributes its own RT/mz/charge
+  TEST_REAL_SIMILAR(out[2].RT, 50.0)
+  TEST_REAL_SIMILAR(out[2].mz, 700.0)
+  TEST_EQUAL(out[2].charge, 4)
 }
 END_SECTION
 

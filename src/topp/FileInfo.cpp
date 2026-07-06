@@ -90,7 +90,7 @@ protected:
     registerFlag_("s", "Computes a five-number statistics of intensities, qualities, and widths");
     registerFlag_("d", "Show detailed listing of all spectra and chromatograms (peak files only)");
     registerFlag_("c", "Check for corrupt data in the file (peak files only)");
-    registerFlag_("detect_labelling", "Detect the quantitative labelling strategy: isobaric kit (TMT/iTRAQ) and/or SILAC (peak files only)");
+    registerFlag_("detect_labelling", "Detect the quantitative labelling strategy: isobaric kit (TMT/iTRAQ; peak files only) and/or SILAC (peak, featureXML and consensusXML files)");
     registerFlag_("v", "Validate the file only (for mzML, mzData, mzXML, featureXML, idXML, consensusXML, pepXML)");
     registerFlag_("i", "Check whether a given mzML file contains valid indices (conforming to the indexedmzML standard)");
   }

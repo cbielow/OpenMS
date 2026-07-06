@@ -16,6 +16,8 @@
 namespace OpenMS
 {
   class MSExperiment;
+  class FeatureMap;
+  class ConsensusMap;
   /**
     @brief struct which contains the relevant data of a scan for SILAC detection
 
@@ -122,6 +124,27 @@ public:
   @throw Exception::InvalidValue Throws an exception if the experiment is empty or if the experiment does not contain any MS2 scans
    */
   std::vector<MS2Data> msExperimentToMS2Data(const MSExperiment& experiment) const;
+
+  /**
+  @brief Takes the relevant data of a FeatureMap for a SILACDetector analysis and returns it in a vector
+
+  Each feature contributes one data point (its RT, m/z and charge).
+
+  @param features The FeatureMap from which to extract the relevant MS2Data for SILACDetector
+  @return A vector with one MS2Data entry (RT, mz, charge) per feature
+   */
+  std::vector<MS2Data> featureMapToMS2Data(const FeatureMap& features) const;
+
+  /**
+  @brief Takes the relevant data of a ConsensusMap for a SILACDetector analysis and returns it in a vector
+
+  Each subfeature of a consensus feature contributes one data point (its RT, m/z and charge). If a
+  consensus feature has no subfeatures, the consensus feature itself is used as a single data point.
+
+  @param consensus The ConsensusMap from which to extract the relevant MS2Data for SILACDetector
+  @return A vector with one MS2Data entry (RT, mz, charge) per subfeature (or per consensus feature if it has none)
+   */
+  std::vector<MS2Data> consensusMapToMS2Data(const ConsensusMap& consensus) const;
 
 private:
 

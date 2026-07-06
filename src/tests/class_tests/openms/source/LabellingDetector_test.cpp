@@ -14,6 +14,8 @@
 ///////////////////////////
 
 #include <OpenMS/ANALYSIS/QUANTITATION/TMTMasses.h>
+#include <OpenMS/KERNEL/ConsensusMap.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/KERNEL/MSSpectrum.h>
 
@@ -76,6 +78,59 @@ START_SECTION((static Result detect(const PeakMap& exp, const IsobaricKitDetecti
 }
 END_SECTION
 
+START_SECTION((static Result detect(const FeatureMap& features)))
+{
+  FeatureMap fm;
+  for (Size i = 0; i < 5; ++i)
+  {
+    Feature f;
+    f.setRT(static_cast<double>(i));
+    f.setMZ(500.0 + i);
+    f.setCharge(2);
+    fm.push_back(f);
+  }
+  auto r = LabellingDetector::detect(fm);
+  TEST_FALSE(r.isobaric_applicable) // featureXML has no MS2 reporter-ion spectra
+  TEST_FALSE(r.isobaric_detected)
+  TEST_TRUE(r.silac_applicable)     // SILAC could be run (features present)
+
+  // empty map -> SILAC not applicable, isobaric not applicable
+  auto r_empty = LabellingDetector::detect(FeatureMap());
+  TEST_FALSE(r_empty.isobaric_applicable)
+  TEST_FALSE(r_empty.silac_applicable)
+  TEST_TRUE(r_empty.isLabelFree())
+}
+END_SECTION
+
+START_SECTION((static Result detect(const ConsensusMap& consensus)))
+{
+  ConsensusMap cm;
+  for (Size i = 0; i < 5; ++i)
+  {
+    ConsensusFeature cf;
+    cf.setRT(static_cast<double>(i));
+    cf.setMZ(500.0 + i);
+    cf.setCharge(2);
+    Feature sub;
+    sub.setRT(static_cast<double>(i));
+    sub.setMZ(500.0 + i);
+    sub.setCharge(2);
+    cf.insert(0, sub); // one subfeature -> one data point
+    cm.push_back(cf);
+  }
+  auto r = LabellingDetector::detect(cm);
+  TEST_FALSE(r.isobaric_applicable) // consensusXML has no MS2 reporter-ion spectra
+  TEST_FALSE(r.isobaric_detected)
+  TEST_TRUE(r.silac_applicable)     // SILAC could be run (consensus features present)
+
+  // empty map -> nothing applicable
+  auto r_empty = LabellingDetector::detect(ConsensusMap());
+  TEST_FALSE(r_empty.isobaric_applicable)
+  TEST_FALSE(r_empty.silac_applicable)
+  TEST_TRUE(r_empty.isLabelFree())
+}
+END_SECTION
+
 START_SECTION((static std::string report(const Result& r)))
 {
   auto r = LabellingDetector::detect(tmt11Experiment(10));
@@ -83,6 +138,16 @@ START_SECTION((static std::string report(const Result& r)))
   TEST_EQUAL(rep.find("Labelling detection") != std::string::npos, true)
   TEST_EQUAL(rep.find("TMT 11-plex") != std::string::npos, true)
   TEST_EQUAL(rep.find("SILAC") != std::string::npos, true)
+
+  // feature/consensus input: isobaric is reported as not applicable
+  FeatureMap fm;
+  Feature f;
+  f.setRT(1.0);
+  f.setMZ(500.0);
+  f.setCharge(2);
+  fm.push_back(f);
+  const std::string rep_feat = LabellingDetector::report(LabellingDetector::detect(fm));
+  TEST_EQUAL(rep_feat.find("n/a (requires MS2/MS3 reporter-ion spectra)") != std::string::npos, true)
 }
 END_SECTION
 

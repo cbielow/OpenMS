@@ -9,6 +9,8 @@
 #include <OpenMS/METADATA/SILACDetector.h>
 
 #include <OpenMS/CONCEPT/LogStream.h>
+#include <OpenMS/KERNEL/ConsensusMap.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
 
 #include <algorithm>
@@ -16,6 +18,39 @@
 
 namespace OpenMS
 {
+  namespace
+  {
+    /// Build one MS2Data point (RT, m/z, charge) for SILAC detection.
+    /// SILAC mass-difference detection needs a real precursor charge, so charge 0 (common for old WIFF
+    /// files converted with msconvert) is remapped to 2 and counted via @p zero_charge_found so the
+    /// caller can emit a single aggregated warning (see warnZeroCharge_()).
+    MS2Data makeMS2Data_(double rt, double mz, int charge, Int32& zero_charge_found)
+    {
+      MS2Data d;
+      d.RT = rt;
+      d.mz = mz;
+      d.charge = charge;
+      if (d.charge == 0)
+      {
+        ++zero_charge_found;
+        d.charge = 2; // hack, but we cannot do much else here. See warnZeroCharge_() for the user warning message
+      }
+      return d;
+    }
+
+    /// Emit a single warning if any of the @p total data points had charge 0 (remapped to 2 by makeMS2Data_()).
+    void warnZeroCharge_(Int32 zero_charge_found, size_t total)
+    {
+      if (zero_charge_found)
+      {
+        OPENMS_LOG_WARN << "SILACDetector: " << (static_cast<size_t>(zero_charge_found) == total ? "All" : "Some")
+                        << " data points had charge 0, which is not supported for SILAC detection. These points were treated as"
+                           " charge 2, but the results may be inaccurate. Please check your data and conversion settings."
+                        << std::endl;
+      }
+    }
+  } // namespace
+
   bool SILACDetector::detectSILAC(std::vector<MS2Data> MS2Scans)
   {
     if (MS2Scans.empty())
@@ -253,26 +288,47 @@ namespace OpenMS
     {
       if (2 == spectrum.getMSLevel() && !spectrum.getPrecursors().empty())
       {
-        MS2Data current_MS2_scan;
-        current_MS2_scan.RT = spectrum.getRT();
-        current_MS2_scan.mz = spectrum.getPrecursors()[0].getMZ();
-        current_MS2_scan.charge = spectrum.getPrecursors()[0].getCharge();
-        if (current_MS2_scan.charge == 0)
-        { // detection with charge 0 will not work for precursors with true charge 2(or above), since the mass difference computation needs a charge
-          // charge=0 happens with old WIFF files + msconvert (even in 03/2026)
-          ++zero_charge_found;
-          current_MS2_scan.charge = 2; // hack, but we cannot to much else here. See below for user warning message
-        }
-        MS2Scans.push_back(current_MS2_scan);
+        const Precursor& prec = spectrum.getPrecursors()[0];
+        MS2Scans.push_back(makeMS2Data_(spectrum.getRT(), prec.getMZ(), prec.getCharge(), zero_charge_found));
       }
     }
-    if (zero_charge_found)
-    {
-      OPENMS_LOG_WARN << "SILACDetector: " << (zero_charge_found == MS2Scans.size() ? "All" : "Some") << 
-                         " MS2 scans had charge 0, which is not supported for SILAC detection.These scans were treated as"
-                         " charge 2, but the results may be inaccurate. Please check your data and conversion settings."
-                      << std::endl;
+    warnZeroCharge_(zero_charge_found, MS2Scans.size());
+    return MS2Scans;
+  }
+
+  std::vector<MS2Data> SILACDetector::featureMapToMS2Data(const FeatureMap& features) const
+  {
+    Int32 zero_charge_found {0};
+    std::vector<MS2Data> MS2Scans;
+    MS2Scans.reserve(features.size());
+    for (const Feature& f : features)
+    { // each feature is one data point (RT, m/z, charge)
+      MS2Scans.push_back(makeMS2Data_(f.getRT(), f.getMZ(), f.getCharge(), zero_charge_found));
     }
+    warnZeroCharge_(zero_charge_found, MS2Scans.size());
+    return MS2Scans;
+  }
+
+  std::vector<MS2Data> SILACDetector::consensusMapToMS2Data(const ConsensusMap& consensus) const
+  {
+    Int32 zero_charge_found {0};
+    std::vector<MS2Data> MS2Scans;
+    for (const ConsensusFeature& cf : consensus)
+    {
+      const ConsensusFeature::HandleSetType& subfeatures = cf.getFeatures();
+      if (subfeatures.empty())
+      { // no subfeatures -> use the consensus feature itself as a single data point
+        MS2Scans.push_back(makeMS2Data_(cf.getRT(), cf.getMZ(), cf.getCharge(), zero_charge_found));
+      }
+      else
+      { // each subfeature is one data point
+        for (const FeatureHandle& fh : subfeatures)
+        {
+          MS2Scans.push_back(makeMS2Data_(fh.getRT(), fh.getMZ(), fh.getCharge(), zero_charge_found));
+        }
+      }
+    }
+    warnZeroCharge_(zero_charge_found, MS2Scans.size());
     return MS2Scans;
   }
 } // namespace OpenMS

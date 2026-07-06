@@ -3,6 +3,7 @@
 
 #include "all_casters.h"
 #include <OpenMS/KERNEL/ConsensusMap.h>
+#include <OpenMS/KERNEL/FeatureMap.h>
 #include <OpenMS/KERNEL/MSExperiment.h>
 #include <OpenMS/METADATA/AbsoluteQuantitationStandards.h>
 #include <OpenMS/METADATA/AnnotatedMSRun.h>
@@ -70,6 +71,10 @@ distances (param-medic style) over the MS2 scans and comparing the SILAC distanc
             "ms2_scans"_a, "Run SILAC detection on the MS2 scan data; returns True if any SILAC distance is significant")
         .def("msExperimentToMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::MSExperiment& exp) { return self.msExperimentToMS2Data(exp); },
             "exp"_a, "Extract the relevant (RT, m/z, charge) MS2 data for SILAC detection from an experiment")
+        .def("featureMapToMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::FeatureMap& features) { return self.featureMapToMS2Data(features); },
+            "features"_a, "Extract the relevant (RT, m/z, charge) data for SILAC detection from a FeatureMap (one data point per feature)")
+        .def("consensusMapToMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::ConsensusMap& consensus) { return self.consensusMapToMS2Data(consensus); },
+            "consensus"_a, "Extract the relevant (RT, m/z, charge) data for SILAC detection from a ConsensusMap (one data point per subfeature; consensus features without subfeatures contribute themselves)")
         .def("storeMS2Data", [](const OpenMS::SILACDetector& self, const OpenMS::MSExperiment& exp, const std::string& filename) { self.storeMS2Data(exp, filename); },
             "exp"_a, "filename"_a, "Write the experiment's MS2 (RT m/z charge) data to a .txt file")
         .def("getZScores", [](const OpenMS::SILACDetector& self) { return self.getZScores(); }, "z-scores of the SILAC distances (4, 6, 8, 10)")

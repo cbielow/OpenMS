@@ -19,6 +19,9 @@
 
 namespace OpenMS
 {
+  class FeatureMap;
+  class ConsensusMap;
+
   /**
     @brief Detects the quantitative labelling strategy used in an LC-MS/MS experiment.
 
@@ -39,6 +42,7 @@ namespace OpenMS
     {
       /// @name Isobaric (TMT / iTRAQ)
       /// @{
+      bool isobaric_applicable = true;                                  ///< whether isobaric detection could be run (needs MS2/MS3 reporter-ion spectra; false for feature/consensus input)
       bool isobaric_detected = false;                                   ///< a valid isobaric kit was detected
       IsobaricKitDetection::MethodType isobaric_kit = IsobaricKitDetection::MethodType::UNKNOWN; ///< the detected kit (UNKNOWN if none)
       std::vector<IsobaricKitDetection::KitResult> isobaric_candidates;  ///< all candidate kits, ranked by score (highest first)
@@ -68,6 +72,29 @@ namespace OpenMS
     */
     static Result detect(const PeakMap& exp,
                          const IsobaricKitDetection::Parameters& isobaric_params = IsobaricKitDetection::Parameters());
+
+    /**
+      @brief Detect SILAC labelling in a FeatureMap.
+
+      Isobaric detection requires MS2/MS3 reporter-ion spectra which a FeatureMap does not carry, so only
+      SILAC detection is run (Result::isobaric_applicable is false). Each feature contributes one data point.
+
+      @param features Input feature map.
+      @return The combined Result (isobaric part is marked not applicable).
+    */
+    static Result detect(const FeatureMap& features);
+
+    /**
+      @brief Detect SILAC labelling in a ConsensusMap.
+
+      As for FeatureMap, only SILAC detection is run (Result::isobaric_applicable is false). Each subfeature
+      of a consensus feature contributes one data point; consensus features without subfeatures contribute
+      themselves as a single data point.
+
+      @param consensus Input consensus map.
+      @return The combined Result (isobaric part is marked not applicable).
+    */
+    static Result detect(const ConsensusMap& consensus);
 
     /// Human-readable, multi-line summary of @p r (isobaric verdict, SILAC verdict, overall conclusion).
     static std::string report(const Result& r);
